@@ -740,6 +740,14 @@ const DIAS_PT_LONG = ['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feir
 function fmtDT(d) { if (!d || isNaN(d)) return ''; return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function fmtDate(d) { if (!d || isNaN(d)) return ''; return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function fmtTime(d) { if (!d || isNaN(d)) return ''; return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+// Formata "YYYY-MM-DD" + "HH:MM" como "DD/MM HH:MM" (compacto para colunas Início/Fim Real).
+function fmtRealStr(dateStr, timeStr) {
+  if (!dateStr && !timeStr) return '';
+  if (!dateStr) return timeStr || '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  const dPart = m ? `${m[3]}/${m[2]}` : dateStr;
+  return timeStr ? `${dPart} ${timeStr}` : dPart;
+}
 // Aceita 'YYYY-MM-DD' OU 'YYYY-MM-DDTHH:MM'
 function parseDateMaybeTime(s) {
   if (!s) return null;
@@ -1926,8 +1934,9 @@ function createWeekTable(sched, wk, machine) {
   tbl.className = 'excel';
   const cols = [
     {w:18},  {w:24},  {w:90},  {w:110}, {w:200}, {w:55},  {w:70},  {w:70},
-    {w:100}, {w:60},  {w:60},  {w:60},  {w:90},  {w:55},  {w:75},  {w:130},
-    {w:120}, {w:30}
+    {w:100}, {w:60},  {w:60},  {w:60},  {w:90},  {w:55},  {w:75},
+    {w:90},  {w:90},  {w:55},
+    {w:130}, {w:120}, {w:30}
   ];
   const colgroup = document.createElement('colgroup');
   cols.forEach(c => { const col = document.createElement('col'); col.style.width = c.w + 'px'; colgroup.appendChild(col); });
@@ -1938,6 +1947,7 @@ function createWeekTable(sched, wk, machine) {
     <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
     <th>H. Início P</th><th>H. Fim P</th><th>Duração P</th>
     <th>Lote ADE</th><th>% ADE</th><th>Colaborador</th>
+    <th>Início Real</th><th>Fim Real</th><th>Atraso</th>
     <th>Estado</th><th>Obs PI</th><th></th>
   </tr>`;
   tbl.appendChild(thead);
@@ -1982,6 +1992,9 @@ function createWeekTable(sched, wk, machine) {
       <td class="mono ctr" title="${op.loteAde || ''}">${op.loteAde || ''}</td>
       <td class="num">${pctAdeStr}</td>
       <td title="${op.colaborador || ''}">${op.colaborador || ''}</td>
+      <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
+      <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
+      <td class="ctr">${op.tempoAtraso || ''}</td>
       <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="col-del" title="Apagar">×</td>
