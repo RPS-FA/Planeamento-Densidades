@@ -259,6 +259,18 @@
     font-weight: 700;
   }
   .day-machine-subzone .dms-header.empty { color: var(--c-muted); font-style: italic; font-weight: 500; }
+  .day-machine-subzone.empty-zone {
+    min-height: 48px;
+    background: repeating-linear-gradient(45deg, #f8faf6, #f8faf6 6px, #eef2eb 6px, #eef2eb 12px);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-muted); font-size: 11px; font-style: italic;
+    border: 1px dashed var(--c-border); cursor: copy;
+  }
+  .day-machine-subzone.empty-zone:hover { background: #eef5e6; border-color: var(--c-primary); }
+  .day-machine-subzone.empty-zone.drag-target {
+    background: #d4e9b8 !important; border-color: var(--c-primary);
+    color: var(--c-primary-dark); font-weight: 600;
+  }
   .day-machine-subzone .dms-meta { font-weight: 500; font-size: 10.5px; color: var(--c-muted); }
   .day-machine-subzone.drag-target { background: #eaf3fb; outline: 2px dashed var(--c-primary); outline-offset: -2px; }
   .day-machine-subzone .empty-day-machine { padding: 6px 12px; color: var(--c-muted); font-size: 10.5px; font-style: italic; }
@@ -1562,22 +1574,40 @@ function renderMonth(tabKey) {
     }
   }
 
-  const sortedDays = Object.keys(byDay).sort();
+  // 3) Construir lista completa de dias úteis (Seg-Sáb) do mês activo, mesmo vazios
+  // — quando há pesquisa activa, mostrar apenas dias com hits para não poluir a vista
+  const allDays = [];
+  if (!searchTerm) {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const dow = date.getDay(); // 0=Domingo, 1=Seg, ..., 6=Sáb
+      // Excluir Domingo, a menos que tenha OPs (raro)
+      const k = fmtDate(date);
+      if (dow === 0 && !byDay[k]) continue;
+      allDays.push(k);
+      if (!byDay[k]) byDay[k] = {};
+    }
+  } else {
+    // Com pesquisa: mostrar apenas dias com resultados
+    allDays.push(...Object.keys(byDay).sort());
+  }
+
   let totalOps = 0;
 
-  // 3) Renderizar um bloco por dia
-  for (const dayKey of sortedDays) {
-    const dayBlock = renderDayBlock(dayKey, byDay[dayKey]);
+  // 4) Renderizar um bloco por dia
+  for (const dayKey of allDays) {
+    const dayBlock = renderDayBlock(dayKey, byDay[dayKey] || {});
     container.appendChild(dayBlock);
     for (const m of MACHINES) {
-      totalOps += (byDay[dayKey][m] || []).length;
+      totalOps += ((byDay[dayKey] || {})[m] || []).length;
     }
   }
 
-  if (sortedDays.length === 0) {
+  if (allDays.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-week';
-    empty.textContent = searchTerm ? `Sem resultados para "${searchTerm}" neste mês` : 'Sem OPs planeadas para este mês';
+    empty.textContent = searchTerm ? `Sem resultados para "${searchTerm}" neste mês` : 'Sem dias úteis neste mês';
     container.appendChild(empty);
   }
 
@@ -1676,9 +1706,11 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   zone.appendChild(head);
 
   if (items.length === 0) {
+    // Sub-zona vazia — vira drop target com altura mínima para receber OPs por drag
+    zone.classList.add('empty-zone');
     const empty = document.createElement('div');
     empty.className = 'empty-day-machine';
-    empty.textContent = 'Sem OPs';
+    empty.textContent = isReadOnly() ? 'Sem OPs' : '⤵ Arraste OPs do KANBAN ou de outro dia';
     zone.appendChild(empty);
   } else {
     zone.appendChild(createWeekTable(items, wkRef, machine));
@@ -1865,7 +1897,15 @@ function setupZoneDropTarget(zone) {
     zone.classList.remove('drag-target');
     if (!draggedOp) return;
     if (e.target.closest('tr.row-data')) return;
-    moveOpToWeek(draggedOp, zone.dataset.machine, zone.dataset.weekKey);
+    // Se a sub-zona pertence a um DIA específico, calcular o diaIdx (0=Seg..6=Dom)
+    const dayKey = zone.dataset.dayKey;
+    let diaIdx = null;
+    if (dayKey) {
+      const [y, m, d] = dayKey.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      diaIdx = (dt.getDay() + 6) % 7;
+    }
+    moveOpToWeek(draggedOp, zone.dataset.machine, zone.dataset.weekKey, diaIdx);
     draggedOp = null;
   });
 }
@@ -1907,12 +1947,13 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
 }
-function moveOpToWeek(opMoved, machine, weekKey) {
+function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
   const peers = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   opMoved.maquina = machine;
   opMoved.weekKey = weekKey;
+  if (typeof diaIdx === 'number') opMoved.diaIdx = diaIdx;
   if (opMoved.estado === 'KANBAN') opMoved.estado = 'PI por liberar';
   peers.push(opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
@@ -2354,6 +2395,7 @@ setInterval(async () => {
   try {
     const state = await Api.getState();
     DATA = Array.isArray(state.ops) ? state.ops : [];
+    migrateMachineNames(DATA);
     applyServerSettings(state.settings || {});
     rerender();
     setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
