@@ -2369,6 +2369,7 @@ function rerender() {
 loadSettings();
 loadData();
 buildMonthlyTabs();
+setupKanbanDropTargets();   // adiciona handlers de drop ao painel KANBAN (uma só vez)
 applySettingsToUI();
 applyProfileToBody();
 switchTab(pickDefaultTab());
