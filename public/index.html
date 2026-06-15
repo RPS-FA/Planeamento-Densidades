@@ -211,26 +211,15 @@
     color: #b91c1c; font-weight: 600;
   }
   .empty-week { padding: 14px 12px; color: var(--c-muted); font-size: 11px; font-style: italic; text-align: center; }
-  /* Sub-zona por máquina — uma por mês */
-  .machine-zone { border-top: 1px solid var(--c-grid); margin-bottom: 12px; }
+  /* Sub-zona por máquina dentro de cada semana */
+  .machine-zone { border-top: 1px solid var(--c-grid); }
   .machine-zone:first-of-type { border-top: none; }
   .machine-zone-header {
-    background: #eef2eb; padding: 8px 12px; font-weight: 700; font-size: 13px;
+    background: #eef2eb; padding: 4px 12px; font-weight: 700; font-size: 12px;
     color: var(--c-primary); border-left: 4px solid var(--c-primary);
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
   }
-  .machine-zone-header.occ-mid { background: #fff5e1; border-left-color: #f59e0b; }
-  .machine-zone-header.occ-high { background: #fde2e2; border-left-color: #ef4444; }
   .machine-zone-header .mz-meta { font-weight: 500; font-size: 11px; color: var(--c-muted); }
-  .machine-zone-header .mz-meta strong { color: var(--c-text); }
-  .machine-zone-header .mz-bar {
-    width: 120px; height: 6px; background: rgba(0,0,0,0.08);
-    border-radius: 3px; overflow: hidden;
-  }
-  .machine-zone-header .mz-bar > i { display: block; height: 100%; background: #58d68d; }
-  .machine-zone-header .mz-bar.mz-bar-mid > i { background: #f59e0b; }
-  .machine-zone-header .mz-bar.mz-bar-high > i { background: #ef4444; }
   .machine-zone.drag-target { background: #eaf3fb; outline: 2px dashed var(--c-primary); outline-offset: -2px; }
   .machine-zone .empty-week { padding: 8px 12px; }
   table.excel { border-collapse: collapse; font-size: 10.5px; table-layout: fixed; }
@@ -454,16 +443,24 @@
   <div class="settings-grid">
 
     <div class="settings-section">
-      <h3>⏱ Tempos disponíveis <span class="badge">Aplica-se a todas as semanas</span></h3>
-      <p class="desc">A hora de início de cada dia é definida em cada OP (campo "Hora Início"). Se em branco, herda da OP anterior (cascata).</p>
-      <div class="settings-grid-row">
-        <label>Tempo disponível semana (HH:MM por dia)</label>
-        <input type="time" id="cfg-tempoSemana" value="08:00" onchange="onSettingsChange()">
-      </div>
-      <div class="settings-grid-row">
-        <label>Tempo disponível sábado (HH:MM)</label>
-        <input type="time" id="cfg-tempoSabado" value="03:00" onchange="onSettingsChange()">
-      </div>
+      <h3>⏱ Turnos por dia da semana <span class="badge">Aplica-se a todas as semanas</span></h3>
+      <p class="desc">Defina a hora de início e fim do turno para cada dia. Se um dia ficar com início e fim em branco, considera-se que não há produção nesse dia.</p>
+      <table class="settings-table" id="cfg-turnos">
+        <thead><tr><th style="width:40%">Dia</th><th>Início</th><th>Fim</th><th style="width:80px; text-align:right">Duração</th></tr></thead>
+        <tbody>
+          <tr><td>Segunda-feira</td><td><input type="time" data-dia="0" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="0" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="0">—</td></tr>
+          <tr><td>Terça-feira</td>  <td><input type="time" data-dia="1" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="1" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="1">—</td></tr>
+          <tr><td>Quarta-feira</td> <td><input type="time" data-dia="2" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="2" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="2">—</td></tr>
+          <tr><td>Quinta-feira</td> <td><input type="time" data-dia="3" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="3" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="3">—</td></tr>
+          <tr><td>Sexta-feira</td>  <td><input type="time" data-dia="4" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="4" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="4">—</td></tr>
+          <tr><td>Sábado</td>       <td><input type="time" data-dia="5" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="5" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="5">—</td></tr>
+          <tr><td>Domingo</td>      <td><input type="time" data-dia="6" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="6" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="6">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-section">
+      <h3>⚙ Outros parâmetros</h3>
       <div class="settings-grid-row">
         <label>Setup entre OPs · fecho + arranque (min total)</label>
         <input type="number" id="cfg-setupMin" value="10" min="0" max="60" step="1" class="settings-input-pct" onchange="onSettingsChange()">
@@ -494,13 +491,6 @@
       </table>
     </div>
 
-    <div class="settings-section">
-      <h3>📐 Calibres permitidos <span class="badge">DENS</span></h3>
-      <p class="desc">Calibres que podem ser produzidos nas máquinas de densidades.</p>
-      <textarea id="cfg-calibres" rows="3" style="width:100%; padding:6px; border:1px solid var(--c-border); border-radius:3px; font-family:Consolas, monospace; font-size:11px" onchange="onSettingsChange()">38x24 / 45x24 / 45x25 / 45x26
-49x24 / 49x25 / 49x26
-54x24</textarea>
-    </div>
 
     <div class="settings-section">
       <h3>📊 % ADE por intervalo de massa</h3>
@@ -967,9 +957,17 @@ function applyProfileToModal(modalKind) {
 // Definições (DENSIDADES)
 // ============================================================
 const DEFAULT_SETTINGS = {
-  startTime: '07:00',
-  tempoSemana: '08:00',     // tempo disponível por dia (Seg-Sex)
-  tempoSabado: '03:00',     // tempo disponível ao sábado
+  // Turnos por dia da semana (0=Seg, 1=Ter, ..., 5=Sáb, 6=Dom)
+  // ini/fim vazios = sem produção nesse dia
+  turnos: {
+    0: { ini: '07:00', fim: '15:00' },
+    1: { ini: '07:00', fim: '15:00' },
+    2: { ini: '07:00', fim: '15:00' },
+    3: { ini: '07:00', fim: '15:00' },
+    4: { ini: '07:00', fim: '15:00' },
+    5: { ini: '07:00', fim: '10:00' },
+    6: { ini: '',      fim: ''      },
+  },
   setupMin: 10,             // setup entre OPs (fecho + arranque)
   abastecMin: 60,           // abastecimento Logística
   horaLimiteLog: '09:00',   // hora limite Logística
@@ -977,7 +975,6 @@ const DEFAULT_SETTINGS = {
     'Linha 10': { kr8h: 100, krH: 14.6 },
     'Linha 9':  { kr8h: 36,  krH: 4.5 },
   },
-  calibres: '38x24 / 45x24 / 45x25 / 45x26\n49x24 / 49x25 / 49x26\n54x24',
   ade: {
     massa_le1:      { pct: 50, tol: 5 },
     massa_gt1:      { pct: 65, tol: 5 },
@@ -1013,6 +1010,32 @@ function ensureSettingsShape() {
     if (!SETTINGS.capacidades[m]) SETTINGS.capacidades[m] = Object.assign({}, DEFAULT_SETTINGS.capacidades[m]);
   }
   if (!SETTINGS.ade) SETTINGS.ade = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.ade));
+  // Migração: se ainda tiver tempoSemana/tempoSabado (formato antigo) e não tiver turnos, converter
+  if (!SETTINGS.turnos) {
+    SETTINGS.turnos = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.turnos));
+  }
+  // Garante 7 dias na estrutura
+  for (let d = 0; d < 7; d++) {
+    if (!SETTINGS.turnos[d]) SETTINGS.turnos[d] = { ini: '', fim: '' };
+  }
+}
+
+// Calcula a duração de um turno (em horas decimais). 0 se ini/fim vazios ou inválidos.
+function turnoHoras(ini, fim) {
+  if (!ini || !fim) return 0;
+  const h = timeStrToHours(fim) - timeStrToHours(ini);
+  return h > 0 ? h : 0;
+}
+
+// Actualiza a célula "Duração" na tabela de turnos das Configurações
+function updateTurnoDurations() {
+  document.querySelectorAll('#cfg-turnos .turno-dur').forEach(td => {
+    const d = td.dataset.dia;
+    const t = SETTINGS.turnos && SETTINGS.turnos[d];
+    if (!t || !t.ini || !t.fim) { td.textContent = '—'; return; }
+    const h = turnoHoras(t.ini, t.fim);
+    td.textContent = hoursToTimeStr(h);
+  });
 }
 
 function applyServerSettings(serverSettings) {
@@ -1035,12 +1058,18 @@ function saveSettings() {
 }
 
 function applySettingsToUI() {
-  document.getElementById('cfg-tempoSemana').value = SETTINGS.tempoSemana;
-  document.getElementById('cfg-tempoSabado').value = SETTINGS.tempoSabado;
+  // Turnos por dia da semana
+  document.querySelectorAll('#cfg-turnos input').forEach(i => {
+    const dia = i.dataset.dia;
+    const field = i.dataset.field;
+    if (SETTINGS.turnos && SETTINGS.turnos[dia]) {
+      i.value = SETTINGS.turnos[dia][field] || '';
+    }
+  });
+  updateTurnoDurations();
   document.getElementById('cfg-setupMin').value = SETTINGS.setupMin;
   document.getElementById('cfg-abastecMin').value = SETTINGS.abastecMin;
   document.getElementById('cfg-horaLimiteLog').value = SETTINGS.horaLimiteLog;
-  document.getElementById('cfg-calibres').value = SETTINGS.calibres;
   document.querySelectorAll('#cfg-capacidades input').forEach(i => {
     const m = i.dataset.key;
     const f = i.dataset.field;
@@ -1061,14 +1090,21 @@ function applySettingsToUI() {
 }
 
 function readSettingsFromUI() {
-  // startTime mantido internamente como fallback (default 07:00) — a UI da config foi removida;
-  // cada OP define a sua "Hora Início"; em cascata, se vazia, usa este valor para a 1ª OP da semana.
-  SETTINGS.tempoSemana = document.getElementById('cfg-tempoSemana').value || '08:00';
-  SETTINGS.tempoSabado = document.getElementById('cfg-tempoSabado').value || '03:00';
+  // Turnos por dia da semana
+  if (!SETTINGS.turnos) SETTINGS.turnos = {};
+  for (let d = 0; d < 7; d++) {
+    if (!SETTINGS.turnos[d]) SETTINGS.turnos[d] = { ini: '', fim: '' };
+  }
+  document.querySelectorAll('#cfg-turnos input').forEach(i => {
+    const dia = i.dataset.dia;
+    const field = i.dataset.field;
+    if (!SETTINGS.turnos[dia]) SETTINGS.turnos[dia] = { ini: '', fim: '' };
+    SETTINGS.turnos[dia][field] = i.value || '';
+  });
+  updateTurnoDurations();
   SETTINGS.setupMin = parseInt(document.getElementById('cfg-setupMin').value, 10) || 10;
   SETTINGS.abastecMin = parseInt(document.getElementById('cfg-abastecMin').value, 10) || 60;
   SETTINGS.horaLimiteLog = document.getElementById('cfg-horaLimiteLog').value || '09:00';
-  SETTINGS.calibres = document.getElementById('cfg-calibres').value;
   document.querySelectorAll('#cfg-capacidades input').forEach(i => {
     const m = i.dataset.key;
     const f = i.dataset.field;
@@ -1153,8 +1189,14 @@ function getStops(machine) { return SETTINGS.stops[machine] || []; }
 // kr/semana = krH × (5 × tempoSemana + tempoSabado), descontando paragens.
 // ============================================================
 function getWeekHoursAvailable() {
-  // Horas disponíveis padrão na semana (Seg-Sex + Sáb)
-  return 5 * timeStrToHours(SETTINGS.tempoSemana) + timeStrToHours(SETTINGS.tempoSabado);
+  let total = 0;
+  if (SETTINGS.turnos) {
+    for (let d = 0; d < 7; d++) {
+      const t = SETTINGS.turnos[d];
+      if (t) total += turnoHoras(t.ini, t.fim);
+    }
+  }
+  return total;
 }
 function getWeekCapKr(machine) {
   // Capacidade nominal da máquina nessa semana (kr)
@@ -1289,11 +1331,35 @@ function isReadOnly() { return isProducao(); }
 // Scheduling — cursor temporal, setup entre OPs, salto de paragens
 // e respeito por capacidades diárias (0 = dia bloqueado)
 // ============================================================
-function getStartHour() {
-  const t = SETTINGS.startTime || '07:00';
+// Devolve a hora de início do turno do DIA DA SEMANA fornecido (0=Seg,...,6=Dom).
+function getStartHour(diaSemana) {
+  const turnos = (SETTINGS && SETTINGS.turnos) || {};
+  const d = (typeof diaSemana === 'number') ? diaSemana : 0;
+  const t = turnos[d] && turnos[d].ini ? turnos[d].ini : null;
+  if (t) {
+    const [h, m] = t.split(':').map(Number);
+    return { h, m };
+  }
+  for (let i = 1; i < 7; i++) {
+    const nd = (d + i) % 7;
+    const tt = turnos[nd] && turnos[nd].ini;
+    if (tt) {
+      const [h, m] = tt.split(':').map(Number);
+      return { h, m };
+    }
+  }
+  return { h: 7, m: 0 };
+}
+
+function getEndHour(diaSemana) {
+  const turnos = (SETTINGS && SETTINGS.turnos) || {};
+  const t = turnos[diaSemana] && turnos[diaSemana].fim ? turnos[diaSemana].fim : null;
+  if (!t) return null;
   const [h, m] = t.split(':').map(Number);
   return { h, m };
 }
+
+function diaSemanaIdx(date) { return (date.getDay() || 7) - 1; }
 
 function getStopRange(stop) {
   const baseDate = new Date(stop.date + 'T00:00');
@@ -1337,7 +1403,8 @@ function advanceSkippingStops(startCursor, durMs, stopRanges) {
 function calcScheduleForWeek(machine, weekKey, weekStart) {
   const ops = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey)
                   .sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
-  const startH = getStartHour();  // Fallback interno (07:00) para a 1ª OP da semana sem hora manual
+  // Cursor inicial: hora de início do turno da Segunda (dia 0)
+  const startH = getStartHour(0);
   let cursor = new Date(weekStart);
   cursor.setHours(startH.h, startH.m, 0, 0);
   const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
@@ -1419,39 +1486,91 @@ function renderMonth(tabKey) {
   const weeks = getWeeksInMonth(year, month);
   const searchTerm = SEARCH.value || '';
 
-  // Paragens do mês por máquina (para banner único por zona)
-  const stopsByMachine = {};
+  // Indexa paragens de cada máquina por semana (para banner)
+  const stopsByWeekKey = {};
   for (const machine of MACHINES) {
-    stopsByMachine[machine] = [];
     for (const stop of getStops(machine)) {
       const sd = new Date(stop.date + 'T00:00');
       const len = stop.days || 1;
       for (let i = 0; i < len; i++) {
         const d = new Date(sd.getTime() + i * DAY_MS);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          stopsByMachine[machine].push(`${stop.label} (${fmtDate(d)})`);
-        }
+        const wk = weekKey(d);
+        if (!stopsByWeekKey[wk]) stopsByWeekKey[wk] = [];
+        const lbl = `${machine}: ${stop.label} (${fmtDate(d)})`;
+        if (!stopsByWeekKey[wk].includes(lbl)) stopsByWeekKey[wk].push(lbl);
       }
     }
   }
 
-  // Calcular schedule do MÊS por máquina (concatenar semanas mantendo o cursor)
-  // — cada item mantém Date reais (start/end), basta concatenar em ordem de semana
   let totalOps = 0;
-  for (const machine of MACHINES) {
-    const monthSched = [];
-    for (const wk of weeks) {
-      const wkSched = calcScheduleForWeek(machine, wk.key, wk.monday);
-      // Anotar weekKey de origem em cada item (útil para drop targets cross-week)
-      for (const it of wkSched) it._weekKey = wk.key;
-      monthSched.push(...wkSched);
-    }
-    const sched = searchTerm ? monthSched.filter(s => matchesSearch(s.op, searchTerm)) : monthSched;
-    if (searchTerm && sched.length === 0) continue;
-    totalOps += sched.length;
+  for (const wk of weeks) {
+    const block = document.createElement('div');
+    const wkFrozen = isFrozenWeek(wk.key);
+    block.className = 'week-block' + (wkFrozen ? ' frozen' : '');
+    block.dataset.weekKey = wk.key;
+    block.dataset.frozen = wkFrozen ? '1' : '';
 
-    const zone = renderMonthMachineZone(machine, year, month, sched, stopsByMachine[machine]);
-    container.appendChild(zone);
+    // Calcula schedules por máquina
+    const schedByMachine = {};
+    let weekTotalKr = 0;
+    let weekTotalH = 0;
+    let weekCapKr = 0;
+    let weekOpsCount = 0;
+    for (const machine of MACHINES) {
+      const all = calcScheduleForWeek(machine, wk.key, wk.monday);
+      const sched = searchTerm ? all.filter(s => matchesSearch(s.op, searchTerm)) : all;
+      schedByMachine[machine] = sched;
+      const workH = sched.reduce((a, b) => a + b.durH, 0);
+      const setupH = Math.max(0, sched.length - 1) * ((SETTINGS.setupMin || 10) / 60);
+      weekTotalH += workH + setupH;
+      weekTotalKr += sched.reduce((a, b) => a + (b.op.qtdEntrada || 0), 0);
+      weekCapKr += getWeekCapKr(machine);
+      weekOpsCount += sched.length;
+    }
+    if (searchTerm && weekOpsCount === 0) continue;
+    totalOps += weekOpsCount;
+
+    const weekHoursAvailable = MACHINES.length * getWeekHoursAvailable();
+    const pct = weekCapKr > 0 ? Math.min(999, (weekTotalKr / weekCapKr) * 100) : 0;
+    const occLevel = pct <= 80 ? 'low' : pct <= 100 ? 'mid' : 'high';
+    const barClass = occLevel === 'low' ? '' : occLevel;
+    const barWidth = Math.min(100, pct);
+    const freeKr = weekCapKr - weekTotalKr;
+    const isOver = freeKr < 0;
+    const freeKrStr = `${Math.abs(freeKr).toFixed(1)} kr`;
+    const freeHStr = `${Math.abs(weekHoursAvailable - weekTotalH).toFixed(1)}h`;
+    const hasStop = stopsByWeekKey[wk.key];
+
+    const header = document.createElement('div');
+    header.className = 'week-block-header' + (hasStop ? ' has-stop' : '');
+    const dRange = `${pad(wk.monday.getDate())} ${MONTHS_PT[wk.monday.getMonth()]} — ${pad(wk.sunday.getDate())} ${MONTHS_PT[wk.sunday.getMonth()]}`;
+    header.innerHTML = `
+      <div class="wbh-left">
+        <span class="semana">SEMANA ${wk.weekNum}</span>
+        <span class="dates">${dRange}</span>
+      </div>
+      <div class="meta-group">
+        <span class="meta">${weekOpsCount} OPs</span>
+        <span class="meta occ-${occLevel}">Ocupado <strong>${weekTotalH.toFixed(1)}h · ${weekTotalKr.toLocaleString('pt-PT')} kr</strong> (${pct.toFixed(0)}%)</span>
+        <div class="bar ${barClass}"><i style="width:${barWidth}%"></i></div>
+        <span class="meta ${isOver ? 'over' : 'free'}">${isOver ? 'Em excesso' : 'Livre'} <strong>${freeKrStr} · ${freeHStr}</strong></span>
+      </div>
+    `;
+    block.appendChild(header);
+    if (hasStop) {
+      const sb = document.createElement('div');
+      sb.className = 'stop-banner';
+      sb.textContent = '⚠ ' + hasStop.join(' · ');
+      block.appendChild(sb);
+    }
+
+    // 2 sub-zonas empilhadas (Linha 10 + Linha 9)
+    for (const machine of MACHINES) {
+      const zone = renderMachineZone(wk, machine, schedByMachine[machine], wkFrozen);
+      block.appendChild(zone);
+    }
+
+    container.appendChild(block);
   }
 
   const hitsEl = document.getElementById(`hits-${tabKey}`);
@@ -1467,45 +1586,33 @@ function renderMonth(tabKey) {
   if (countInfo) countInfo.textContent = `${totalOps} OPs`;
 }
 
-// Cria uma zona por máquina (Linha 10 ou Linha 9) — abrange o MÊS inteiro
-function renderMonthMachineZone(machine, year, month, sched, stops) {
+// Cria uma sub-zona (Linha 10 ou Linha 9) dentro de um bloco semanal
+function renderMachineZone(wk, machine, sched, wkFrozen) {
   const zone = document.createElement('div');
-  zone.className = 'machine-zone month-zone';
+  zone.className = 'machine-zone';
+  zone.dataset.weekKey = wk.key;
   zone.dataset.machine = machine;
+  zone.dataset.frozen = wkFrozen ? '1' : '';
 
-  // Agregados do mês para esta máquina
-  const weeks = getWeeksInMonth(year, month);
-  const monthCapKr = weeks.reduce((a, _) => a + getWeekCapKr(machine), 0);
+  const capKr = getWeekCapKr(machine);
   const totalKr = sched.reduce((a, b) => a + (b.op.qtdEntrada || 0), 0);
-  const pct = monthCapKr > 0 ? Math.min(999, (totalKr / monthCapKr) * 100) : 0;
-  const occLevel = pct <= 80 ? 'low' : pct <= 100 ? 'mid' : 'high';
-  const barWidth = Math.min(100, pct);
-  const monthName = MONTHS_PT_LONG[month] || '';
+  const pct = capKr > 0 ? (totalKr / capKr) * 100 : 0;
 
   const head = document.createElement('div');
-  head.className = 'machine-zone-header occ-' + occLevel;
+  head.className = 'machine-zone-header';
   head.innerHTML = `
-    <span>🏭 <strong>${machine}</strong> · ${monthName}</span>
-    <span class="mz-meta">${sched.length} OPs · <strong>${totalKr.toLocaleString('pt-PT')}</strong> / ${monthCapKr.toLocaleString('pt-PT')} kr · ${pct.toFixed(0)}%</span>
-    <div class="mz-bar mz-bar-${occLevel}"><i style="width:${barWidth}%"></i></div>
+    <span>🏭 ${machine}</span>
+    <span class="mz-meta">${sched.length} OPs · ${totalKr.toLocaleString('pt-PT')} / ${capKr.toLocaleString('pt-PT')} kr · ${pct.toFixed(0)}%</span>
   `;
   zone.appendChild(head);
-
-  // Banner de paragens deste mês para esta máquina
-  if (stops && stops.length > 0) {
-    const sb = document.createElement('div');
-    sb.className = 'stop-banner';
-    sb.textContent = '⚠ ' + stops.join(' · ');
-    zone.appendChild(sb);
-  }
 
   if (sched.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-week';
-    empty.textContent = 'Sem OPs neste mês';
+    empty.textContent = 'Sem OPs nesta máquina';
     zone.appendChild(empty);
   } else {
-    zone.appendChild(createMonthMachineTable(sched, year, month, machine));
+    zone.appendChild(createWeekTable(sched, wk, machine));
   }
 
   setupZoneDropTarget(zone);
@@ -1515,7 +1622,7 @@ function renderMonthMachineZone(machine, year, month, sched, stops) {
 // ============================================================
 // Render — Tabela Excel-like (18 colunas)
 // ============================================================
-function createMonthMachineTable(sched, year, month, machine) {
+function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
   const cols = [
@@ -1536,32 +1643,29 @@ function createMonthMachineTable(sched, year, month, machine) {
   </tr>`;
   tbl.appendChild(thead);
   const tbody = document.createElement('tbody');
-  // Agregar carga por DATA real (ISO yyyy-mm-dd) para resumo na faixa separadora
-  const cargaPorData = {};
+  // Agregar carga por dia (kr) para mostrar resumo na faixa separadora
+  const cargaPorDia = {};
   sched.forEach(it => {
-    if (!it.start) return;
-    const k = fmtDate(it.start);
-    cargaPorData[k] = (cargaPorData[k] || 0) + (it.op.qtdEntrada || 0);
+    const d = it.op.diaIdx !== undefined ? it.op.diaIdx : 0;
+    cargaPorDia[d] = (cargaPorDia[d] || 0) + (it.op.qtdEntrada || 0);
   });
-  let lastDataKey = '';
+  let lastDia = -1;
   sched.forEach((item, idx) => {
     const op = item.op;
-    // Separador de dia: usar a DATA REAL do item (item.start, Date object)
-    if (item.start) {
-      const dataKey = fmtDate(item.start);
-      if (dataKey !== lastDataKey) {
-        const sd = item.start;
-        const dataStr = `${pad(sd.getDate())}/${pad(sd.getMonth()+1)}`;
-        const diaSemana = (sd.getDay() || 7) - 1; // 0 = Segunda
-        const diaNome = DIAS_PT_LONG[diaSemana] || '';
-        const ehFds = (diaSemana === 5 || diaSemana === 6); // Sáb/Dom
-        const cargaDia = cargaPorData[dataKey] || 0;
-        const sepRow = document.createElement('tr');
-        sepRow.className = 'day-separator' + (ehFds ? ' dia-fds' : '');
-        sepRow.innerHTML = `<td colspan="18"><span class="dia-num">${dataStr}</span>${diaNome}<span class="dia-load">${cargaDia.toLocaleString('pt-PT')} kr</span></td>`;
-        tbody.appendChild(sepRow);
-        lastDataKey = dataKey;
-      }
+    // Separador de dia: insere uma linha visual antes da 1ª OP de cada dia
+    const dia = op.diaIdx !== undefined ? op.diaIdx : 0;
+    if (dia !== lastDia) {
+      const sepDate = new Date(wk.monday);
+      sepDate.setDate(wk.monday.getDate() + dia);
+      const dataStr = `${pad(sepDate.getDate())}/${pad(sepDate.getMonth()+1)}`;
+      const diaNome = DIAS_PT_LONG[dia] || '';
+      const ehFds = (dia === 5 || dia === 6); // Sábado ou Domingo
+      const cargaDia = cargaPorDia[dia] || 0;
+      const sepRow = document.createElement('tr');
+      sepRow.className = 'day-separator' + (ehFds ? ' dia-fds' : '');
+      sepRow.innerHTML = `<td colspan="18"><span class="dia-num">${dataStr}</span>${diaNome}<span class="dia-load">${cargaDia.toLocaleString('pt-PT')} kr</span></td>`;
+      tbody.appendChild(sepRow);
+      lastDia = dia;
     }
     const tr = document.createElement('tr');
     tr.draggable = !isReadOnly();
