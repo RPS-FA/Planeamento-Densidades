@@ -2527,6 +2527,15 @@ function pickDefaultTab() {
   return 'm05';
 }
 
+// Re-render global do app
+function rerender() {
+  renderKanbanAll();
+  if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
+    renderMonth(ACTIVE_TAB);
+  }
+  updateMonthLabel();
+}
+
 // Navegação de mês (substitui os tabs mensais)
 function prevMonth() {
   const idx = MONTHLY_TABS.findIndex(t => t.key === ACTIVE_TAB);
