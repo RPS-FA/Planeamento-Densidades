@@ -1,89 +1,111 @@
-# Planeamento DENSIDADES — Deploy Railway
+# Planeamento DENSIDADES — Web App (Cliente-Servidor)
 
-Servidor estático mínimo para alojar o protótipo `Planeamento_Densidades.html` no Railway.
+App de planeamento de produção das Densidades. Arquitectura: Node.js + Express + Postgres no Railway, frontend HTML estático com chamadas fetch à API.
 
 ## Estrutura
 
 ```
 Railway/
-├── server.js              # Express servindo /public estaticamente
-├── package.json           # Node 18+ / express + compression
-├── railway.toml           # Configuração Railway (build + healthcheck)
-├── nixpacks.toml          # Forca Node 20 no builder Nixpacks
+├── server.js           # Express + API REST
+├── db.js               # Camada de persistência (driver `pg`)
+├── schema.sql          # DDL Postgres (auto-aplicado no arranque)
+├── package.json        # Node 18+ / express + compression + pg
+├── railway.toml        # Configuração Railway (build + healthcheck)
+├── nixpacks.toml       # Forca Node 20 no builder Nixpacks
 ├── .gitignore
 ├── public/
-│   └── index.html         # O protótipo (cópia de Planeamento_Densidades.html)
+│   └── index.html      # Cliente — todo o UI (chama /api/...)
+├── DEPLOY_GITHUB.md    # Passo-a-passo do deploy
+├── test-local.md       # Como testar localmente com Postgres
 └── README.md
 ```
 
-## Persistência de dados
+## Arquitectura
 
-O protótipo guarda tudo em **`localStorage` do browser** + opcional **BackupSync** (File System Access API → pasta OneDrive/SharePoint do utilizador). **Não há backend de dados** — cada utilizador tem o seu estado local.
+- **Backend** Express com API REST JSON em `/api/...`
+- **Base de dados** Postgres (Railway gere o serviço; injecta `DATABASE_URL` automaticamente)
+- **Frontend** `public/index.html` (single-page). Faz `fetch` para a API; sem build-step
+- **Multi-utilizador** várias pessoas podem editar em paralelo; cliente faz polling cada 30s para refrescar o estado
+- **Perfis**: `planeador` (edita tudo) e `producao` (whitelist no servidor — só campos pós-execução)
 
-Para persistência partilhada multi-utilizador (estilo PlannerCork), seria preciso acrescentar:
-- API backend (Express endpoints `/api/data`, `/api/settings`)
-- Base de dados (Postgres no Railway é grátis até X GB)
-- Adapter `Storage` do HTML para apontar para a API em vez de `localStorage`
+## Adicionar Postgres no Railway
+
+1. No dashboard do projeto: **New → Database → Add PostgreSQL**
+2. Railway cria a base de dados e injecta automaticamente `DATABASE_URL` no serviço web (variável de ambiente partilhada)
+3. No primeiro arranque, o `server.js` chama `db.initSchema()` (cria tabelas) e `db.seedIfEmpty()` (insere as 19 OPs iniciais se a tabela `ops` estiver vazia). Tudo idempotente
+4. Não é preciso correr migrations manualmente
+
+Se `DATABASE_URL` não estiver definida, o servidor arranca em **modo demo** — serve o frontend mas devolve `503` a qualquer operação que mexa na BD.
+
+## API REST
+
+| Método | Path | Perfil | Função |
+|---|---|---|---|
+| GET | `/api/state` | qualquer | Devolve `{ops, settings, ts}` (boot do cliente) |
+| GET | `/api/ops` | qualquer | Devolve `{ops: [...]}` |
+| POST | `/api/ops` | planeador | Cria OP (ignora `id` do body; gera novo) |
+| PUT | `/api/ops/:id` | planeador / produção | Actualiza. Em produção, só campos da whitelist |
+| DELETE | `/api/ops/:id` | planeador | Apaga |
+| GET | `/api/settings` | qualquer | Devolve `{settings: {...}}` |
+| PUT | `/api/settings` | planeador | Substitui chaves enviadas |
+| POST | `/api/admin/reset` | planeador | Apaga e re-seeds (para botão "Reset demo") |
+| GET | `/health` | — | Healthcheck Railway (inclui estado da BD) |
+
+**Header**: `X-Profile: planeador` (default) | `producao`
+
+**Whitelist Produção** (campos editáveis): `estado`, `loteAde`, `qtdFinalAde`, `hInicioR`, `hFimR`, `tempoAtraso`, `colaborador`, `obs`
 
 ## Deploy (3 vias)
 
-### Opção 1 — CLI Railway (mais rápida)
+Ver `DEPLOY_GITHUB.md` para o caminho recomendado (GitHub + Railway dashboard).
+
+### Opção 1 — CLI Railway
 
 ```powershell
-# Instalar CLI uma só vez
 npm i -g @railway/cli
 railway login
-
-# Na pasta Railway/
 cd "C:\Users\rpsilva\OneDrive - Harv 81\Documents\Claude\Projects\Planeamento DENSIDADES\Railway"
-railway init   # criar projeto novo OU "railway link" para projeto existente
-railway up     # build + deploy
-railway domain # gerar URL público
+railway init
+railway add --plugin postgresql   # adiciona Postgres (injecta DATABASE_URL)
+railway up
+railway domain                    # gera URL público
 ```
 
 ### Opção 2 — GitHub + Railway dashboard
 
-1. Push da pasta `Railway/` para um repositório GitHub (privado)
-2. No dashboard Railway → **New Project → Deploy from GitHub repo**
-3. Selecionar o repositório → Railway detecta `package.json` e `nixpacks.toml`
-4. Aguarda build (~1-2 min) → URL gerado automaticamente
+Ver `DEPLOY_GITHUB.md`.
 
 ### Opção 3 — Drag-and-drop ZIP
 
-1. Zipar a pasta `Railway/` (excluindo `node_modules`)
-2. No Railway → **New Project → Empty Service → Settings → Source → Upload**
+Zipar a pasta `Railway/` (sem `node_modules`) → Railway → New Project → Empty Service → Settings → Source → Upload.
 
-## Atualizar protótipo
+## Testar localmente
 
-Quando o `Planeamento_Densidades.html` for atualizado:
+Ver `test-local.md` (Docker ou Postgres.app).
 
-```powershell
-copy "..\Planeamento_Densidades.html" "public\index.html"
-railway up
-```
-
-Se usar GitHub: commit + push, Railway faz auto-deploy.
-
-## Teste local antes de deploy
+Sem BD:
 
 ```powershell
 cd Railway
 npm install
 npm start
-# → abrir http://localhost:3000
+# → http://localhost:3000  (modo demo, escritas devolvem 503)
 ```
 
 ## Variáveis de ambiente
 
-Nenhuma obrigatória. `PORT` é injetado automaticamente pelo Railway.
+| Nome | Obrigatório? | Quem injecta |
+|---|---|---|
+| `DATABASE_URL` | Sim, em produção | Railway (ao adicionar Postgres) |
+| `PORT` | Não | Railway |
 
 ## Healthcheck
 
-Endpoint `/health` devolve JSON com timestamp. Railway usa para garantir que o serviço está vivo.
+`GET /health` → `{"status":"ok","service":"planeamento-densidades","db":"connected","ts":"..."}`
 
 ## Custos estimados
 
-Railway hobby plan: $5/mês de crédito incluído. Um servidor estático Express consome ~$0,30-0,50/mês (sleep automático em períodos de inatividade).
+Railway hobby plan: $5/mês de crédito incluído. Web service Express + Postgres pequeno consome ~$2-4/mês com tráfego moderado.
 
 ---
 

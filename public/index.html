@@ -62,20 +62,20 @@
   body.profile-producao #swapOpsBtn { display: none !important; }
   body.profile-producao #m_btnSplit { display: none !important; }
   body.profile-producao .row-handle { display: none; }
-  .backup-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 8px; border-radius: 12px;
-    background: rgba(255,255,255,0.18); color: #fff;
-    font-size: 11px; font-weight: 600;
-    border: 1px solid rgba(255,255,255,0.3);
+  .conn-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; padding: 3px 8px; border-radius: 10px;
+    font-weight: 600; border: 1px solid transparent;
   }
-  .backup-chip .backup-time { font-weight: 400; opacity: 0.85; font-size: 10px; }
-  .backup-chip .backup-now, .backup-chip .backup-disconnect {
-    cursor: pointer; opacity: 0.75; padding: 0 3px;
-    background: transparent; border: 0; color: #fff;
-    font-size: 13px; line-height: 1; font-weight: 700;
+  .conn-chip.ok { background: rgba(0,176,80,0.18); color: #1a5928; border-color: rgba(0,176,80,0.35); }
+  .conn-chip.error { background: rgba(220,38,38,0.18); color: #7a1a1a; border-color: rgba(220,38,38,0.35); }
+  .conn-chip.loading { background: rgba(245,158,11,0.18); color: #6b3d00; border-color: rgba(245,158,11,0.35); }
+  .toast-error {
+    position: fixed; top: 70px; right: 16px; z-index: 9999;
+    background: #b91c1c; color: #fff; padding: 10px 14px;
+    border-radius: 8px; font-size: 13px; max-width: 360px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
   }
-  .backup-chip .backup-now:hover, .backup-chip .backup-disconnect:hover { opacity: 1; }
   .tabs {
     background: var(--c-panel); border-bottom: 1px solid var(--c-border);
     display: flex; padding: 0 16px;
@@ -404,8 +404,7 @@
       <option value="planeador">👤 Planeador</option>
       <option value="producao">👷 Produção</option>
     </select>
-    <span id="backupStatus" class="backup-chip" style="display:none"></span>
-    <button class="btn secondary" id="backupConnectBtn" onclick="onBackupConnect()" title="Backup automático hora a hora numa pasta OneDrive/SharePoint">💾 Pasta de backup</button>
+    <span id="connStatus" class="conn-chip loading" title="Estado da ligação ao servidor">… A ligar</span>
     <button class="btn secondary" id="addOpBtn" onclick="addOP()">+ Nova OP DENS</button>
     <button class="btn secondary" id="swapOpsBtn" onclick="openSwapModal()">🔄 Trocar OPs</button>
     <button class="btn secondary" onclick="exportJSON()">Exportar JSON</button>
@@ -797,181 +796,105 @@ const SEARCH = { value: '' };
 let ACTIVE_TAB = 'm05';
 
 // ============================================================
-// Storage Adapter — abstrai a persistência. Hoje: localStorage.
-// Amanhã: Microsoft Graph / SharePoint, sem mexer no resto.
-// Envelope JSON: { version, updatedAt, updatedBy, data }
+// API Client — comunica com o backend Express/Postgres
+// (substitui a antiga camada localStorage + BackupSync)
 // ============================================================
 const CURRENT_USER = { email: 'local', name: 'Utilizador local' };
+const API_BASE = '';  // mesmo host
 
-
-// ============================================================
-// BackupSync — backup automático hora-a-hora num ficheiro JSON
-// dentro de uma pasta local (típica OneDrive sincronizado).
-// Chrome/Edge only (File System Access API).
-// ============================================================
-const BackupSync = (function() {
-  const IDB_NAME = 'cs-planeamento-dens';
-  const IDB_STORE = 'handles';
-  const FILE_NAME = 'planeamento_densidades_backup.json';
-  const BACKUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
-
-  let folderHandle = null;
-  let pollTimer = null;
-  let lastBackupHash = null;
-  let lastBackupAt = null;
-  let onStatusChange = null;
-
-  // ---------- IndexedDB ----------
-  function openIDB() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open(IDB_NAME, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+const Api = {
+  async getState() {
+    const r = await fetch(API_BASE + '/api/state');
+    if (!r.ok) throw new Error('GET /api/state ' + r.status);
+    return r.json();
+  },
+  async putOp(id, op, profile) {
+    const r = await fetch(API_BASE + '/api/ops/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': profile || 'planeador' },
+      body: JSON.stringify(op),
     });
-  }
-  async function idbPut(key, value) {
-    const db = await openIDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).put(value, key);
-      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('PUT /api/ops ' + r.status));
+    return body;
+  },
+  async postOp(op) {
+    const r = await fetch(API_BASE + '/api/ops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': 'planeador' },
+      body: JSON.stringify(op),
     });
-  }
-  async function idbGet(key) {
-    const db = await openIDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readonly');
-      const req = tx.objectStore(IDB_STORE).get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('POST /api/ops ' + r.status));
+    return body;
+  },
+  async deleteOp(id) {
+    const r = await fetch(API_BASE + '/api/ops/' + id, {
+      method: 'DELETE',
+      headers: { 'X-Profile': 'planeador' },
     });
-  }
-  async function idbDel(key) {
-    const db = await openIDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).delete(key);
-      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('DELETE /api/ops ' + r.status));
+    return body;
+  },
+  async putSettings(settings) {
+    const r = await fetch(API_BASE + '/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': 'planeador' },
+      body: JSON.stringify(settings),
     });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('PUT /api/settings ' + r.status));
+    return body;
+  },
+  async adminReset() {
+    const r = await fetch(API_BASE + '/api/admin/reset', {
+      method: 'POST',
+      headers: { 'X-Profile': 'planeador' },
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('POST /api/admin/reset ' + r.status));
+    return body;
+  },
+};
+
+// Indicador de ligação (chip no header)
+function setConnStatus(state, msg) {
+  const el = document.getElementById('connStatus');
+  if (!el) return;
+  el.classList.remove('ok', 'error', 'loading');
+  el.classList.add(state);
+  const icon = state === 'ok' ? '🟢' : (state === 'error' ? '🔴' : '🟡');
+  el.innerHTML = icon + ' ' + (msg || '');
+  el.title = msg || '';
+}
+
+// Toast simples para erros de persistência
+let _toastTimer = null;
+function showErrorToast(msg) {
+  let el = document.getElementById('errToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'errToast';
+    el.className = 'toast-error';
+    document.body.appendChild(el);
   }
-
-  function buildSnapshot() {
-    const dens     = Storage.load('planeamento_dens_v1');
-    const settings = Storage.load('planeamento_dens_settings_v1');
-    return {
-      schemaVersion: 2,
-      generatedAt: new Date().toISOString(),
-      generatedBy: CURRENT_USER.email,
-      data: {
-        dens:     dens     ? { etag: dens.etag,     meta: dens.meta,     items: dens.data }    : null,
-        settings: settings ? { etag: settings.etag, meta: settings.meta, data:  settings.data } : null,
-        profile:  localStorage.getItem('planeamento_profile_v1') || 'planeador',
-      },
-    };
-  }
-  function snapshotKey(snap) {
-    return [
-      snap.data.dens     ? snap.data.dens.etag     : '∅',
-      snap.data.settings ? snap.data.settings.etag : '∅',
-      snap.data.profile,
-    ].join('|');
-  }
-
-  async function writeBackup(force) {
-    if (!folderHandle) return { ok: false, reason: 'no-folder' };
-    const snap = buildSnapshot();
-    const key = snapshotKey(snap);
-    if (!force && key === lastBackupHash) return { ok: false, reason: 'no-changes' };
-    try {
-      const fh = await folderHandle.getFileHandle(FILE_NAME, { create: true });
-      const w  = await fh.createWritable();
-      await w.write(JSON.stringify(snap, null, 2));
-      await w.close();
-      lastBackupHash = key;
-      lastBackupAt = new Date();
-      console.info(`[BackupSync] OK · ${FILE_NAME} · ${lastBackupAt.toISOString()}`);
-      if (typeof onStatusChange === 'function') onStatusChange();
-      return { ok: true };
-    } catch (e) {
-      console.error('[BackupSync] write falhou:', e);
-      return { ok: false, reason: e.message };
-    }
-  }
-
-  function startTimer() {
-    stopTimer();
-    pollTimer = setInterval(() => writeBackup(false), BACKUP_INTERVAL_MS);
-  }
-  function stopTimer() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  }
-
-  return {
-    isSupported() { return typeof window.showDirectoryPicker === 'function'; },
-    isConnected() { return folderHandle !== null; },
-    getFolderName() { return folderHandle ? folderHandle.name : null; },
-    getLastBackupAt() { return lastBackupAt; },
-    setOnStatusChange(cb) { onStatusChange = cb; },
-
-    async connect() {
-      if (!this.isSupported()) throw new Error('Este browser não suporta a File System Access API. Usa Chrome ou Edge.');
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      folderHandle = handle;
-      try { await idbPut('backupFolder', handle); } catch (e) { console.warn('[BackupSync] IDB put falhou:', e); }
-      await writeBackup(true);
-      startTimer();
-      return { folderName: handle.name };
-    },
-
-    async tryRestore() {
-      if (!this.isSupported()) return false;
-      try {
-        const stored = await idbGet('backupFolder');
-        if (!stored) return false;
-        const perm = await stored.queryPermission({ mode: 'readwrite' });
-        if (perm !== 'granted') return false;
-        folderHandle = stored;
-        startTimer();
-        writeBackup(false);
-        return true;
-      } catch (e) { return false; }
-    },
-
-    async tryRestoreInteractive() {
-      if (!this.isSupported()) return false;
-      try {
-        const stored = await idbGet('backupFolder');
-        if (!stored) return false;
-        const perm = await stored.requestPermission({ mode: 'readwrite' });
-        if (perm !== 'granted') return false;
-        folderHandle = stored;
-        await writeBackup(true);
-        startTimer();
-        return true;
-      } catch (e) { return false; }
-    },
-
-    async disconnect() {
-      stopTimer();
-      folderHandle = null;
-      lastBackupHash = null;
-      lastBackupAt = null;
-      try { await idbDel('backupFolder'); } catch (e) {}
-      if (typeof onStatusChange === 'function') onStatusChange();
-    },
-
-    backupNow() { return writeBackup(true); },
-  };
-})();
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
 
 // ============================================================
 // Perfis de edição (Planeador / Produção)
 // ============================================================
+// Perfil — mantém-se em localStorage (preferência local, não-crítica)
 const LS_PROFILE = 'planeamento_profile_v1';
 function getProfile() {
-  const p = localStorage.getItem(LS_PROFILE);
-  return (p === 'producao') ? 'producao' : 'planeador';
+  try {
+    const p = localStorage.getItem(LS_PROFILE);
+    return (p === 'producao') ? 'producao' : 'planeador';
+  } catch (e) { return 'planeador'; }
 }
 function isProducao() { return getProfile() === 'producao'; }
 function applyProfileToBody() {
@@ -1027,65 +950,6 @@ function applyProfileToModal(modalKind) {
   if (deleteBtn) deleteBtn.style.display = isProd ? 'none' : '';
 }
 
-const Storage = (function() {
-  function isEnvelope(o) {
-    return o && typeof o === 'object' && !Array.isArray(o) && 'data' in o && typeof o.version === 'number';
-  }
-  function wrap(data, prevMeta) {
-    const v = (prevMeta && typeof prevMeta.version === 'number') ? prevMeta.version + 1 : 1;
-    return {
-      version: v,
-      updatedAt: new Date().toISOString(),
-      updatedBy: CURRENT_USER.email,
-      data: data,
-    };
-  }
-  function parseEnvelope(raw) {
-    try {
-      const obj = JSON.parse(raw);
-      if (isEnvelope(obj)) {
-        return {
-          data: obj.data,
-          etag: String(obj.version),
-          meta: { version: obj.version, updatedAt: obj.updatedAt || null, updatedBy: obj.updatedBy || null },
-        };
-      }
-      return { data: obj, etag: '0', meta: { version: 0, updatedAt: null, updatedBy: null } };
-    } catch (e) { return null; }
-  }
-  return {
-    load(key) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw == null) return null;
-        return parseEnvelope(raw);
-      } catch (e) { return null; }
-    },
-    save(key, data, expectedEtag) {
-      const existing = this.load(key);
-      if (expectedEtag != null && existing && existing.etag !== expectedEtag) {
-        console.warn(`[Storage] eTag mismatch for "${key}": expected ${expectedEtag}, got ${existing.etag}`);
-      }
-      const envelope = wrap(data, existing ? existing.meta : null);
-      try {
-        localStorage.setItem(key, JSON.stringify(envelope));
-        return {
-          etag: String(envelope.version),
-          meta: { version: envelope.version, updatedAt: envelope.updatedAt, updatedBy: envelope.updatedBy },
-        };
-      } catch (e) {
-        console.error(`[Storage] save("${key}") failed:`, e);
-        return null;
-      }
-    },
-    remove(key) { try { localStorage.removeItem(key); } catch (e) {} },
-    has(key) { try { return localStorage.getItem(key) != null; } catch (e) { return false; } },
-    getCurrentUser() { return CURRENT_USER; },
-    onChange(/* key, callback */) { /* no-op hoje */ },
-    rawGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
-    rawSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} },
-  };
-})();
 
 
 // ============================================================
@@ -1129,26 +993,34 @@ let SETTINGS = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 let SETTINGS_ETAG = null;
 const LS_SETTINGS_KEY = 'planeamento_dens_settings_v1';
 
-function loadSettings() {
-  const env = Storage.load(LS_SETTINGS_KEY);
-  if (env && env.data && typeof env.data === 'object') {
-    SETTINGS = Object.assign(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), env.data);
-    SETTINGS_ETAG = env.etag;
-  } else {
-    SETTINGS_ETAG = null;
-  }
-  // Garantir todas as máquinas em stops e capacidades
+function ensureSettingsShape() {
+  // Garante que todas as chaves obrigatórias existem (após merge com server)
   if (!SETTINGS.stops) SETTINGS.stops = {};
   if (!SETTINGS.capacidades) SETTINGS.capacidades = {};
   for (const m of MACHINES) {
     if (!SETTINGS.stops[m]) SETTINGS.stops[m] = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.stops[m] || []));
     if (!SETTINGS.capacidades[m]) SETTINGS.capacidades[m] = Object.assign({}, DEFAULT_SETTINGS.capacidades[m]);
   }
+  if (!SETTINGS.ade) SETTINGS.ade = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.ade));
 }
 
+function applyServerSettings(serverSettings) {
+  // Merge: defaults < server. (Se vier vazio, ficam só os defaults.)
+  SETTINGS = Object.assign(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), serverSettings || {});
+  ensureSettingsShape();
+}
+
+// Compat: loadSettings agora apenas garante shape (carregamento real é via Api.getState)
+function loadSettings() { ensureSettingsShape(); }
+
+// saveSettings — envia para o backend (fire-and-forget; erros via toast)
 function saveSettings() {
-  const res = Storage.save(LS_SETTINGS_KEY, SETTINGS, SETTINGS_ETAG);
-  if (res) SETTINGS_ETAG = res.etag;
+  Api.putSettings(SETTINGS).then(() => {
+    setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
+  }).catch(e => {
+    setConnStatus('error', 'Sem ligação');
+    showErrorToast('Falha ao guardar definições: ' + e.message);
+  });
 }
 
 function applySettingsToUI() {
@@ -1342,34 +1214,62 @@ let DATA = [];
 let DENS_ETAG = null;
 const LS_KEY_REAL = 'planeamento_dens_v1';
 
+// loadData — compat: arranca com DATA vazio; bootstrap real via loadStateFromServer()
 function loadData() {
-  const env = Storage.load(LS_KEY_REAL);
-  if (env && Array.isArray(env.data)) {
-    DATA = env.data;
-    DENS_ETAG = env.etag;
-  } else {
-    DATA = JSON.parse(JSON.stringify(DENS_DEFAULT_DATA));
-    DENS_ETAG = null;
-  }
-  // Migração: remover capacidades diárias antigas (já não existe esse conceito)
-  try { localStorage.removeItem('planeamento_dens_caps_v1'); } catch (e) {}
-  // Migração: realoca OPs antigas com maquina "Maq 2" para Linha 10
-  let migrated = false;
-  for (const o of DATA) {
-    if (o.maquina === 'Maq 2') { o.maquina = 'Linha 10'; migrated = true; }
-  }
-  // Migração: derivar inicioMode para OPs antigas (hInicioP preenchido → 'manual'; senão 'auto')
-  for (const o of DATA) {
-    if (o.inicioMode === undefined) {
-      o.inicioMode = o.hInicioP ? 'manual' : 'auto';
-      migrated = true;
-    }
-  }
-  if (migrated) saveData();
+  if (!Array.isArray(DATA)) DATA = [];
 }
+
+// loadStateFromServer — carrega tudo do backend (ops + settings)
+async function loadStateFromServer() {
+  try {
+    const state = await Api.getState();
+    DATA = Array.isArray(state.ops) ? state.ops : [];
+    applyServerSettings(state.settings || {});
+    setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
+    return true;
+  } catch (e) {
+    setConnStatus('error', 'Sem ligação');
+    console.error('[loadStateFromServer]', e);
+    return false;
+  }
+}
+
+// saveData — persiste DATA toda OP a OP. Optimista: assume sucesso, regista erro
+// via toast se algo falhar. Para escritas dirigidas a uma OP específica, usar
+// saveOneOp(op) directamente para evitar PUTs em massa.
+let _saveDataPending = false;
 function saveData() {
-  const res = Storage.save(LS_KEY_REAL, DATA, DENS_ETAG);
-  if (res) DENS_ETAG = res.etag;
+  // Heurística: chamado após mutações em DATA. Re-persiste tudo via API.
+  // Para não inundar a rede em sequências rápidas, agrupa por 50ms.
+  if (_saveDataPending) return;
+  _saveDataPending = true;
+  setTimeout(async () => {
+    _saveDataPending = false;
+    const profile = (typeof getProfile === 'function') ? getProfile() : 'planeador';
+    try {
+      // Faz PUT de cada OP (servidor é idempotente). Em paralelo (Promise.all).
+      const puts = DATA.filter(o => o && typeof o.id === 'number').map(o => Api.putOp(o.id, o, profile));
+      await Promise.all(puts);
+      setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
+    } catch (e) {
+      setConnStatus('error', 'Falha ao guardar');
+      showErrorToast('Algumas alterações podem não ter sido guardadas: ' + e.message);
+    }
+  }, 50);
+}
+
+// Helper para escritas dirigidas a uma única OP (mais eficiente)
+async function saveOneOp(op) {
+  if (!op || typeof op.id !== 'number') return;
+  const profile = (typeof getProfile === 'function') ? getProfile() : 'planeador';
+  try {
+    await Api.putOp(op.id, op, profile);
+    setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
+  } catch (e) {
+    setConnStatus('error', 'Falha ao guardar');
+    showErrorToast('Falha ao guardar OP ' + (op.op || op.id) + ': ' + e.message);
+    throw e;
+  }
 }
 function isReadOnly() { return isProducao(); }
 
@@ -2150,10 +2050,18 @@ function importJSON(event) {
   reader.readAsText(file);
   event.target.value = '';
 }
-function resetData() {
-  if (!confirm('Repor dados de planeamento DENSIDADES?')) return;
-  DATA = JSON.parse(JSON.stringify(DENS_DEFAULT_DATA));
-  saveData(); rerender();
+async function resetData() {
+  if (!confirm('Repor dados de planeamento DENSIDADES? Isto apaga TUDO no servidor e re-insere as OPs iniciais.')) return;
+  try {
+    setConnStatus('loading', 'A repor...');
+    const r = await Api.adminReset();
+    DATA = Array.isArray(r.ops) ? r.ops : [];
+    setConnStatus('ok', 'Reposto · ' + new Date().toLocaleTimeString('pt-PT'));
+    rerender();
+  } catch (e) {
+    setConnStatus('error', 'Falha');
+    alert('Não foi possível repor: ' + e.message);
+  }
 }
 
 // ============================================================
@@ -2247,59 +2155,6 @@ function rerender() {
   });
 }
 
-// ============================================================
-// BackupSync — integração UI (chip + botões)
-// ============================================================
-function updateBackupStatusUI() {
-  const chip = document.getElementById('backupStatus');
-  const btn = document.getElementById('backupConnectBtn');
-  if (!chip || !btn) return;
-  if (BackupSync.isConnected()) {
-    chip.style.display = 'inline-flex';
-    const last = BackupSync.getLastBackupAt();
-    const lastStr = last
-      ? `às ${String(last.getHours()).padStart(2, '0')}:${String(last.getMinutes()).padStart(2, '0')}`
-      : '—';
-    chip.innerHTML =
-      `💾 ${BackupSync.getFolderName()} <span class="backup-time">(${lastStr})</span>` +
-      ` <button class="backup-now" title="Backup agora" onclick="onBackupNow()">↻</button>` +
-      ` <button class="backup-disconnect" title="Desconectar" onclick="onBackupDisconnect()">×</button>`;
-    btn.style.display = 'none';
-  } else {
-    chip.style.display = 'none';
-    btn.style.display = BackupSync.isSupported() ? 'inline-block' : 'none';
-  }
-}
-async function onBackupConnect() {
-  if (!BackupSync.isSupported()) {
-    alert('Esta funcionalidade requer Chrome ou Edge (File System Access API).');
-    return;
-  }
-  const restored = await BackupSync.tryRestoreInteractive();
-  if (restored) { updateBackupStatusUI(); return; }
-  try {
-    const res = await BackupSync.connect();
-    updateBackupStatusUI();
-    alert(`Conectado à pasta "${res.folderName}". Backup automático activo, hora a hora.`);
-  } catch (e) {
-    if (e.name !== 'AbortError') alert('Não foi possível conectar à pasta: ' + e.message);
-  }
-}
-async function onBackupDisconnect() {
-  if (!confirm('Desativar backup automático? Os backups já gravados ficam onde estão.')) return;
-  await BackupSync.disconnect();
-  updateBackupStatusUI();
-}
-async function onBackupNow() {
-  const res = await BackupSync.backupNow();
-  updateBackupStatusUI();
-  if (!res.ok && res.reason === 'no-changes') {
-    console.info('[BackupSync] Sem alterações desde o último backup.');
-  } else if (!res.ok) {
-    alert('Não foi possível gravar o backup: ' + (res.reason || 'erro desconhecido'));
-  }
-}
-BackupSync.setOnStatusChange(updateBackupStatusUI);
 
 // ============================================================
 // Inicialização
@@ -2311,15 +2166,35 @@ applySettingsToUI();
 applyProfileToBody();
 switchTab(pickDefaultTab());
 rerender();
-updateBackupStatusUI();
+setConnStatus('loading', 'A carregar...');
 
-// Tentar restaurar a pasta de backup da sessão anterior (silenciosamente)
+// Bootstrap inicial — carregar tudo do servidor
 (async () => {
-  try {
-    const ok = await BackupSync.tryRestore();
-    if (ok) updateBackupStatusUI();
-  } catch (e) { /* silencioso */ }
+  const ok = await loadStateFromServer();
+  if (ok) {
+    applySettingsToUI();
+    rerender();
+  }
 })();
+
+// Polling 30s — só se não houver modal aberto (para não perder edição)
+function _modalAberto() {
+  const m = document.getElementById('modal');
+  const ms = document.getElementById('modalSwap');
+  return (m && m.classList.contains('show')) || (ms && ms.classList.contains('show'));
+}
+setInterval(async () => {
+  if (_modalAberto()) return;
+  try {
+    const state = await Api.getState();
+    DATA = Array.isArray(state.ops) ? state.ops : [];
+    applyServerSettings(state.settings || {});
+    rerender();
+    setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
+  } catch (e) {
+    setConnStatus('error', 'Sem ligação');
+  }
+}, 30000);
 
 // Fechar modal ao clicar fora ou premir Escape
 document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });

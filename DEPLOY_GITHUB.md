@@ -1,6 +1,6 @@
 # Deploy via GitHub + Railway — Guia Passo-a-Passo
 
-Tempo total: ~15 minutos (primeira vez). Depois, cada atualização demora 30 segundos.
+Tempo total: ~20 minutos (primeira vez, com Postgres incluído). Depois, cada actualização demora 30 segundos.
 
 ---
 
@@ -37,7 +37,7 @@ O script:
 2. Preencher:
    - **Repository name**: `planeamento-densidades`
    - **Visibility**: **Private** (recomendado — só seu)
-   - ❌ **NÃO marcar** "Add a README", "Add .gitignore", nem "Choose a license" (já existem localmente)
+   - NÃO marcar "Add a README", "Add .gitignore", nem "Choose a license" (já existem localmente)
 3. **Create repository**
 
 GitHub mostra uma página com o URL do repositório. Vai aparecer algo como:
@@ -63,7 +63,7 @@ Depois deste push, o repositório GitHub fica com todos os ficheiros.
 
 ---
 
-## Passo 4 — Deploy no Railway
+## Passo 4 — Deploy do serviço web no Railway
 
 1. Abrir **https://railway.app/new**
 2. **Deploy from GitHub repo**
@@ -75,17 +75,52 @@ Depois deste push, o repositório GitHub fica com todos os ficheiros.
    - `package.json` → Node.js
    - `nixpacks.toml` → Node 20
    - `railway.toml` → healthcheck + start command
-6. Aguardar o build (~1-2 minutos) — vê o progresso em tempo real
+6. Aguardar o build (~1-2 minutos)
+
+Ao fim do primeiro deploy, o serviço **arranca em modo demo** (sem persistência) — verás logs `[db] DATABASE_URL ausente — modo demo`. Isto é esperado; a seguir adicionamos Postgres.
 
 ---
 
-## Passo 5 — Gerar URL público
+## Passo 5 — Adicionar Postgres
 
-1. No painel Railway, clicar no serviço criado
+1. No painel do projeto Railway, clicar em **+ New**
+2. **Database** → **Add PostgreSQL**
+3. Railway cria a base de dados em ~30 segundos
+4. **A variável `DATABASE_URL` é injectada automaticamente** no serviço web (Railway gere isto via referência de variáveis entre serviços)
+5. O serviço web faz redeploy automaticamente. Nos logs vês:
+   ```
+   [db] Pool Postgres inicializado.
+   [db] Schema inicializado.
+   [db] Tabela ops vazia — a inserir 19 OPs iniciais...
+   [db] Seed concluído (19 OPs).
+   ```
+
+✅ A partir daqui, todas as escritas são persistidas.
+
+---
+
+## Passo 6 — Gerar URL público
+
+1. No painel Railway, clicar no **serviço web** (não na BD)
 2. **Settings** (separador) → **Networking** → **Generate Domain**
 3. Aparece um URL tipo `planeamento-densidades-production.up.railway.app`
 
-Copie esse URL e abra no browser — vê o planeamento online.
+Copie esse URL e abra no browser — vê o planeamento online, partilhado, multi-utilizador.
+
+---
+
+## Verificar que tudo funciona
+
+```powershell
+# Healthcheck
+curl https://<TEU_URL>/health
+# → {"status":"ok","db":"connected",...}
+
+# Listar OPs (devem aparecer 19)
+curl https://<TEU_URL>/api/ops
+```
+
+No browser, o chip do header deve estar **🟢 Ligado · HH:MM**.
 
 ---
 
@@ -101,7 +136,20 @@ git commit -m "Atualização do protótipo"
 git push
 ```
 
-Railway deteta o push e re-deploya automaticamente em ~1 minuto.
+Railway deteta o push e re-deploya automaticamente em ~1 minuto. A BD não é tocada — só código.
+
+---
+
+## Backups da BD
+
+Railway faz snapshots automáticos das BD em hobby plan. Manualmente:
+
+```powershell
+# Exportar para ficheiro local
+railway run --service postgres pg_dump $env:DATABASE_URL > backup_$(Get-Date -Format yyyyMMdd).sql
+```
+
+Ou: dashboard Railway → Postgres → **Backups** → Create.
 
 ---
 
@@ -113,13 +161,15 @@ Railway deteta o push e re-deploya automaticamente em ~1 minuto.
 | `Permission denied` ao push | Garantir login Git: `git config --global credential.helper manager` |
 | `Build failed` no Railway | Verificar Logs no Railway → procurar a mensagem; normalmente é versão Node ou dependência |
 | URL devolve 502 | Aguardar 30 seg após deploy (cold start) ou ver Logs |
-| Conteúdo desatualizado | F5 forçado: `Ctrl+Shift+R` (ignora cache) |
+| Chip do header sempre 🔴 | Postgres não foi adicionado ou `DATABASE_URL` não está visível no serviço web. Settings → Variables → confirmar que existe |
+| `[db] Schema inicializado` mas tabela vazia | Esperado no primeiro arranque — seed corre logo a seguir. Verificar logs completos |
+| Conteúdo desactualizado no browser | F5 forçado: `Ctrl+Shift+R` (ignora cache) |
 
 ---
 
 ## Mudar de público para privado (URL com autenticação)
 
-Por defeito, qualquer pessoa com o URL Railway acede ao planeamento. Para restringir:
+Por defeito, qualquer pessoa com o URL Railway acede. Para restringir:
 
 1. **Railway → Settings → Networking** → adicionar **Basic Auth** (username/password)
 2. Ou: integrar Cloudflare Access em frente
