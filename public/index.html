@@ -300,6 +300,23 @@
     45deg, #e5e7eb, #e5e7eb 6px, #d1d5db 6px, #d1d5db 12px
   ) !important; border-color: #9ca3af; }
   body.profile-producao .day-block-header .dh-turno .dh-time { pointer-events: none; opacity: 0.6; }
+  .day-block-header .dh-turno .dh-ok-btn {
+    background: rgba(255,255,255,0.25); color: #fff;
+    border: 1px solid rgba(255,255,255,0.4); border-radius: 3px;
+    padding: 2px 10px; font-size: 11px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    margin-left: 4px;
+  }
+  .day-block-header .dh-turno .dh-ok-btn:hover { background: rgba(255,255,255,0.4); }
+  .day-block-header .dh-turno.dirty .dh-ok-btn {
+    background: #d4a017; border-color: #c2410c;
+    color: #1f2d20; animation: ok-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes ok-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.6); }
+    50%      { box-shadow: 0 0 0 4px rgba(212, 160, 23, 0); }
+  }
+  body.profile-producao .day-block-header .dh-turno .dh-ok-btn { display: none; }
   .day-block-header .dh-meta strong { color: #fff; }
   .day-machine-subzone { border-top: 1px solid var(--c-grid); background: #fff; }
   .day-machine-subzone:first-of-type { border-top: none; }
@@ -1489,17 +1506,25 @@ function onDayClosedToggle(dayKey) {
   rerender();
 }
 
-// Handler para edição inline do turno do dia (no cabeçalho de cada day-block)
-function onDayTurnoChange(input) {
+function markDayTurnoDirty(dayKey) {
+  const span = document.querySelector(`.dh-turno[data-day="${dayKey}"]`);
+  if (!span) return;
+  span.classList.add('dirty');
+}
+
+function applyDayTurno(dayKey) {
   if (isReadOnly()) { rerender(); return; }
-  const dayKey = input.dataset.day;
-  const field = input.dataset.field;
-  const val = input.value || '';
+  const span = document.querySelector(`.dh-turno[data-day="${dayKey}"]`);
+  if (!span) return;
+  const ini = (span.querySelector('input[data-field="ini"]') || {}).value || '';
+  const fim = (span.querySelector('input[data-field="fim"]') || {}).value || '';
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   if (!SETTINGS.turnosPorDia[dayKey]) SETTINGS.turnosPorDia[dayKey] = { ini: '', fim: '' };
-  SETTINGS.turnosPorDia[dayKey][field] = val;
+  SETTINGS.turnosPorDia[dayKey].ini = ini;
+  SETTINGS.turnosPorDia[dayKey].fim = fim;
   const t = SETTINGS.turnosPorDia[dayKey];
-  if (!t.ini && !t.fim) delete SETTINGS.turnosPorDia[dayKey];
+  if (!t.ini && !t.fim && !t.fechado) delete SETTINGS.turnosPorDia[dayKey];
+  span.classList.remove('dirty');
   saveSettings();
   rerender();
 }
@@ -1831,12 +1856,13 @@ function renderDayBlock(dayKey, byMachine) {
       </span>`;
   header.innerHTML = `
     <span class="dh-date">📅 ${diaNome} <strong>${dataStr}</strong></span>
-    <span class="dh-turno">
+    <span class="dh-turno" data-day="${dayKey}">
       Turno:
-      <input type="time" class="dh-time" data-day="${dayKey}" data-field="ini" value="${turno.ini}" title="Início do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
+      <input type="time" class="dh-time" data-day="${dayKey}" data-field="ini" value="${turno.ini}" title="Início do turno" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
       <span class="dh-sep">–</span>
-      <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
+      <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
       <span class="dh-dur" title="Duração do turno">(${turnoStr})</span>
+      <button class="dh-ok-btn" data-day="${dayKey}" title="Aplicar turno" onclick="applyDayTurno('${dayKey}'); event.stopPropagation();" ${isClosed ? 'disabled' : ''}>OK</button>
     </span>
     ${closedBtn}
     ${dispStr}
