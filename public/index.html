@@ -1518,22 +1518,71 @@ function getStopRange(stop) {
   return { start, end, label: stop.label || 'Paragem' };
 }
 
-function advanceSkippingStops(startCursor, durMs, stopRanges) {
-  const sorted = stopRanges.slice().sort((a, b) => a.start - b.start);
+// Devolve {start, end} (Date) do turno do dia da `date`, ou null se sem turno (fechado/sem produção).
+function getShiftRangeForDate(date) {
+  if (isDayClosed(fmtDate(date))) return null;
+  const t = getTurnoForDate(date);
+  if (!t.ini || !t.fim) return null;
+  const [iH, iM] = t.ini.split(':').map(Number);
+  const [fH, fM] = t.fim.split(':').map(Number);
+  const start = new Date(date); start.setHours(iH, iM, 0, 0);
+  const end = new Date(date); end.setHours(fH, fM, 0, 0);
+  if (end <= start) return null;
+  return { start, end };
+}
+
+// Move o cursor para o início do dia seguinte (00:00 do dia + 1)
+function nextDayMidnight(date) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + 1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Avança o cursor consumindo `durMs` respeitando:
+//   - turno (ini-fim) de cada dia (se exceder fim, transborda para próximo dia)
+//   - paragens da máquina (stopRanges)
+//   - dias fechados (saltados)
+function advanceWithinShifts(startCursor, durMs, stopRanges) {
+  const sortedStops = stopRanges.slice().sort((a, b) => a.start - b.start);
+  function inStop(c) {
+    for (const s of sortedStops) if (c >= s.start && c < s.end) return s;
+    return null;
+  }
+  function nextStopAfter(c) {
+    for (const s of sortedStops) if (s.start > c) return s;
+    return null;
+  }
   let cursor = new Date(startCursor.getTime());
-  for (const s of sorted) {
-    if (cursor >= s.start && cursor < s.end) cursor = new Date(s.end.getTime());
-  }
-  const actualStart = new Date(cursor.getTime());
   let remaining = durMs;
-  for (const s of sorted) {
-    if (s.end <= cursor) continue;
-    if (s.start >= new Date(cursor.getTime() + remaining)) break;
-    const gap = s.start - cursor;
-    if (gap > 0 && gap < remaining) { remaining -= gap; cursor = new Date(s.end.getTime()); }
-    else if (gap <= 0) cursor = new Date(s.end.getTime());
+  let actualStart = null;
+  const MAX_ITER = 400;
+  let iter = 0;
+  while (remaining > 0 && iter++ < MAX_ITER) {
+    const shift = getShiftRangeForDate(cursor);
+    if (!shift) { cursor = nextDayMidnight(cursor); continue; }
+    if (cursor < shift.start) cursor = new Date(shift.start);
+    if (cursor >= shift.end) { cursor = nextDayMidnight(cursor); continue; }
+    const sNow = inStop(cursor);
+    if (sNow) { cursor = new Date(sNow.end); continue; }
+    const sNext = nextStopAfter(cursor);
+    let limit = shift.end;
+    if (sNext && sNext.start < limit) limit = sNext.start;
+    const available = limit - cursor;
+    if (actualStart === null) actualStart = new Date(cursor);
+    if (remaining <= available) {
+      const end = new Date(cursor.getTime() + remaining);
+      return { start: actualStart, end };
+    }
+    remaining -= available;
+    cursor = new Date(limit);
+    if (cursor.getTime() === shift.end.getTime()) cursor = nextDayMidnight(cursor);
   }
-  return { start: actualStart, end: new Date(cursor.getTime() + remaining) };
+  return { start: actualStart || new Date(startCursor), end: new Date(cursor) };
+}
+
+function advanceSkippingStops(startCursor, durMs, stopRanges) {
+  return advanceWithinShifts(startCursor, durMs, stopRanges);
 }
 
 function calcScheduleForWeek(machine, weekKey, weekStart) {
