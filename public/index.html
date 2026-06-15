@@ -234,6 +234,21 @@
   .day-block-header.fds { background: linear-gradient(180deg, #b58a2c, #d4a017); }
   .day-block-header .dh-date strong { letter-spacing: 0.4px; }
   .day-block-header .dh-meta { font-size: 11px; opacity: 0.95; }
+  .day-block-header .dh-turno {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 12px;
+    font-size: 11px;
+  }
+  .day-block-header .dh-turno .dh-time {
+    background: rgba(255,255,255,0.95); color: #1f2d20;
+    border: none; border-radius: 3px;
+    font-family: inherit; font-size: 11px;
+    padding: 1px 4px; width: 80px;
+    cursor: pointer;
+  }
+  .day-block-header .dh-turno .dh-time:hover { background: #fff; }
+  .day-block-header .dh-turno .dh-sep { opacity: 0.85; }
+  body.profile-producao .day-block-header .dh-turno .dh-time { pointer-events: none; opacity: 0.6; }
   .day-block-header .dh-meta strong { color: #fff; }
   .day-machine-subzone { border-top: 1px solid var(--c-grid); background: #fff; }
   .day-machine-subzone:first-of-type { border-top: none; }
@@ -468,24 +483,8 @@
   <div class="settings-grid">
 
     <div class="settings-section">
-      <h3>⏱ Turnos por dia da semana <span class="badge">Aplica-se a todas as semanas</span></h3>
-      <p class="desc">Defina a hora de início e fim do turno para cada dia. Se um dia ficar com início e fim em branco, considera-se que não há produção nesse dia.</p>
-      <table class="settings-table" id="cfg-turnos">
-        <thead><tr><th style="width:40%">Dia</th><th>Início</th><th>Fim</th><th style="width:80px; text-align:right">Duração</th></tr></thead>
-        <tbody>
-          <tr><td>Segunda-feira</td><td><input type="time" data-dia="0" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="0" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="0">—</td></tr>
-          <tr><td>Terça-feira</td>  <td><input type="time" data-dia="1" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="1" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="1">—</td></tr>
-          <tr><td>Quarta-feira</td> <td><input type="time" data-dia="2" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="2" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="2">—</td></tr>
-          <tr><td>Quinta-feira</td> <td><input type="time" data-dia="3" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="3" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="3">—</td></tr>
-          <tr><td>Sexta-feira</td>  <td><input type="time" data-dia="4" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="4" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="4">—</td></tr>
-          <tr><td>Sábado</td>       <td><input type="time" data-dia="5" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="5" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="5">—</td></tr>
-          <tr><td>Domingo</td>      <td><input type="time" data-dia="6" data-field="ini" onchange="onSettingsChange()"></td><td><input type="time" data-dia="6" data-field="fim" onchange="onSettingsChange()"></td><td class="turno-dur" data-dia="6">—</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="settings-section">
-      <h3>⚙ Outros parâmetros</h3>
+      <h3>⏱ Parâmetros de turno</h3>
+      <p class="desc">A hora de início e fim de cada dia define-se diretamente no cabeçalho desse dia na vista do planeamento. Aqui ficam apenas os parâmetros gerais.</p>
       <div class="settings-grid-row">
         <label>Setup entre OPs · fecho + arranque (min total)</label>
         <input type="number" id="cfg-setupMin" value="10" min="0" max="60" step="1" class="settings-input-pct" onchange="onSettingsChange()">
@@ -981,18 +980,20 @@ function applyProfileToModal(modalKind) {
 // ============================================================
 // Definições (DENSIDADES)
 // ============================================================
+// Turno por defeito por dia da semana (0=Seg, 6=Dom).
+const DEFAULT_TURNO_BY_DOW = {
+  0: { ini: '07:00', fim: '15:00' },
+  1: { ini: '07:00', fim: '15:00' },
+  2: { ini: '07:00', fim: '15:00' },
+  3: { ini: '07:00', fim: '15:00' },
+  4: { ini: '07:00', fim: '15:00' },
+  5: { ini: '07:00', fim: '10:00' },
+  6: { ini: '',      fim: ''      },
+};
+
 const DEFAULT_SETTINGS = {
-  // Turnos por dia da semana (0=Seg, 1=Ter, ..., 5=Sáb, 6=Dom)
-  // ini/fim vazios = sem produção nesse dia
-  turnos: {
-    0: { ini: '07:00', fim: '15:00' },
-    1: { ini: '07:00', fim: '15:00' },
-    2: { ini: '07:00', fim: '15:00' },
-    3: { ini: '07:00', fim: '15:00' },
-    4: { ini: '07:00', fim: '15:00' },
-    5: { ini: '07:00', fim: '10:00' },
-    6: { ini: '',      fim: ''      },
-  },
+  // Turnos por DATA específica (chave = "YYYY-MM-DD"). Override do default (DEFAULT_TURNO_BY_DOW).
+  turnosPorDia: {},
   setupMin: 10,             // setup entre OPs (fecho + arranque)
   abastecMin: 60,           // abastecimento Logística
   horaLimiteLog: '09:00',   // hora limite Logística
@@ -1035,32 +1036,24 @@ function ensureSettingsShape() {
     if (!SETTINGS.capacidades[m]) SETTINGS.capacidades[m] = Object.assign({}, DEFAULT_SETTINGS.capacidades[m]);
   }
   if (!SETTINGS.ade) SETTINGS.ade = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.ade));
-  // Migração: se ainda tiver tempoSemana/tempoSabado (formato antigo) e não tiver turnos, converter
-  if (!SETTINGS.turnos) {
-    SETTINGS.turnos = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.turnos));
-  }
-  // Garante 7 dias na estrutura
-  for (let d = 0; d < 7; d++) {
-    if (!SETTINGS.turnos[d]) SETTINGS.turnos[d] = { ini: '', fim: '' };
-  }
+  if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
+  delete SETTINGS.turnos;
 }
 
-// Calcula a duração de um turno (em horas decimais). 0 se ini/fim vazios ou inválidos.
 function turnoHoras(ini, fim) {
   if (!ini || !fim) return 0;
   const h = timeStrToHours(fim) - timeStrToHours(ini);
   return h > 0 ? h : 0;
 }
 
-// Actualiza a célula "Duração" na tabela de turnos das Configurações
-function updateTurnoDurations() {
-  document.querySelectorAll('#cfg-turnos .turno-dur').forEach(td => {
-    const d = td.dataset.dia;
-    const t = SETTINGS.turnos && SETTINGS.turnos[d];
-    if (!t || !t.ini || !t.fim) { td.textContent = '—'; return; }
-    const h = turnoHoras(t.ini, t.fim);
-    td.textContent = hoursToTimeStr(h);
-  });
+// Devolve {ini, fim} para uma DATA. Primeiro override em turnosPorDia, senão DEFAULT_TURNO_BY_DOW.
+function getTurnoForDate(date) {
+  const key = fmtDate(date);
+  const ovr = SETTINGS.turnosPorDia && SETTINGS.turnosPorDia[key];
+  if (ovr && (ovr.ini || ovr.fim)) return { ini: ovr.ini || '', fim: ovr.fim || '' };
+  const dow = (date.getDay() + 6) % 7;
+  const def = DEFAULT_TURNO_BY_DOW[dow] || { ini: '', fim: '' };
+  return { ini: def.ini || '', fim: def.fim || '' };
 }
 
 function applyServerSettings(serverSettings) {
@@ -1083,15 +1076,6 @@ function saveSettings() {
 }
 
 function applySettingsToUI() {
-  // Turnos por dia da semana
-  document.querySelectorAll('#cfg-turnos input').forEach(i => {
-    const dia = i.dataset.dia;
-    const field = i.dataset.field;
-    if (SETTINGS.turnos && SETTINGS.turnos[dia]) {
-      i.value = SETTINGS.turnos[dia][field] || '';
-    }
-  });
-  updateTurnoDurations();
   document.getElementById('cfg-setupMin').value = SETTINGS.setupMin;
   document.getElementById('cfg-abastecMin').value = SETTINGS.abastecMin;
   document.getElementById('cfg-horaLimiteLog').value = SETTINGS.horaLimiteLog;
@@ -1115,18 +1099,6 @@ function applySettingsToUI() {
 }
 
 function readSettingsFromUI() {
-  // Turnos por dia da semana
-  if (!SETTINGS.turnos) SETTINGS.turnos = {};
-  for (let d = 0; d < 7; d++) {
-    if (!SETTINGS.turnos[d]) SETTINGS.turnos[d] = { ini: '', fim: '' };
-  }
-  document.querySelectorAll('#cfg-turnos input').forEach(i => {
-    const dia = i.dataset.dia;
-    const field = i.dataset.field;
-    if (!SETTINGS.turnos[dia]) SETTINGS.turnos[dia] = { ini: '', fim: '' };
-    SETTINGS.turnos[dia][field] = i.value || '';
-  });
-  updateTurnoDurations();
   SETTINGS.setupMin = parseInt(document.getElementById('cfg-setupMin').value, 10) || 10;
   SETTINGS.abastecMin = parseInt(document.getElementById('cfg-abastecMin').value, 10) || 60;
   SETTINGS.horaLimiteLog = document.getElementById('cfg-horaLimiteLog').value || '09:00';
@@ -1215,11 +1187,9 @@ function getStops(machine) { return SETTINGS.stops[machine] || []; }
 // ============================================================
 function getWeekHoursAvailable() {
   let total = 0;
-  if (SETTINGS.turnos) {
-    for (let d = 0; d < 7; d++) {
-      const t = SETTINGS.turnos[d];
-      if (t) total += turnoHoras(t.ini, t.fim);
-    }
+  for (let d = 0; d < 7; d++) {
+    const t = DEFAULT_TURNO_BY_DOW[d];
+    if (t) total += turnoHoras(t.ini, t.fim);
   }
   return total;
 }
@@ -1411,35 +1381,38 @@ function isReadOnly() { return isProducao(); }
 // Scheduling — cursor temporal, setup entre OPs, salto de paragens
 // e respeito por capacidades diárias (0 = dia bloqueado)
 // ============================================================
-// Devolve a hora de início do turno do DIA DA SEMANA fornecido (0=Seg,...,6=Dom).
-function getStartHour(diaSemana) {
-  const turnos = (SETTINGS && SETTINGS.turnos) || {};
-  const d = (typeof diaSemana === 'number') ? diaSemana : 0;
-  const t = turnos[d] && turnos[d].ini ? turnos[d].ini : null;
-  if (t) {
-    const [h, m] = t.split(':').map(Number);
+// Handler para edição inline do turno do dia (no cabeçalho de cada day-block)
+function onDayTurnoChange(input) {
+  if (isReadOnly()) { rerender(); return; }
+  const dayKey = input.dataset.day;
+  const field = input.dataset.field;
+  const val = input.value || '';
+  if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
+  if (!SETTINGS.turnosPorDia[dayKey]) SETTINGS.turnosPorDia[dayKey] = { ini: '', fim: '' };
+  SETTINGS.turnosPorDia[dayKey][field] = val;
+  const t = SETTINGS.turnosPorDia[dayKey];
+  if (!t.ini && !t.fim) delete SETTINGS.turnosPorDia[dayKey];
+  saveSettings();
+  rerender();
+}
+
+function getStartHourForDate(date) {
+  const t = getTurnoForDate(date);
+  if (t.ini) {
+    const [h, m] = t.ini.split(':').map(Number);
     return { h, m };
-  }
-  for (let i = 1; i < 7; i++) {
-    const nd = (d + i) % 7;
-    const tt = turnos[nd] && turnos[nd].ini;
-    if (tt) {
-      const [h, m] = tt.split(':').map(Number);
-      return { h, m };
-    }
   }
   return { h: 7, m: 0 };
 }
 
-function getEndHour(diaSemana) {
-  const turnos = (SETTINGS && SETTINGS.turnos) || {};
-  const t = turnos[diaSemana] && turnos[diaSemana].fim ? turnos[diaSemana].fim : null;
-  if (!t) return null;
-  const [h, m] = t.split(':').map(Number);
+function getEndHourForDate(date) {
+  const t = getTurnoForDate(date);
+  if (!t.fim) return null;
+  const [h, m] = t.fim.split(':').map(Number);
   return { h, m };
 }
 
-function diaSemanaIdx(date) { return (date.getDay() || 7) - 1; }
+function diaSemanaIdx(date) { return (date.getDay() + 6) % 7; }
 
 function getStopRange(stop) {
   const baseDate = new Date(stop.date + 'T00:00');
@@ -1483,8 +1456,8 @@ function advanceSkippingStops(startCursor, durMs, stopRanges) {
 function calcScheduleForWeek(machine, weekKey, weekStart) {
   const ops = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey)
                   .sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
-  // Cursor inicial: hora de início do turno da Segunda (dia 0)
-  const startH = getStartHour(0);
+  // Cursor inicial: hora de início do turno da Segunda (data real)
+  const startH = getStartHourForDate(weekStart);
   let cursor = new Date(weekStart);
   cursor.setHours(startH.h, startH.m, 0, 0);
   const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
@@ -1648,11 +1621,18 @@ function renderDayBlock(dayKey, byMachine) {
       totalOpsDia += 1;
     }
   }
+  const turno = getTurnoForDate(date);
 
   const header = document.createElement('div');
   header.className = 'day-block-header' + (ehFds ? ' fds' : '');
   header.innerHTML = `
     <span class="dh-date">📅 ${diaNome} <strong>${dataStr}</strong></span>
+    <span class="dh-turno">
+      Turno:
+      <input type="time" class="dh-time" data-day="${dayKey}" data-field="ini" value="${turno.ini}" title="Início do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()">
+      <span class="dh-sep">–</span>
+      <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()">
+    </span>
     <span class="dh-meta">${totalOpsDia} OPs · Total dia: <strong>${totalKr.toLocaleString('pt-PT')} kr</strong></span>
   `;
   block.appendChild(header);
