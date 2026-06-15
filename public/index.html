@@ -248,6 +248,37 @@
   }
   .day-block-header .dh-turno .dh-time:hover { background: #fff; }
   .day-block-header .dh-turno .dh-sep { opacity: 0.85; }
+  .day-block-header .dh-close-btn {
+    background: rgba(255,255,255,0.18); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 12px;
+    padding: 2px 8px; font-size: 11px; cursor: pointer;
+    font-family: inherit;
+  }
+  .day-block-header .dh-close-btn:hover { background: rgba(255,255,255,0.3); }
+  .day-block-header .dh-close-btn.closed {
+    background: rgba(220, 38, 38, 0.7); border-color: rgba(220, 38, 38, 0.9); font-weight: 700;
+  }
+  body.profile-producao .day-block-header .dh-close-btn { display: none; }
+
+  /* Dia fechado — visual cinza e listrado */
+  .day-block.day-closed { opacity: 0.7; }
+  .day-block-header.closed {
+    background: linear-gradient(180deg, #6b7280, #4b5563) !important;
+    color: #fff;
+  }
+  .day-machine-subzone.day-closed-zone {
+    background: repeating-linear-gradient(
+      45deg, #e5e7eb, #e5e7eb 6px, #d1d5db 6px, #d1d5db 12px
+    ) !important;
+    border: 1px dashed #9ca3af;
+    pointer-events: none;
+  }
+  .day-machine-subzone.day-closed-zone .empty-day-machine {
+    color: #4b5563; font-weight: 600; font-style: normal;
+  }
+  .day-machine-subzone.day-closed-zone.empty-zone { background: repeating-linear-gradient(
+    45deg, #e5e7eb, #e5e7eb 6px, #d1d5db 6px, #d1d5db 12px
+  ) !important; border-color: #9ca3af; }
   body.profile-producao .day-block-header .dh-turno .dh-time { pointer-events: none; opacity: 0.6; }
   .day-block-header .dh-meta strong { color: #fff; }
   .day-machine-subzone { border-top: 1px solid var(--c-grid); background: #fff; }
@@ -1063,6 +1094,8 @@ function turnoHoras(ini, fim) {
 function getTurnoForDate(date) {
   const key = fmtDate(date);
   const ovr = SETTINGS.turnosPorDia && SETTINGS.turnosPorDia[key];
+  // Dia explicitamente fechado: sem produção
+  if (ovr && ovr.fechado) return { ini: '', fim: '' };
   if (ovr && (ovr.ini || ovr.fim)) return { ini: ovr.ini || '', fim: ovr.fim || '' };
   const dow = (date.getDay() + 6) % 7;
   const def = DEFAULT_TURNO_BY_DOW[dow] || { ini: '', fim: '' };
@@ -1389,6 +1422,48 @@ function isReadOnly() { return isProducao(); }
 // Scheduling — cursor temporal, setup entre OPs, salto de paragens
 // e respeito por capacidades diárias (0 = dia bloqueado)
 // ============================================================
+// ============================================================
+// Dia fechado — marca dia como sem disponibilidade (feriado, manutenção, etc.)
+// Estado guardado em SETTINGS.turnosPorDia[dayKey].fechado
+// ============================================================
+function isDayClosed(dayKey) {
+  const t = SETTINGS.turnosPorDia && SETTINGS.turnosPorDia[dayKey];
+  return !!(t && t.fechado);
+}
+
+function onDayClosedToggle(dayKey) {
+  if (isReadOnly()) return;
+  if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
+  const cur = SETTINGS.turnosPorDia[dayKey] || { ini: '', fim: '' };
+  const novo = !cur.fechado;
+  if (novo) {
+    // Fechar: confirmar se há OPs nesse dia (avisa mas permite)
+    const opsNoDia = DATA.filter(o => {
+      // Estimar diaIdx a partir de weekKey e diaIdx — comparar com o dayKey gerado
+      if (!o.weekKey) return false;
+      const m = /^(\d{4})-W(\d{2})$/.exec(o.weekKey);
+      if (!m) return false;
+      const yy = parseInt(m[1], 10), ww = parseInt(m[2], 10);
+      const jan4 = new Date(yy, 0, 4);
+      const dayOfJan4 = (jan4.getDay() || 7) - 1;
+      const monday = new Date(jan4); monday.setDate(jan4.getDate() - dayOfJan4 + (ww - 1) * 7);
+      const dt = new Date(monday); dt.setDate(monday.getDate() + (o.diaIdx || 0));
+      return fmtDate(dt) === dayKey;
+    });
+    if (opsNoDia.length > 0) {
+      if (!confirm(`Este dia tem ${opsNoDia.length} OP(s) planeadas. Marcar mesmo como fechado?`)) return;
+    }
+    SETTINGS.turnosPorDia[dayKey] = Object.assign({}, cur, { fechado: true, ini: '', fim: '' });
+  } else {
+    delete SETTINGS.turnosPorDia[dayKey].fechado;
+    // Se ficar tudo vazio, apagar override
+    const t = SETTINGS.turnosPorDia[dayKey];
+    if (!t.ini && !t.fim) delete SETTINGS.turnosPorDia[dayKey];
+  }
+  saveSettings();
+  rerender();
+}
+
 // Handler para edição inline do turno do dia (no cabeçalho de cada day-block)
 function onDayTurnoChange(input) {
   if (isReadOnly()) { rerender(); return; }
@@ -1648,17 +1723,23 @@ function renderDayBlock(dayKey, byMachine) {
     }
   }
   const turno = getTurnoForDate(date);
+  const isClosed = isDayClosed(dayKey);
+  if (isClosed) block.classList.add('day-closed');
 
   const header = document.createElement('div');
-  header.className = 'day-block-header' + (ehFds ? ' fds' : '');
+  header.className = 'day-block-header' + (ehFds ? ' fds' : '') + (isClosed ? ' closed' : '');
+  const closedBtn = isClosed
+    ? `<button class="dh-close-btn closed" title="Dia fechado — clique para reabrir" onclick="onDayClosedToggle('${dayKey}')">🔒 Dia fechado</button>`
+    : `<button class="dh-close-btn" title="Marcar dia como fechado (sem produção)" onclick="onDayClosedToggle('${dayKey}')">🔓</button>`;
   header.innerHTML = `
     <span class="dh-date">📅 ${diaNome} <strong>${dataStr}</strong></span>
     <span class="dh-turno">
       Turno:
-      <input type="time" class="dh-time" data-day="${dayKey}" data-field="ini" value="${turno.ini}" title="Início do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()">
+      <input type="time" class="dh-time" data-day="${dayKey}" data-field="ini" value="${turno.ini}" title="Início do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
       <span class="dh-sep">–</span>
-      <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()">
+      <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" onchange="onDayTurnoChange(this)" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
     </span>
+    ${closedBtn}
     <span class="dh-meta">${totalOpsDia} OPs · Total dia: <strong>${totalKr.toLocaleString('pt-PT')} kr</strong></span>
   `;
   block.appendChild(header);
@@ -1705,12 +1786,21 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   `;
   zone.appendChild(head);
 
+  // Se o dia está fechado, marcar a sub-zona e impedir drop
+  if (isDayClosed(dayKey)) {
+    zone.classList.add('day-closed-zone');
+    zone.dataset.frozen = '1';
+  }
+
   if (items.length === 0) {
-    // Sub-zona vazia — vira drop target com altura mínima para receber OPs por drag
     zone.classList.add('empty-zone');
     const empty = document.createElement('div');
     empty.className = 'empty-day-machine';
-    empty.textContent = isReadOnly() ? 'Sem OPs' : '⤵ Arraste OPs do KANBAN ou de outro dia';
+    if (isDayClosed(dayKey)) {
+      empty.textContent = '🔒 Dia fechado';
+    } else {
+      empty.textContent = isReadOnly() ? 'Sem OPs' : '⤵ Arraste OPs do KANBAN ou de outro dia';
+    }
     zone.appendChild(empty);
   } else {
     zone.appendChild(createWeekTable(items, wkRef, machine));
