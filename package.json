@@ -1,0 +1,19 @@
+{
+  "name": "planeamento-densidades",
+  "version": "1.0.0",
+  "description": "Planeamento de produção - Densidades (Cork Supply / Harv 81 Group)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "compression": "^1.7.4"
+  },
+  "private": true,
+  "author": "Cork Supply",
+  "license": "UNLICENSED"
+}

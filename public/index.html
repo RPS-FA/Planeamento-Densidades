@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<title>Cork Supply · Planeamento DENSIDADES</title>
+<style>
+  :root {
+    /* Paleta Cork Supply — verde montado + cortiça */
+    --c-bg: #f5f8f2;
+    --c-panel: #ffffff;
+    --c-border: #c8d6b8;
+    --c-grid: #d9e3cb;
+    --c-text: #1f2d20;
+    --c-muted: #5b6b56;
+    --c-primary: #3d6b3f;
+    --c-primary-dark: #2a4f2c;
+    --c-accent: #c8a97e;
+    --c-now: #c2410c;
+    --c-header: #3d6b3f;
+    --c-subheader: #dceace;
+    /* Estados DENSIDADES (5 estados + KANBAN) */
+    --st-pi-por-liberar:   #FFFFFF;
+    --st-pi-liberado:      #00B050;
+    --st-pi-entregue-log:  #00B0F0;
+    --st-csp2-por-liberar: #FF9966;
+    --st-csp2-liberada:    #FFFF00;
+    --st-kanban:           #D9D9D9;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; font-family: Arial, "Segoe UI", system-ui, sans-serif;
+    background: var(--c-bg); color: var(--c-text); font-size: 12px; height: 100%;
+  }
+  header {
+    background: var(--c-primary); color: #fff;
+    padding: 10px 16px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: background 0.2s;
+  }
+  header h1 { font-size: 16px; margin: 0; flex: 1; font-weight: 600; }
+  .row-data, .kanban-row { cursor: pointer; }
+  .toolbar { display: flex; gap: 6px; }
+  .btn {
+    background: #fff; color: var(--c-primary); border: 1px solid #fff;
+    padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 3px;
+    font-family: inherit; font-weight: 500;
+  }
+  .btn:hover { background: var(--c-bg); }
+  .btn.secondary { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.5); }
+  .btn.secondary:hover { background: rgba(255,255,255,0.1); }
+  .profile-select {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.4);
+    font-family: inherit; font-size: 12px;
+    padding: 4px 10px; border-radius: 3px;
+    cursor: pointer; font-weight: 600;
+  }
+  .profile-select:hover { background: rgba(255,255,255,0.22); }
+  .profile-select option { color: #1f2d20; background: #fff; }
+  body.profile-producao .profile-select { background: rgba(212,160,23,0.35); border-color: #d4a017; }
+  body.profile-producao #addOpBtn { display: none !important; }
+  body.profile-producao #swapOpsBtn { display: none !important; }
+  body.profile-producao #m_btnSplit { display: none !important; }
+  body.profile-producao .row-handle { display: none; }
+  .backup-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px; border-radius: 12px;
+    background: rgba(255,255,255,0.18); color: #fff;
+    font-size: 11px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .backup-chip .backup-time { font-weight: 400; opacity: 0.85; font-size: 10px; }
+  .backup-chip .backup-now, .backup-chip .backup-disconnect {
+    cursor: pointer; opacity: 0.75; padding: 0 3px;
+    background: transparent; border: 0; color: #fff;
+    font-size: 13px; line-height: 1; font-weight: 700;
+  }
+  .backup-chip .backup-now:hover, .backup-chip .backup-disconnect:hover { opacity: 1; }
+  .tabs {
+    background: var(--c-panel); border-bottom: 1px solid var(--c-border);
+    display: flex; padding: 0 16px;
+  }
+  .tab {
+    padding: 10px 20px; cursor: pointer; font-weight: 500;
+    border-bottom: 3px solid transparent; color: var(--c-muted);
+    font-size: 13px; display: flex; align-items: center; gap: 8px;
+  }
+  .tab:hover { color: var(--c-primary); }
+  .tab.active { color: var(--c-primary); border-bottom-color: var(--c-primary); }
+  .tab .tab-count {
+    background: var(--c-bg); color: var(--c-text); font-size: 11px;
+    padding: 1px 7px; border-radius: 10px; font-weight: 600;
+  }
+  .tab.active .tab-count { background: var(--c-primary); color: #fff; }
+  .cs-badge { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; letter-spacing: 0.3px; }
+  .cs-badge svg { display: block; }
+  .cs-dens { color: var(--c-primary); }
+  .cs-dens .cs-pill {
+    background: var(--c-primary-dark); color: #fff;
+    padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 800;
+    border: 1px solid var(--c-primary-dark);
+  }
+  .cs-logo {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px; border-radius: 4px;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+  }
+  .cs-logo .cs-mark { display: inline-block; width: 22px; height: 22px; }
+  .cs-logo .cs-name { font-size: 11px; font-weight: 700; letter-spacing: 1px; line-height: 1; }
+  .cs-logo .cs-tag { font-size: 8px; opacity: 0.75; letter-spacing: 1.5px; line-height: 1; margin-top: 2px; }
+  .controls {
+    background: var(--c-panel); border-bottom: 1px solid var(--c-border);
+    padding: 8px 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .controls label { font-size: 11px; color: var(--c-muted); margin-right: 4px; }
+  .controls input, .controls select {
+    font-family: inherit; font-size: 12px; padding: 3px 7px;
+    border: 1px solid var(--c-border); border-radius: 3px;
+  }
+  .legend { display: flex; gap: 10px; align-items: center; margin-left: auto; font-size: 11px; color: var(--c-muted); flex-wrap: wrap; }
+  .legend .swatch { display: inline-flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 11px; height: 11px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.1); }
+  .tab-panel { display: none; padding: 8px 12px; height: calc(100vh - 138px); overflow: hidden; }
+  .tab-panel.active { display: grid; grid-template-columns: 240px 1fr; gap: 8px; }
+  .panel {
+    background: var(--c-panel); border: 1px solid var(--c-border);
+    border-radius: 4px; display: flex; flex-direction: column; min-height: 0;
+  }
+  .kanban-header {
+    background: #dceace; padding: 8px 10px; font-weight: 700; font-size: 13px;
+    color: #2a4f2c; border-bottom: 1px solid var(--c-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .kanban-header .count {
+    background: #3d6b3f; color: #fff; padding: 1px 7px; border-radius: 10px;
+    font-size: 11px; font-weight: 500;
+  }
+  .kanban-body { flex: 1; overflow-y: auto; }
+  .kanban-body.drag-over { background: #eaf3e0; outline: 2px dashed var(--c-primary); outline-offset: -6px; }
+  .kanban-row {
+    padding: 6px 10px; border-bottom: 1px solid var(--c-grid);
+    cursor: grab; user-select: none; background: #fff;
+  }
+  .kanban-row:hover { background: #f0f7e8; }
+  .kanban-row.dragging { opacity: 0.4; }
+  .kanban-row .k-op { font-weight: 700; color: var(--c-primary); font-size: 12px; }
+  .kanban-row .k-desc { font-family: Consolas, monospace; font-size: 10px; color: #374151; margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kanban-row .k-meta { font-size: 10px; color: var(--c-muted); }
+  .kanban-row .k-meta strong { color: var(--c-text); }
+  .empty { text-align: center; color: var(--c-muted); font-size: 11px; padding: 18px 8px; font-style: italic; }
+  .machine-panel { display: flex; flex-direction: column; min-height: 0; }
+  .machine-titlebar {
+    background: linear-gradient(180deg, #f8f9fb, #eef1f5);
+    padding: 8px 12px; font-weight: 700; font-size: 13px; color: var(--c-primary);
+    border-bottom: 1px solid var(--c-border);
+    display: flex; align-items: center; gap: 12px; justify-content: space-between;
+  }
+  .machine-titlebar .right { display: flex; gap: 10px; align-items: center; }
+  .month-nav { display: inline-flex; align-items: center; gap: 4px; }
+  .month-nav button {
+    padding: 3px 9px; border: 1px solid var(--c-border); background: #fff;
+    cursor: pointer; border-radius: 3px; font-family: inherit; font-size: 11px;
+  }
+  .month-nav button:hover { background: var(--c-bg); }
+  .month-nav .label { font-weight: 700; padding: 0 8px; min-width: 100px; text-align: center; color: var(--c-primary); }
+  .search-box {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid var(--c-border); border-radius: 3px;
+    padding: 2px 6px;
+  }
+  .search-box::before { content: '🔍'; font-size: 11px; opacity: 0.6; }
+  .search-box input { border: none; outline: none; font-family: inherit; font-size: 11px; width: 160px; padding: 2px 0; }
+  .search-box .clear-btn { background: transparent; border: none; cursor: pointer; color: var(--c-muted); font-size: 14px; padding: 0 2px; line-height: 1; }
+  .search-box .clear-btn:hover { color: var(--c-text); }
+  .search-hits { background: #fff7ed; color: #9a3412; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+  .view-month { flex: 1; overflow: auto; padding: 0; }
+  .week-block { border-bottom: 3px solid var(--c-header); background: #fff; }
+  .week-block:last-child { border-bottom: none; }
+  .week-block.drag-target { background: #eaf3fb; outline: 2px dashed var(--c-primary); outline-offset: -4px; }
+  .week-block-header {
+    background: var(--c-header); color: #fff;
+    padding: 6px 12px; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; gap: 12px; justify-content: space-between;
+    position: sticky; top: 0; z-index: 4;
+  }
+  .week-block-header .wbh-left { display: flex; align-items: center; gap: 14px; }
+  .week-block-header .semana { letter-spacing: 0.5px; }
+  .week-block-header .dates { font-weight: 400; font-size: 11px; opacity: 0.9; }
+  .week-block-header .meta { font-size: 11px; font-weight: 500; opacity: 0.9; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px; }
+  .week-block-header .meta-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .week-block-header .meta strong { color: #fff; }
+  .week-block-header .meta.occ-low { background: rgba(40, 167, 69, 0.45); }
+  .week-block-header .meta.occ-mid { background: rgba(245, 158, 11, 0.55); }
+  .week-block-header .meta.occ-high { background: rgba(220, 38, 38, 0.55); }
+  .week-block-header .meta.free { background: rgba(255, 255, 255, 0.2); }
+  .week-block-header .meta.over { background: rgba(220, 38, 38, 0.85); color: #fff; animation: over-pulse 2.5s ease-in-out infinite; }
+  .week-block-header .meta.over strong { color: #fff; }
+  @keyframes over-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+    50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0); }
+  }
+  .week-block-header .bar { width: 90px; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; position: relative; }
+  .week-block-header .bar > i { display: block; height: 100%; background: #58d68d; }
+  .week-block-header .bar.mid > i { background: #f59e0b; }
+  .week-block-header .bar.high > i { background: #ef4444; }
+  .stop-banner {
+    background: repeating-linear-gradient(45deg,
+      rgba(220, 38, 38, 0.15), rgba(220, 38, 38, 0.15) 6px,
+      rgba(220, 38, 38, 0.05) 6px, rgba(220, 38, 38, 0.05) 12px);
+    border-left: 3px solid #b91c1c; padding: 4px 12px; font-size: 11px;
+    color: #b91c1c; font-weight: 600;
+  }
+  .empty-week { padding: 14px 12px; color: var(--c-muted); font-size: 11px; font-style: italic; text-align: center; }
+  /* Sub-zona por máquina dentro de cada semana */
+  .machine-zone { border-top: 1px solid var(--c-grid); }
+  .machine-zone:first-of-type { border-top: none; }
+  .machine-zone-header {
+    background: #eef2eb; padding: 4px 12px; font-weight: 700; font-size: 12px;
+    color: var(--c-primary); border-left: 4px solid var(--c-primary);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .machine-zone-header .mz-meta { font-weight: 500; font-size: 11px; color: var(--c-muted); }
+  .machine-zone.drag-target { background: #eaf3fb; outline: 2px dashed var(--c-primary); outline-offset: -2px; }
+  .machine-zone .empty-week { padding: 8px 12px; }
+  table.excel { border-collapse: collapse; font-size: 10.5px; table-layout: fixed; }
+  table.excel th {
+    background: var(--c-subheader); color: var(--c-text); font-weight: 600;
+    padding: 4px 3px; border: 1px solid var(--c-grid);
+    text-align: center; vertical-align: middle;
+    white-space: normal; line-height: 1.15; font-size: 10px;
+  }
+  table.excel td {
+    padding: 3px 5px; border: 1px solid var(--c-grid);
+    vertical-align: middle; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis;
+  }
+  table.excel tr.row-data { cursor: grab; user-select: none; }
+  table.excel tbody tr.row-data:nth-child(odd) td { background: #ffffff; }
+  table.excel tbody tr.row-data:nth-child(even) td { background: #eef2f7; }
+  table.excel tbody tr.row-data:hover td { background: #dde6f0 !important; }
+  /* Separadores de dia dentro da semana — agrupam OPs do mesmo dia */
+  table.excel tr.day-separator td {
+    background: linear-gradient(90deg, #eef2eb 0%, #dceace 100%) !important;
+    color: #2a4f2c !important;
+    font-weight: 700; font-size: 11px;
+    padding: 4px 10px !important;
+    letter-spacing: 0.3px;
+    border-left: 4px solid #3d6b3f !important;
+    border-top: 1px solid #b8c8a8 !important;
+    border-bottom: 1px solid #b8c8a8 !important;
+    text-align: left !important;
+  }
+  table.excel tr.day-separator td .dia-num {
+    background: #3d6b3f; color: #fff;
+    padding: 1px 6px; border-radius: 8px;
+    font-size: 10px; font-weight: 700;
+    margin-right: 6px; letter-spacing: 0.2px;
+  }
+  table.excel tr.day-separator td .dia-load {
+    float: right; font-weight: 500; font-size: 10px;
+    color: #5b6b56; letter-spacing: 0.2px;
+  }
+  table.excel tr.day-separator:hover td { background: linear-gradient(90deg, #eef2eb 0%, #dceace 100%) !important; }
+  table.excel tr.day-separator.dia-fds td {
+    background: linear-gradient(90deg, #fef9e7 0%, #fbeaa3 100%) !important;
+    border-left-color: #b58a2c !important;
+  }
+  table.excel tr.day-separator.dia-fds:hover td { background: linear-gradient(90deg, #fef9e7 0%, #fbeaa3 100%) !important; }
+  table.excel tr.day-separator.dia-fds td .dia-num { background: #b58a2c; }
+  table.excel tr.row-data td:first-child { border-left: 5px solid var(--c-grid) !important; }
+  table.excel tr.row-data[data-estado="PI por liberar"]      td:first-child { border-left-color: #b0b7c0 !important; }
+  table.excel tr.row-data[data-estado="PI liberado"]         td:first-child { border-left-color: var(--st-pi-liberado) !important; }
+  table.excel tr.row-data[data-estado="PI entregue LOG"]     td:first-child { border-left-color: var(--st-pi-entregue-log) !important; }
+  table.excel tr.row-data[data-estado="CSP2-AI por liberar"] td:first-child { border-left-color: var(--st-csp2-por-liberar) !important; }
+  table.excel tr.row-data[data-estado="CSP2-AI liberada"]    td:first-child { border-left-color: var(--st-csp2-liberada) !important; }
+  table.excel tr.row-data[data-estado="KANBAN"]              td:first-child { border-left-color: var(--st-kanban) !important; }
+  table.excel tr.row-data.dragging { opacity: 0.4; }
+  table.excel tr.row-data.drop-above td { border-top: 3px solid var(--c-primary); }
+  table.excel tr.row-data.drop-below td { border-bottom: 3px solid var(--c-primary); }
+  table.excel tr.row-data.late td { background: #fca5a5 !important; color: #5b0a0a; }
+  table.excel tr.row-data.late:hover td { background: #f87171 !important; }
+  table.excel tr.row-data.at-risk td { background: #fef3cd !important; }
+  table.excel tr.row-data.at-risk:hover td { background: #fde68a !important; }
+  table.excel tr.row-data.frozen-op { cursor: default !important; }
+  table.excel tr.row-data.frozen-op td { background: #d1d5db !important; color: #6b7280; }
+  table.excel tr.row-data.frozen-op:hover td { background: #c1c7cf !important; }
+  table.excel tr.row-data.frozen-op .row-handle { color: #6b7280; opacity: 0.7; cursor: not-allowed !important; }
+  table.excel tr.row-data.frozen-op .row-handle::after { content: '🔒'; font-size: 9px; margin-left: 1px; }
+  table.excel tr.row-data.frozen-op .estado-select { opacity: 0.85; }
+  table.excel tr.row-data.continuation td { background: #fef9c3 !important; border-top: 2px dashed #ca8a04 !important; }
+  table.excel tr.row-data.continuation td:first-child { border-left-color: #ca8a04 !important; }
+  .week-block.frozen .week-block-header::before { content: '🔒 '; margin-right: 4px; }
+  .week-block.frozen .week-block-header { background: linear-gradient(90deg, #475569 0%, #475569 70%, var(--c-header) 100%); }
+  .estado-select {
+    width: 100%; padding: 3px 4px;
+    border: 1px solid rgba(0,0,0,0.15); border-radius: 3px;
+    font-family: inherit; font-size: 10px; font-weight: 600;
+    cursor: pointer; text-align: center;
+    -webkit-appearance: menulist-button; appearance: menulist-button;
+  }
+  .estado-select[data-est="PI por liberar"]      { background: var(--st-pi-por-liberar);   color: #1f2937; border-color: #9aa0a6; }
+  .estado-select[data-est="PI liberado"]         { background: var(--st-pi-liberado);      color: #fff; }
+  .estado-select[data-est="PI entregue LOG"]     { background: var(--st-pi-entregue-log);  color: #0a3a55; }
+  .estado-select[data-est="CSP2-AI por liberar"] { background: var(--st-csp2-por-liberar); color: #4a1e00; }
+  .estado-select[data-est="CSP2-AI liberada"]    { background: var(--st-csp2-liberada);    color: #5a4a00; }
+  .estado-select[data-est="KANBAN"]              { background: var(--st-kanban);           color: #333; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ctr { text-align: center; }
+  .mono { font-family: Consolas, monospace; font-size: 10px; }
+  td .row-handle {
+    display: inline-block; width: 14px; padding: 1px 2px;
+    color: var(--c-muted); cursor: grab; text-align: center;
+    border-radius: 3px; transition: background 0.12s, color 0.12s;
+  }
+  td .row-handle:hover { background: var(--c-subheader); color: var(--c-primary-dark); }
+  td .row-handle:active { cursor: grabbing; }
+  td.col-del { text-align: center; cursor: pointer; color: #b91c1c; font-weight: 700; }
+  td.col-del:hover { background: #fee2e2 !important; }
+  .tab-panel.settings { display: none; grid-template-columns: 1fr; padding: 16px 24px; overflow-y: auto; }
+  .tab-panel.settings.active { display: block; }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 1200px; margin: 0 auto; }
+  .settings-section { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px; padding: 14px; }
+  .settings-section.full { grid-column: 1 / -1; }
+  .settings-section h3 {
+    margin: 0 0 12px; font-size: 13px; color: var(--c-primary); font-weight: 700;
+    border-bottom: 2px solid var(--c-subheader); padding-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .settings-section h3 .badge { background: var(--c-subheader); color: var(--c-primary); padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .settings-grid-row { display: grid; grid-template-columns: 1fr 110px; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 12px; }
+  .settings-grid-row label { color: var(--c-text); }
+  .settings-grid-row input { padding: 4px 8px; border: 1px solid var(--c-border); border-radius: 3px; font-family: inherit; font-size: 12px; }
+  .settings-input-pct { text-align: right; }
+  .settings-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .settings-table th { background: var(--c-subheader); color: var(--c-text); font-weight: 600; padding: 5px 6px; border: 1px solid var(--c-grid); text-align: center; }
+  .settings-table td { padding: 3px 6px; border: 1px solid var(--c-grid); }
+  .settings-table input { width: 100%; border: none; background: transparent; font-family: inherit; font-size: 11px; padding: 2px 4px; }
+  .settings-table input:focus { outline: 2px solid var(--c-primary); background: #fff; }
+  .settings-table .del-row { cursor: pointer; color: #b91c1c; text-align: center; font-weight: 700; }
+  .settings-table .del-row:hover { background: #fee2e2; }
+  .settings-add-btn {
+    background: #fff; color: var(--c-primary); border: 1px dashed var(--c-primary);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-family: inherit;
+    font-size: 11px; margin-top: 6px;
+  }
+  .settings-add-btn:hover { background: var(--c-subheader); }
+  .settings-section .desc { color: var(--c-muted); font-size: 11px; margin: -6px 0 10px; }
+  .settings-actions { text-align: right; margin-top: 16px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 6px; padding: 18px; width: 95%; max-width: 620px; max-height: 90vh; overflow: auto; }
+  .modal h2 { margin: 0 0 14px; font-size: 15px; color: var(--c-primary); }
+  .modal .field { margin-bottom: 10px; }
+  .modal label { display: block; font-size: 11px; color: var(--c-muted); margin-bottom: 3px; font-weight: 500; }
+  .modal input, .modal select, .modal textarea { width: 100%; padding: 5px 9px; border: 1px solid var(--c-border); border-radius: 3px; font-family: inherit; font-size: 12px; }
+  .modal textarea { resize: vertical; min-height: 44px; }
+  .modal .row { display: flex; gap: 10px; }
+  .modal .row .field { flex: 1; }
+  .modal .post-exec {
+    background: #fff8e1; border: 1px dashed #d4a017; border-radius: 5px;
+    padding: 8px 10px 4px; margin: 12px 0 6px;
+  }
+  .modal .post-exec-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
+    color: #92400e; text-transform: uppercase;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+  }
+  .modal .post-exec-title::before { content: '◷'; font-size: 13px; line-height: 1; }
+  .modal .post-exec input { background: #fffdf5; }
+  .modal .post-exec input:focus { background: #fff; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .btn-primary { background: var(--c-primary); color: #fff; border: 1px solid var(--c-primary); }
+  .btn-primary:hover { background: var(--c-primary-dark); }
+  .btn-danger { background: #fff; color: #b91c1c; border: 1px solid #b91c1c; }
+  .btn-danger:hover { background: #fef3f3; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="cs-logo" title="Cork Supply Portugal">
+    <svg class="cs-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="csCork" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#e8c79a"/>
+          <stop offset="100%" stop-color="#c8a97e"/>
+        </linearGradient>
+      </defs>
+      <rect x="9" y="4" width="14" height="24" rx="3" ry="3" fill="url(#csCork)" stroke="#fff" stroke-width="1.2"/>
+      <ellipse cx="16" cy="5.5" rx="6.8" ry="1.6" fill="#f3dfb8" stroke="#fff" stroke-width="0.8"/>
+      <circle cx="13" cy="11" r="0.9" fill="#7d5a3a"/>
+      <circle cx="18" cy="14" r="0.7" fill="#7d5a3a"/>
+      <circle cx="14" cy="19" r="0.8" fill="#7d5a3a"/>
+      <circle cx="19" cy="22" r="0.6" fill="#7d5a3a"/>
+    </svg>
+    <div style="display:flex;flex-direction:column">
+      <span class="cs-name">CORK SUPPLY</span>
+      <span class="cs-tag">Planeamento Produção</span>
+    </div>
+  </div>
+  <h1 style="margin-left:6px">Planeamento DENSIDADES</h1>
+  <div class="toolbar">
+    <select id="profileSelect" class="profile-select" onchange="changeProfile(this.value)" title="Perfil de edição">
+      <option value="planeador">👤 Planeador</option>
+      <option value="producao">👷 Produção</option>
+    </select>
+    <span id="backupStatus" class="backup-chip" style="display:none"></span>
+    <button class="btn secondary" id="backupConnectBtn" onclick="onBackupConnect()" title="Backup automático hora a hora numa pasta OneDrive/SharePoint">💾 Pasta de backup</button>
+    <button class="btn secondary" id="addOpBtn" onclick="addOP()">+ Nova OP DENS</button>
+    <button class="btn secondary" id="swapOpsBtn" onclick="openSwapModal()">🔄 Trocar OPs</button>
+    <button class="btn secondary" onclick="exportJSON()">Exportar JSON</button>
+    <button class="btn secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+    <button class="btn" onclick="resetData()">Reset demo</button>
+  </div>
+</header>
+
+
+<div class="tabs" id="tabs-bar">
+  <!-- Tabs mensais são geradas dinamicamente (m05 a m12) -->
+  <div class="tab" data-tab="cfg" onclick="switchTab('cfg')">⚙ Configurações</div>
+</div>
+
+<div class="controls">
+  <div style="font-size:11px; color:var(--c-muted)">
+    Capacidade global: <strong id="status-rate" style="color:var(--c-text)">196 kr/8h · 28.0 kr/h</strong>
+    &nbsp;·&nbsp; <a href="#" onclick="switchTab('cfg');return false" style="color:var(--c-primary)">⚙ alterar definições</a>
+  </div>
+  <div class="legend">
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-por-liberar); border-color:#9aa0a6"></span>PI por liberar</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-liberado)"></span>PI liberado</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-entregue-log)"></span>PI entregue LOG</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-csp2-por-liberar)"></span>CSP2-AI por liberar</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-csp2-liberada)"></span>CSP2-AI liberada</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-kanban)"></span>KANBAN</span>
+  </div>
+</div>
+
+<!-- Painéis mensais (m05..m12) são injetados dinamicamente por buildMonthlyTabs() -->
+<div id="monthly-panels"></div>
+
+<!-- Configurações -->
+<div class="tab-panel settings" id="panel-cfg">
+  <div class="settings-grid">
+
+    <div class="settings-section">
+      <h3>⏱ Tempos disponíveis <span class="badge">Aplica-se a todas as semanas</span></h3>
+      <p class="desc">A hora de início de cada dia é definida em cada OP (campo "Hora Início"). Se em branco, herda da OP anterior (cascata).</p>
+      <div class="settings-grid-row">
+        <label>Tempo disponível semana (HH:MM por dia)</label>
+        <input type="time" id="cfg-tempoSemana" value="08:00" onchange="onSettingsChange()">
+      </div>
+      <div class="settings-grid-row">
+        <label>Tempo disponível sábado (HH:MM)</label>
+        <input type="time" id="cfg-tempoSabado" value="03:00" onchange="onSettingsChange()">
+      </div>
+      <div class="settings-grid-row">
+        <label>Setup entre OPs · fecho + arranque (min total)</label>
+        <input type="number" id="cfg-setupMin" value="10" min="0" max="60" step="1" class="settings-input-pct" onchange="onSettingsChange()">
+      </div>
+      <div class="settings-grid-row">
+        <label>Abastecimento Logística (minutos)</label>
+        <input type="number" id="cfg-abastecMin" value="60" min="0" max="240" step="5" class="settings-input-pct" onchange="onSettingsChange()">
+      </div>
+      <div class="settings-grid-row">
+        <label>Hora limite Logística</label>
+        <input type="time" id="cfg-horaLimiteLog" value="09:00" onchange="onSettingsChange()">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>⚙ Capacidades por máquina <span class="badge">kr/hora</span></h3>
+      <p class="desc">Capacidade real de cada máquina em kilo-rolhas por hora. Multiplicado pelo tempo disponível diário dá o output diário.</p>
+      <table class="settings-table">
+        <thead><tr><th style="width:45%">Máquina</th><th>kr/8h</th><th>kr/h</th></tr></thead>
+        <tbody id="cfg-capacidades">
+          <tr><td>Linha 10</td>
+              <td><input type="number" data-key="Linha 10" data-field="kr8h" min="0" max="500" step="1" value="100" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="Linha 10" data-field="krH" min="0" max="50" step="0.1" value="14.6" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Linha 9</td>
+              <td><input type="number" data-key="Linha 9" data-field="kr8h" min="0" max="500" step="1" value="36" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="Linha 9" data-field="krH" min="0" max="50" step="0.1" value="4.5" onchange="onSettingsChange()"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-section">
+      <h3>📐 Calibres permitidos <span class="badge">DENS</span></h3>
+      <p class="desc">Calibres que podem ser produzidos nas máquinas de densidades.</p>
+      <textarea id="cfg-calibres" rows="3" style="width:100%; padding:6px; border:1px solid var(--c-border); border-radius:3px; font-family:Consolas, monospace; font-size:11px" onchange="onSettingsChange()">38x24 / 45x24 / 45x25 / 45x26
+49x24 / 49x25 / 49x26
+54x24</textarea>
+    </div>
+
+    <div class="settings-section">
+      <h3>📊 % ADE por intervalo de massa</h3>
+      <p class="desc">Percentagem de aproveitamento ADE estimada por gama de massas e cliente especial.</p>
+      <table class="settings-table">
+        <thead><tr><th style="width:60%">Critério</th><th>% ADE</th><th>± Tol.</th></tr></thead>
+        <tbody id="cfg-ade">
+          <tr><td>Massa ≤ 1</td>
+              <td><input type="number" data-key="massa_le1" data-field="pct" min="0" max="100" step="1" value="50" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="massa_le1" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Massa &gt; 1</td>
+              <td><input type="number" data-key="massa_gt1" data-field="pct" min="0" max="100" step="1" value="65" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="massa_gt1" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Cliente RESALTE</td>
+              <td><input type="number" data-key="cliente_resalte" data-field="pct" min="0" max="100" step="1" value="50" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="cliente_resalte" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Cliente TERLANO</td>
+              <td><input type="number" data-key="cliente_terlano" data-field="pct" min="0" max="100" step="1" value="30" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="cliente_terlano" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-section full">
+      <h3>📅 Paragens · Linha 10</h3>
+      <p class="desc">Feriados e paragens previstas para Linha 10. As OPs cascateadas saltam estes períodos.<br>Para paragens parciais (ex. almoço, manutenção curta), preencher Hora Início e Hora Fim. Para dia completo, deixar em branco.</p>
+      <table class="settings-table" id="cfg-stops-m1">
+        <thead><tr><th style="width:110px">Data</th><th>Descrição</th><th style="width:50px">Dias</th><th style="width:75px">Hora Início</th><th style="width:75px">Hora Fim</th><th style="width:30px"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <button class="settings-add-btn" onclick="addStopRow('Linha 10')">+ Adicionar paragem</button>
+    </div>
+
+    <div class="settings-section full">
+      <h3>📅 Paragens · Linha 9</h3>
+      <p class="desc">Feriados e paragens previstas para Linha 9.</p>
+      <table class="settings-table" id="cfg-stops-m3">
+        <thead><tr><th style="width:110px">Data</th><th>Descrição</th><th style="width:50px">Dias</th><th style="width:75px">Hora Início</th><th style="width:75px">Hora Fim</th><th style="width:30px"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <button class="settings-add-btn" onclick="addStopRow('Linha 9')">+ Adicionar paragem</button>
+    </div>
+
+  </div>
+  <div class="settings-actions">
+    <button class="btn btn-danger" onclick="resetSettings()">Repor predefinições</button>
+  </div>
+</div>
+
+<!-- Modal de edição de OP DENS -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">Editar OP</h2>
+    <div class="row">
+      <div class="field"><label>OP</label><input id="m_op" type="text"></div>
+      <div class="field"><label>File / Cliente</label><input id="m_fileCliente" type="text"></div>
+    </div>
+    <div class="field"><label>Produto</label><input id="m_produto" type="text" class="mono" placeholder="N-QV2-..."></div>
+    <div class="row">
+      <div class="field"><label>Calibre</label>
+        <select id="m_calibre">
+          <option value="">—</option>
+          <option>38x24</option><option>45x24</option><option>45x25</option><option>45x26</option>
+          <option>49x24</option><option>49x25</option><option>49x26</option><option>54x24</option>
+        </select>
+      </div>
+      <div class="field"><label>Massas</label><input id="m_massas" type="text" placeholder="2,9-3,7"></div>
+      <div class="field"><label>Qtd Entrada (kr)</label><input id="m_qtdEntrada" type="number" step="0.1"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Destino</label>
+        <select id="m_destino">
+          <option value="">—</option>
+          <option>CSP2 AI</option><option>KB LAV</option><option>KB MQ</option>
+          <option>KANBAN VOCUS</option><option>KANBAN DS100</option>
+          <option>KANBAN LAV</option><option>KANBAN DSL</option>
+        </select>
+      </div>
+      <div class="field"><label>Estado</label>
+        <select id="m_estado">
+          <option>PI por liberar</option>
+          <option>PI liberado</option>
+          <option>PI entregue LOG</option>
+          <option>CSP2-AI por liberar</option>
+          <option>CSP2-AI liberada</option>
+          <option>KANBAN</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Obs PI</label><textarea id="m_obsPi" rows="2"></textarea></div>
+    <div class="row">
+      <div class="field">
+        <label>Modo de Início</label>
+        <select id="m_inicioMode" onchange="onInicioModeChange()">
+          <option value="auto">Auto (cascata da OP anterior)</option>
+          <option value="manual">Manual (forçar hora)</option>
+        </select>
+      </div>
+      <div class="field" id="m_hInicioP_wrap" style="display:none">
+        <label>Hora Início Manual</label>
+        <input id="m_hInicioP" type="time">
+      </div>
+    </div>
+
+    <div class="post-exec">
+      <div class="post-exec-title">Pós-execução · preenchimento depois da OP estar feita</div>
+      <div class="row">
+        <div class="field"><label>Lote ADE</label><input id="m_loteAde" type="text" class="mono" placeholder="LT02307833"></div>
+        <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="0.1" placeholder="kr"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time"></div>
+        <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time"></div>
+        <div class="field"><label>Tempo Atraso</label><input id="m_tempoAtraso" type="text" placeholder="HH:MM"></div>
+      </div>
+      <div class="field"><label>Colaborador</label><input id="m_colaborador" type="text"></div>
+      <div class="field"><label>Observações</label><textarea id="m_obs" rows="2"></textarea></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="m_btnDelete" onclick="deleteOP()">Apagar</button>
+      <button class="btn" id="m_btnSplit" onclick="openSplitDialog()">✂ Dividir OP</button>
+      <button class="btn" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" id="m_btnSave" onclick="saveOP()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Trocar OPs -->
+<div class="modal-bg" id="modalSwap">
+  <div class="modal" style="max-width:480px">
+    <h2>🔄 Trocar 2 OPs</h2>
+    <p style="font-size:11px; color:var(--c-muted); margin:0 0 12px">
+      Escolhe duas OPs pelo número. As suas posições (máquina, semana, dia, ordem) trocam.
+      Os outros dados (cliente, produto, qtd, etc.) ficam com a OP original.
+    </p>
+    <div class="row" style="align-items:center">
+      <div class="field"><label>OP nº 1</label><input id="swap_op1" type="text" list="swap_dl1" placeholder="ex.: 13404239"><datalist id="swap_dl1"></datalist></div>
+      <div style="font-size:18px; padding:18px 6px 0; color:var(--c-primary)">⇅</div>
+      <div class="field"><label>OP nº 2</label><input id="swap_op2" type="text" list="swap_dl2" placeholder="ex.: 13404262"><datalist id="swap_dl2"></datalist></div>
+    </div>
+    <div id="swap_preview" style="font-size:11px; color:var(--c-text); background:#f5f8f2; padding:8px; border-radius:3px; margin:8px 0; display:none"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSwapModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="doSwapOps()">Trocar OPs</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ===== Helpers de data e semana ISO =====
+const HOUR_MS = 3600 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const pad = n => String(n).padStart(2, '0');
+const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MONTHS_PT_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// Dias da semana (Seg=0 ... Dom=6) — usados nos separadores de dia dentro da tabela semanal
+const DIAS_PT = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+const DIAS_PT_LONG = ['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado','Domingo'];
+
+function fmtDT(d) { if (!d || isNaN(d)) return ''; return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtDate(d) { if (!d || isNaN(d)) return ''; return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fmtTime(d) { if (!d || isNaN(d)) return ''; return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+// Aceita 'YYYY-MM-DD' OU 'YYYY-MM-DDTHH:MM'
+function parseDateMaybeTime(s) {
+  if (!s) return null;
+  const str = String(s);
+  const d = new Date(str.includes('T') ? str : (str + 'T00:00'));
+  return isNaN(d) ? null : d;
+}
+// "HH:MM" -> horas decimais
+function timeStrToHours(s) {
+  if (!s || typeof s !== 'string') return 0;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!m) return 0;
+  return parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+}
+// horas decimais -> "HH:MM"
+function hoursToTimeStr(h) {
+  if (!h || h < 0) return '00:00';
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return `${pad(hh)}:${pad(mm)}`;
+}
+
+// === Janela de congelamento: passado > 5 dias é imutável ===
+const FREEZE_DAYS = 5;
+function getFreezeDate() {
+  const d = new Date();
+  d.setDate(d.getDate() - FREEZE_DAYS);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function isFrozenDate(date) {
+  if (!date) return false;
+  return date < getFreezeDate();
+}
+function isFrozenWeek(weekKey) {
+  // Semana totalmente congelada se o Domingo (último dia) é anterior à freeze date
+  const m = /^(\d{4})-W(\d{2})$/.exec(weekKey || '');
+  if (!m) return false;
+  const yy = parseInt(m[1], 10), ww = parseInt(m[2], 10);
+  const jan4 = new Date(yy, 0, 4);
+  const dayOfJan4 = (jan4.getDay() || 7) - 1;
+  const monday1 = new Date(jan4); monday1.setDate(jan4.getDate() - dayOfJan4);
+  const weekMonday = new Date(monday1); weekMonday.setDate(monday1.getDate() + (ww - 1) * 7);
+  const nextMonday = new Date(weekMonday); nextMonday.setDate(weekMonday.getDate() + 7);
+  return nextMonday <= getFreezeDate();
+}
+
+function isoWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / DAY_MS) + 1) / 7);
+}
+function isoWeekYear(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  return d.getUTCFullYear();
+}
+function weekKey(date) {
+  return `${isoWeekYear(date)}-W${pad(isoWeek(date))}`;
+}
+function mondayOfWeek(date) {
+  const d = new Date(date);
+  const dow = d.getDay() || 7;
+  d.setDate(d.getDate() - (dow - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function getWeeksInMonth(year, month) {
+  const weeks = [];
+  const seen = new Set();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dt = new Date(year, month, day);
+    const wk = weekKey(dt);
+    if (!seen.has(wk)) {
+      seen.add(wk);
+      const monday = mondayOfWeek(dt);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      weeks.push({ key: wk, weekNum: isoWeek(dt), year: isoWeekYear(dt), monday, sunday });
+    }
+  }
+  return weeks;
+}
+
+// ===== Dados DENSIDADES — demo realista (W17-W22 2026) =====
+const DENS_DEFAULT_DATA = [
+  // ============================================================
+  // JUNHO 2026 — dados reais importados do DENS PLAN 2026 (W23 + W24)
+  // (folhas JUL e AGO ainda em branco no Excel; protótipo reflecte isso)
+  // ============================================================
+  // 2026-W23
+  { id: 1, op: '13404239', tipo: 'DENS', fileCliente: '10486', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS-TA', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 66.3, obsPi: '', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '13:23', duracaoP: '05:23', hInicioR: '', hFimR: '13:20', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 0, diaIdx: 0 },
+  { id: 2, op: '13404262', tipo: 'DENS', fileCliente: '13913 ENC', produto: 'N-QV2-NAT-45X242-1111-ADE-SDS-TA', calibre: '45x24', massas: '2,9 - 3,9', qtdEntrada: 40.0, obsPi: 'ENCOMENDA - Continua a 02/06', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '13:28', hFimP: '16:45', duracaoP: '03:17', hInicioR: '13:25', hFimR: '16:45', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 1, diaIdx: 0 },
+  { id: 3, op: '13404260', tipo: 'DENS', fileCliente: '13385 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 15.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '10:25', duracaoP: '03:25', hInicioR: '09:15', hFimR: '12:30', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 0, diaIdx: 0 },
+  { id: 4, op: '13404263', tipo: 'DENS', fileCliente: '11704', produto: 'N-QV2-NAT-49X242-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 20.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '10:30', hFimP: '16:01', duracaoP: '04:31', hInicioR: '14:20', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 1, diaIdx: 0 },
+  { id: 5, op: '13404259', tipo: 'DENS', fileCliente: '10882 ENC', produto: 'N-QV2-NAT-49X242-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 30.8, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '09:32', duracaoP: '02:32', hInicioR: '08:20', hFimR: '11:30', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 2, diaIdx: 1 },
+  { id: 6, op: '13404264', tipo: 'DENS', fileCliente: 'CSP2 AI', produto: 'N-QV2-323-49X240-1010-ADE-CRU', calibre: '49x24', massas: '3,1 - 4,6', qtdEntrada: 12.8, obsPi: 'CSP2 AI', destino: 'CSP2 AI', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'CSP2-AI por liberar', hInicioP: '09:37', hFimP: '10:44', duracaoP: '01:06', hInicioR: '11:35', hFimR: '13:20', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 3, diaIdx: 1 },
+  { id: 7, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 50.0, obsPi: 'ENCOMENDA - Continua a 03/06', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '10:49', hFimP: '15:54', duracaoP: '04:05', hInicioR: '13:40', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 4, diaIdx: 1 },
+  { id: 8, op: '13404227', tipo: 'DENS', fileCliente: '11257 Righetti', produto: 'N-QV2-NAT-45X260-0202-ADE-SDS', calibre: '45x26', massas: '3,4-4,5', qtdEntrada: 36.4, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '16:10', duracaoP: '08:10', hInicioR: '08:10', hFimR: '15:45', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 2, diaIdx: 1 },
+  { id: 9, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 87.2, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '15:03', duracaoP: '07:03', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 5, diaIdx: 2 },
+  { id: 10, op: '13404265', tipo: 'DENS', fileCliente: '19784 ENC', produto: 'N-QV2-NAT-49X250-0101-ADE-SDS', calibre: '49x25', massas: '3,5 - 4,8', qtdEntrada: 10.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '15:08', hFimP: '16:01', duracaoP: '00:53', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 6, diaIdx: 2 },
+  { id: 11, op: '13404267', tipo: 'DENS', fileCliente: '18342 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 3.5, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '16:06', hFimP: '16:28', duracaoP: '00:21', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 7, diaIdx: 2 },
+  { id: 12, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 35.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '15:51', duracaoP: '07:51', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 3, diaIdx: 2 },
+  { id: 13, op: '13404228', tipo: 'DENS', fileCliente: '11257 Righetti', produto: 'N-QV2-NAT-45X260-0202-ADE-SDS', calibre: '45x26', massas: '3,4-4,5', qtdEntrada: 5.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '15:56', hFimP: '17:08', duracaoP: '01:11', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 4, diaIdx: 2 },
+  // 2026-W24
+  { id: 14, op: '13404267', tipo: 'DENS', fileCliente: '18342 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 60.0, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '11:53', duracaoP: '04:53', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 0, diaIdx: 0 },
+  { id: 15, op: '13404266', tipo: 'DENS', fileCliente: '20080 LEGACY', produto: 'N-QV2-L03-49X240-1212-CDE-SDS-LEG', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 10.6, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '11:58', hFimP: '13:53', duracaoP: '00:55', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 1, diaIdx: 0 },
+  { id: 16, op: '13404268', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 25.0, obsPi: 'ENCOMENDA - Continua a 09/06', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '13:58', hFimP: '16:03', duracaoP: '02:05', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 2, diaIdx: 0 },
+  { id: 17, op: '13404269', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 37.8, obsPi: 'ENCOMENDA - Continua a 09/06', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '16:29', duracaoP: '08:29', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 0, diaIdx: 0 },
+  { id: 18, op: '13404268', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 76.2, obsPi: 'ENCOMENDA', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 10', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '14:10', duracaoP: '06:10', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 3, diaIdx: 1 },
+  { id: 19, op: '13404269', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 40.0, obsPi: 'ENCOMENDA', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Linha 9', estado: 'PI por liberar', hInicioP: '07:00', hFimP: '16:58', duracaoP: '08:58', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 1, diaIdx: 1 },
+];
+
+// ============================================================
+// Estado global de UI
+// ============================================================
+// Tabs mensais: m05..m12 (Mai a Dez de 2026). Cada tab mostra as semanas desse mês,
+// com duas zonas empilhadas (Linha 10 + Linha 9) por bloco semanal.
+const MONTHLY_TABS = [
+  { key: 'm05', label: 'Maio 2026',     month: 4  },
+  { key: 'm06', label: 'Junho 2026',    month: 5  },
+  { key: 'm07', label: 'Julho 2026',    month: 6  },
+  { key: 'm08', label: 'Agosto 2026',   month: 7  },
+  { key: 'm09', label: 'Setembro 2026', month: 8  },
+  { key: 'm10', label: 'Outubro 2026',  month: 9  },
+  { key: 'm11', label: 'Novembro 2026', month: 10 },
+  { key: 'm12', label: 'Dezembro 2026', month: 11 },
+];
+const MONTHLY_YEAR = 2026;
+const MACHINES = ['Linha 10', 'Linha 9'];
+const DENS_ESTADOS = ['PI por liberar', 'PI liberado', 'PI entregue LOG', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'KANBAN'];
+// Pesquisa partilhada entre tabs mensais (uma string global)
+const SEARCH = { value: '' };
+// Tab activo
+let ACTIVE_TAB = 'm05';
+
+// ============================================================
+// Storage Adapter — abstrai a persistência. Hoje: localStorage.
+// Amanhã: Microsoft Graph / SharePoint, sem mexer no resto.
+// Envelope JSON: { version, updatedAt, updatedBy, data }
+// ============================================================
+const CURRENT_USER = { email: 'local', name: 'Utilizador local' };
+
+
+// ============================================================
+// BackupSync — backup automático hora-a-hora num ficheiro JSON
+// dentro de uma pasta local (típica OneDrive sincronizado).
+// Chrome/Edge only (File System Access API).
+// ============================================================
+const BackupSync = (function() {
+  const IDB_NAME = 'cs-planeamento-dens';
+  const IDB_STORE = 'handles';
+  const FILE_NAME = 'planeamento_densidades_backup.json';
+  const BACKUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
+
+  let folderHandle = null;
+  let pollTimer = null;
+  let lastBackupHash = null;
+  let lastBackupAt = null;
+  let onStatusChange = null;
+
+  // ---------- IndexedDB ----------
+  function openIDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbPut(key, value) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGet(key) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbDel(key) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  function buildSnapshot() {
+    const dens     = Storage.load('planeamento_dens_v1');
+    const settings = Storage.load('planeamento_dens_settings_v1');
+    return {
+      schemaVersion: 2,
+      generatedAt: new Date().toISOString(),
+      generatedBy: CURRENT_USER.email,
+      data: {
+        dens:     dens     ? { etag: dens.etag,     meta: dens.meta,     items: dens.data }    : null,
+        settings: settings ? { etag: settings.etag, meta: settings.meta, data:  settings.data } : null,
+        profile:  localStorage.getItem('planeamento_profile_v1') || 'planeador',
+      },
+    };
+  }
+  function snapshotKey(snap) {
+    return [
+      snap.data.dens     ? snap.data.dens.etag     : '∅',
+      snap.data.settings ? snap.data.settings.etag : '∅',
+      snap.data.profile,
+    ].join('|');
+  }
+
+  async function writeBackup(force) {
+    if (!folderHandle) return { ok: false, reason: 'no-folder' };
+    const snap = buildSnapshot();
+    const key = snapshotKey(snap);
+    if (!force && key === lastBackupHash) return { ok: false, reason: 'no-changes' };
+    try {
+      const fh = await folderHandle.getFileHandle(FILE_NAME, { create: true });
+      const w  = await fh.createWritable();
+      await w.write(JSON.stringify(snap, null, 2));
+      await w.close();
+      lastBackupHash = key;
+      lastBackupAt = new Date();
+      console.info(`[BackupSync] OK · ${FILE_NAME} · ${lastBackupAt.toISOString()}`);
+      if (typeof onStatusChange === 'function') onStatusChange();
+      return { ok: true };
+    } catch (e) {
+      console.error('[BackupSync] write falhou:', e);
+      return { ok: false, reason: e.message };
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    pollTimer = setInterval(() => writeBackup(false), BACKUP_INTERVAL_MS);
+  }
+  function stopTimer() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  return {
+    isSupported() { return typeof window.showDirectoryPicker === 'function'; },
+    isConnected() { return folderHandle !== null; },
+    getFolderName() { return folderHandle ? folderHandle.name : null; },
+    getLastBackupAt() { return lastBackupAt; },
+    setOnStatusChange(cb) { onStatusChange = cb; },
+
+    async connect() {
+      if (!this.isSupported()) throw new Error('Este browser não suporta a File System Access API. Usa Chrome ou Edge.');
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      folderHandle = handle;
+      try { await idbPut('backupFolder', handle); } catch (e) { console.warn('[BackupSync] IDB put falhou:', e); }
+      await writeBackup(true);
+      startTimer();
+      return { folderName: handle.name };
+    },
+
+    async tryRestore() {
+      if (!this.isSupported()) return false;
+      try {
+        const stored = await idbGet('backupFolder');
+        if (!stored) return false;
+        const perm = await stored.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return false;
+        folderHandle = stored;
+        startTimer();
+        writeBackup(false);
+        return true;
+      } catch (e) { return false; }
+    },
+
+    async tryRestoreInteractive() {
+      if (!this.isSupported()) return false;
+      try {
+        const stored = await idbGet('backupFolder');
+        if (!stored) return false;
+        const perm = await stored.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return false;
+        folderHandle = stored;
+        await writeBackup(true);
+        startTimer();
+        return true;
+      } catch (e) { return false; }
+    },
+
+    async disconnect() {
+      stopTimer();
+      folderHandle = null;
+      lastBackupHash = null;
+      lastBackupAt = null;
+      try { await idbDel('backupFolder'); } catch (e) {}
+      if (typeof onStatusChange === 'function') onStatusChange();
+    },
+
+    backupNow() { return writeBackup(true); },
+  };
+})();
+
+// ============================================================
+// Perfis de edição (Planeador / Produção)
+// ============================================================
+const LS_PROFILE = 'planeamento_profile_v1';
+function getProfile() {
+  const p = localStorage.getItem(LS_PROFILE);
+  return (p === 'producao') ? 'producao' : 'planeador';
+}
+function isProducao() { return getProfile() === 'producao'; }
+function applyProfileToBody() {
+  document.body.classList.toggle('profile-producao', isProducao());
+  const sel = document.getElementById('profileSelect');
+  if (sel) sel.value = getProfile();
+}
+function changeProfile(p) {
+  try { localStorage.setItem(LS_PROFILE, p); } catch (e) {}
+  applyProfileToBody();
+  if (typeof closeModal === 'function') closeModal();
+  if (typeof rerender === 'function') rerender();
+}
+
+// Em Produção: editáveis = bloco pós-execução + Estado.
+const PRODUCAO_EDITABLE = [
+  'm_estado',
+  'm_loteAde', 'm_qtdFinalAde',
+  'm_hInicioR', 'm_hFimR', 'm_tempoAtraso',
+  'm_colaborador', 'm_obs',
+];
+
+function applyProfileToModal(modalKind) {
+  const isProd = isProducao();
+  const modalEl = document.getElementById('modal');
+  if (!modalEl) return;
+  const allowed = PRODUCAO_EDITABLE;
+  const inputs = modalEl.querySelectorAll('input, select, textarea');
+  inputs.forEach(inp => {
+    if (!isProd) {
+      if (inp.dataset.profileReadonly === '1') {
+        if (inp.tagName === 'SELECT') inp.disabled = false;
+        else inp.readOnly = false;
+        delete inp.dataset.profileReadonly;
+      }
+      return;
+    }
+    if (allowed.includes(inp.id)) {
+      if (inp.dataset.profileReadonly === '1') {
+        if (inp.tagName === 'SELECT') inp.disabled = false;
+        else inp.readOnly = false;
+        delete inp.dataset.profileReadonly;
+      }
+      return;
+    }
+    if (inp.tagName === 'SELECT') {
+      if (!inp.disabled) { inp.disabled = true; inp.dataset.profileReadonly = '1'; }
+    } else {
+      if (!inp.readOnly) { inp.readOnly = true; inp.dataset.profileReadonly = '1'; }
+    }
+  });
+  const deleteBtn = modalEl.querySelector('#m_btnDelete');
+  if (deleteBtn) deleteBtn.style.display = isProd ? 'none' : '';
+}
+
+const Storage = (function() {
+  function isEnvelope(o) {
+    return o && typeof o === 'object' && !Array.isArray(o) && 'data' in o && typeof o.version === 'number';
+  }
+  function wrap(data, prevMeta) {
+    const v = (prevMeta && typeof prevMeta.version === 'number') ? prevMeta.version + 1 : 1;
+    return {
+      version: v,
+      updatedAt: new Date().toISOString(),
+      updatedBy: CURRENT_USER.email,
+      data: data,
+    };
+  }
+  function parseEnvelope(raw) {
+    try {
+      const obj = JSON.parse(raw);
+      if (isEnvelope(obj)) {
+        return {
+          data: obj.data,
+          etag: String(obj.version),
+          meta: { version: obj.version, updatedAt: obj.updatedAt || null, updatedBy: obj.updatedBy || null },
+        };
+      }
+      return { data: obj, etag: '0', meta: { version: 0, updatedAt: null, updatedBy: null } };
+    } catch (e) { return null; }
+  }
+  return {
+    load(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw == null) return null;
+        return parseEnvelope(raw);
+      } catch (e) { return null; }
+    },
+    save(key, data, expectedEtag) {
+      const existing = this.load(key);
+      if (expectedEtag != null && existing && existing.etag !== expectedEtag) {
+        console.warn(`[Storage] eTag mismatch for "${key}": expected ${expectedEtag}, got ${existing.etag}`);
+      }
+      const envelope = wrap(data, existing ? existing.meta : null);
+      try {
+        localStorage.setItem(key, JSON.stringify(envelope));
+        return {
+          etag: String(envelope.version),
+          meta: { version: envelope.version, updatedAt: envelope.updatedAt, updatedBy: envelope.updatedBy },
+        };
+      } catch (e) {
+        console.error(`[Storage] save("${key}") failed:`, e);
+        return null;
+      }
+    },
+    remove(key) { try { localStorage.removeItem(key); } catch (e) {} },
+    has(key) { try { return localStorage.getItem(key) != null; } catch (e) { return false; } },
+    getCurrentUser() { return CURRENT_USER; },
+    onChange(/* key, callback */) { /* no-op hoje */ },
+    rawGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    rawSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} },
+  };
+})();
+
+
+// ============================================================
+// Definições (DENSIDADES)
+// ============================================================
+const DEFAULT_SETTINGS = {
+  startTime: '07:00',
+  tempoSemana: '08:00',     // tempo disponível por dia (Seg-Sex)
+  tempoSabado: '03:00',     // tempo disponível ao sábado
+  setupMin: 10,             // setup entre OPs (fecho + arranque)
+  abastecMin: 60,           // abastecimento Logística
+  horaLimiteLog: '09:00',   // hora limite Logística
+  capacidades: {
+    'Linha 10': { kr8h: 100, krH: 14.6 },
+    'Linha 9':  { kr8h: 36,  krH: 4.5 },
+  },
+  calibres: '38x24 / 45x24 / 45x25 / 45x26\n49x24 / 49x25 / 49x26\n54x24',
+  ade: {
+    massa_le1:      { pct: 50, tol: 5 },
+    massa_gt1:      { pct: 65, tol: 5 },
+    cliente_resalte:{ pct: 50, tol: 5 },
+    cliente_terlano:{ pct: 30, tol: 5 },
+  },
+  stops: {
+    'Linha 10': [
+      { date: '2026-04-25', label: 'Feriado', days: 1 },
+      { date: '2026-05-01', label: 'Feriado', days: 1 },
+      { date: '2026-06-04', label: 'Corpo Deus', days: 1 },
+      { date: '2026-06-10', label: 'Feriado', days: 1 },
+    ],
+    'Linha 9': [
+      { date: '2026-04-25', label: 'Feriado', days: 1 },
+      { date: '2026-05-01', label: 'Feriado', days: 1 },
+      { date: '2026-06-04', label: 'Corpo Deus', days: 1 },
+      { date: '2026-06-10', label: 'Feriado', days: 1 },
+    ],
+  },
+};
+
+let SETTINGS = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+let SETTINGS_ETAG = null;
+const LS_SETTINGS_KEY = 'planeamento_dens_settings_v1';
+
+function loadSettings() {
+  const env = Storage.load(LS_SETTINGS_KEY);
+  if (env && env.data && typeof env.data === 'object') {
+    SETTINGS = Object.assign(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), env.data);
+    SETTINGS_ETAG = env.etag;
+  } else {
+    SETTINGS_ETAG = null;
+  }
+  // Garantir todas as máquinas em stops e capacidades
+  if (!SETTINGS.stops) SETTINGS.stops = {};
+  if (!SETTINGS.capacidades) SETTINGS.capacidades = {};
+  for (const m of MACHINES) {
+    if (!SETTINGS.stops[m]) SETTINGS.stops[m] = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.stops[m] || []));
+    if (!SETTINGS.capacidades[m]) SETTINGS.capacidades[m] = Object.assign({}, DEFAULT_SETTINGS.capacidades[m]);
+  }
+}
+
+function saveSettings() {
+  const res = Storage.save(LS_SETTINGS_KEY, SETTINGS, SETTINGS_ETAG);
+  if (res) SETTINGS_ETAG = res.etag;
+}
+
+function applySettingsToUI() {
+  document.getElementById('cfg-tempoSemana').value = SETTINGS.tempoSemana;
+  document.getElementById('cfg-tempoSabado').value = SETTINGS.tempoSabado;
+  document.getElementById('cfg-setupMin').value = SETTINGS.setupMin;
+  document.getElementById('cfg-abastecMin').value = SETTINGS.abastecMin;
+  document.getElementById('cfg-horaLimiteLog').value = SETTINGS.horaLimiteLog;
+  document.getElementById('cfg-calibres').value = SETTINGS.calibres;
+  document.querySelectorAll('#cfg-capacidades input').forEach(i => {
+    const m = i.dataset.key;
+    const f = i.dataset.field;
+    if (SETTINGS.capacidades[m] && SETTINGS.capacidades[m][f] !== undefined) {
+      i.value = SETTINGS.capacidades[m][f];
+    }
+  });
+  document.querySelectorAll('#cfg-ade input').forEach(i => {
+    const k = i.dataset.key;
+    const f = i.dataset.field;
+    if (SETTINGS.ade[k] && SETTINGS.ade[k][f] !== undefined) {
+      i.value = SETTINGS.ade[k][f];
+    }
+  });
+  renderStopsTable('Linha 10');
+  renderStopsTable('Linha 9');
+  updateGlobalCapacityStatus();
+}
+
+function readSettingsFromUI() {
+  // startTime mantido internamente como fallback (default 07:00) — a UI da config foi removida;
+  // cada OP define a sua "Hora Início"; em cascata, se vazia, usa este valor para a 1ª OP da semana.
+  SETTINGS.tempoSemana = document.getElementById('cfg-tempoSemana').value || '08:00';
+  SETTINGS.tempoSabado = document.getElementById('cfg-tempoSabado').value || '03:00';
+  SETTINGS.setupMin = parseInt(document.getElementById('cfg-setupMin').value, 10) || 10;
+  SETTINGS.abastecMin = parseInt(document.getElementById('cfg-abastecMin').value, 10) || 60;
+  SETTINGS.horaLimiteLog = document.getElementById('cfg-horaLimiteLog').value || '09:00';
+  SETTINGS.calibres = document.getElementById('cfg-calibres').value;
+  document.querySelectorAll('#cfg-capacidades input').forEach(i => {
+    const m = i.dataset.key;
+    const f = i.dataset.field;
+    if (!SETTINGS.capacidades[m]) SETTINGS.capacidades[m] = {};
+    SETTINGS.capacidades[m][f] = parseFloat(i.value) || 0;
+  });
+  document.querySelectorAll('#cfg-ade input').forEach(i => {
+    const k = i.dataset.key;
+    const f = i.dataset.field;
+    if (!SETTINGS.ade[k]) SETTINGS.ade[k] = {};
+    SETTINGS.ade[k][f] = parseFloat(i.value) || 0;
+  });
+}
+
+function onSettingsChange() {
+  readSettingsFromUI();
+  saveSettings();
+  updateGlobalCapacityStatus();
+  rerender();
+}
+
+function updateGlobalCapacityStatus() {
+  const totalKr8h = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].kr8h || 0 : 0), 0);
+  const totalKrH = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].krH || 0 : 0), 0);
+  document.getElementById('status-rate').textContent =
+    `${totalKr8h} kr/8h · ${totalKrH.toFixed(1)} kr/h`;
+}
+
+function renderStopsTable(machine) {
+  const tabId = machine === 'Linha 10' ? 'cfg-stops-m1' : 'cfg-stops-m3';
+  const tbody = document.querySelector(`#${tabId} tbody`);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const list = SETTINGS.stops[machine] || [];
+  list.forEach((s, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="date" value="${s.date || ''}" data-machine="${machine}" data-idx="${idx}" data-field="date"></td>
+      <td><input type="text" value="${s.label || ''}" data-machine="${machine}" data-idx="${idx}" data-field="label"></td>
+      <td><input type="number" value="${s.days || 1}" min="1" max="60" data-machine="${machine}" data-idx="${idx}" data-field="days"></td>
+      <td><input type="time" value="${s.startTime || ''}" placeholder="—" data-machine="${machine}" data-idx="${idx}" data-field="startTime"></td>
+      <td><input type="time" value="${s.endTime || ''}" placeholder="—" data-machine="${machine}" data-idx="${idx}" data-field="endTime"></td>
+      <td class="del-row" data-action="del-stop" data-machine="${machine}" data-idx="${idx}" title="Apagar">×</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(i => i.addEventListener('change', e => {
+    const m = e.target.dataset.machine;
+    const idx = parseInt(e.target.dataset.idx, 10);
+    const field = e.target.dataset.field;
+    const val = field === 'days' ? (parseInt(e.target.value, 10) || 1) : e.target.value;
+    SETTINGS.stops[m][idx][field] = val;
+    saveSettings(); rerender();
+  }));
+  tbody.querySelectorAll('.del-row').forEach(b => b.addEventListener('click', e => {
+    const m = e.target.dataset.machine;
+    const idx = parseInt(e.target.dataset.idx, 10);
+    SETTINGS.stops[m].splice(idx, 1);
+    saveSettings(); renderStopsTable(m); rerender();
+  }));
+}
+
+function addStopRow(machine) {
+  if (!SETTINGS.stops[machine]) SETTINGS.stops[machine] = [];
+  const today = new Date();
+  SETTINGS.stops[machine].push({ date: fmtDate(today), label: 'Nova paragem', days: 1, startTime: '', endTime: '' });
+  saveSettings(); renderStopsTable(machine); rerender();
+}
+
+function resetSettings() {
+  if (!confirm('Repor todas as definições para os valores predefinidos?')) return;
+  SETTINGS = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  saveSettings();
+  applySettingsToUI();
+  rerender();
+}
+
+function getStops(machine) { return SETTINGS.stops[machine] || []; }
+
+// ============================================================
+// Capacidades por máquina — derivadas de SETTINGS (sem override diário)
+// kr/semana = krH × (5 × tempoSemana + tempoSabado), descontando paragens.
+// ============================================================
+function getWeekHoursAvailable() {
+  // Horas disponíveis padrão na semana (Seg-Sex + Sáb)
+  return 5 * timeStrToHours(SETTINGS.tempoSemana) + timeStrToHours(SETTINGS.tempoSabado);
+}
+function getWeekCapKr(machine) {
+  // Capacidade nominal da máquina nessa semana (kr)
+  const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
+  return Math.round(krH * getWeekHoursAvailable() * 10) / 10;
+}
+
+// ============================================================
+// Procura global (uma string partilhada por todos os tabs mensais)
+// ============================================================
+function weekKeysOfMonth(year, month) {
+  return new Set(getWeeksInMonth(year, month).map(w => w.key));
+}
+
+function matchesSearch(op, term) {
+  if (!term) return true;
+  const haystack = `${op.op || ''} ${op.fileCliente || ''} ${op.produto || ''} ${op.calibre || ''} ${op.massas || ''} ${op.loteAde || ''} ${op.colaborador || ''} ${op.obs || ''} ${op.obsPi || ''} ${op.destino || ''}`.toLowerCase();
+  return haystack.includes(term);
+}
+
+function getActiveMonth() {
+  const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
+  return t ? { year: MONTHLY_YEAR, month: t.month } : null;
+}
+
+function formatHitsPill(term) {
+  if (!term) return null;
+  const t = term.toLowerCase();
+  const active = getActiveMonth();
+  const activeKeys = active ? weekKeysOfMonth(active.year, active.month) : new Set();
+  const counts = [
+    ['Linha 10', DATA.filter(o => o.maquina === 'Linha 10' && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
+    ['Linha 9',  DATA.filter(o => o.maquina === 'Linha 9'  && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
+    ['KANBAN',   DATA.filter(o => o.maquina === 'KANBAN' && matchesSearch(o, t)).length],
+  ];
+  const hidden = DATA.filter(o => o.maquina !== 'KANBAN' && o.weekKey && matchesSearch(o, t)
+    && !activeKeys.has(o.weekKey)).length;
+  const total = counts.reduce((s, [, n]) => s + n, 0);
+  if (total === 0 && hidden === 0) return '0 resultados';
+  if (total === 0 && hidden > 0) return `0 no mês visível · ${hidden} noutros meses`;
+  const positives = counts.filter(([, n]) => n > 0).map(([label, n]) => `${n} em ${label}`);
+  const suffix = hidden > 0 ? ` · +${hidden} noutros meses` : '';
+  return `${total} resultado${total === 1 ? '' : 's'} (${positives.join(', ')})${suffix}`;
+}
+
+function onSearch(tab, value) {
+  SEARCH.value = (value || '').trim().toLowerCase();
+  // Sincroniza o input visível em todos os tabs mensais
+  MONTHLY_TABS.forEach(t => {
+    const inp = document.getElementById(`search-${t.key}`);
+    if (inp && inp.value !== value) inp.value = value;
+  });
+  rerender();
+}
+function clearSearch(/* tab */) {
+  SEARCH.value = '';
+  MONTHLY_TABS.forEach(t => {
+    const inp = document.getElementById(`search-${t.key}`);
+    if (inp) inp.value = '';
+  });
+  rerender();
+}
+
+// ============================================================
+// Carregamento de dados
+// ============================================================
+let DATA = [];
+let DENS_ETAG = null;
+const LS_KEY_REAL = 'planeamento_dens_v1';
+
+function loadData() {
+  const env = Storage.load(LS_KEY_REAL);
+  if (env && Array.isArray(env.data)) {
+    DATA = env.data;
+    DENS_ETAG = env.etag;
+  } else {
+    DATA = JSON.parse(JSON.stringify(DENS_DEFAULT_DATA));
+    DENS_ETAG = null;
+  }
+  // Migração: remover capacidades diárias antigas (já não existe esse conceito)
+  try { localStorage.removeItem('planeamento_dens_caps_v1'); } catch (e) {}
+  // Migração: realoca OPs antigas com maquina "Maq 2" para Linha 10
+  let migrated = false;
+  for (const o of DATA) {
+    if (o.maquina === 'Maq 2') { o.maquina = 'Linha 10'; migrated = true; }
+  }
+  // Migração: derivar inicioMode para OPs antigas (hInicioP preenchido → 'manual'; senão 'auto')
+  for (const o of DATA) {
+    if (o.inicioMode === undefined) {
+      o.inicioMode = o.hInicioP ? 'manual' : 'auto';
+      migrated = true;
+    }
+  }
+  if (migrated) saveData();
+}
+function saveData() {
+  const res = Storage.save(LS_KEY_REAL, DATA, DENS_ETAG);
+  if (res) DENS_ETAG = res.etag;
+}
+function isReadOnly() { return isProducao(); }
+
+
+// ============================================================
+// Scheduling — cursor temporal, setup entre OPs, salto de paragens
+// e respeito por capacidades diárias (0 = dia bloqueado)
+// ============================================================
+function getStartHour() {
+  const t = SETTINGS.startTime || '07:00';
+  const [h, m] = t.split(':').map(Number);
+  return { h, m };
+}
+
+function getStopRange(stop) {
+  const baseDate = new Date(stop.date + 'T00:00');
+  const days = stop.days || 1;
+  const hasStart = stop.startTime && /^\d{2}:\d{2}$/.test(stop.startTime);
+  const hasEnd = stop.endTime && /^\d{2}:\d{2}$/.test(stop.endTime);
+  const start = new Date(baseDate);
+  const end = new Date(baseDate);
+  if (hasStart && hasEnd) {
+    const [sh, sm] = stop.startTime.split(':').map(Number);
+    const [eh, em] = stop.endTime.split(':').map(Number);
+    start.setHours(sh, sm, 0, 0);
+    end.setDate(end.getDate() + days - 1);
+    end.setHours(eh, em, 0, 0);
+  } else {
+    start.setHours(0, 0, 0, 0);
+    end.setDate(end.getDate() + days);
+    end.setHours(0, 0, 0, 0);
+  }
+  return { start, end, label: stop.label || 'Paragem' };
+}
+
+function advanceSkippingStops(startCursor, durMs, stopRanges) {
+  const sorted = stopRanges.slice().sort((a, b) => a.start - b.start);
+  let cursor = new Date(startCursor.getTime());
+  for (const s of sorted) {
+    if (cursor >= s.start && cursor < s.end) cursor = new Date(s.end.getTime());
+  }
+  const actualStart = new Date(cursor.getTime());
+  let remaining = durMs;
+  for (const s of sorted) {
+    if (s.end <= cursor) continue;
+    if (s.start >= new Date(cursor.getTime() + remaining)) break;
+    const gap = s.start - cursor;
+    if (gap > 0 && gap < remaining) { remaining -= gap; cursor = new Date(s.end.getTime()); }
+    else if (gap <= 0) cursor = new Date(s.end.getTime());
+  }
+  return { start: actualStart, end: new Date(cursor.getTime() + remaining) };
+}
+
+function calcScheduleForWeek(machine, weekKey, weekStart) {
+  const ops = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey)
+                  .sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  const startH = getStartHour();  // Fallback interno (07:00) para a 1ª OP da semana sem hora manual
+  let cursor = new Date(weekStart);
+  cursor.setHours(startH.h, startH.m, 0, 0);
+  const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
+  const lookEnd = new Date(weekStart.getTime() + 28 * DAY_MS);
+  const stopRanges = getStops(machine).map(getStopRange).filter(s => s.end > cursor && s.start < lookEnd);
+  const SETUP_MS = (SETTINGS.setupMin || 10) * 60 * 1000;
+  return ops.map((op, i) => {
+    // Duração: derivada de qtdEntrada / krH (a duração planeada fica em duracaoP, recalculada aqui)
+    let durH = krH > 0 && op.qtdEntrada > 0 ? (op.qtdEntrada / krH) : 0;
+    // Override de duração se a OP tem hInicio + hFim manuais (cenário real importado)
+    if (op.hInicioP && op.hFimP) {
+      const d = timeStrToHours(op.hFimP) - timeStrToHours(op.hInicioP);
+      if (d > 0) durH = d;
+    }
+    // Ponto de partida: se a OP tiver modo de início manual (ou hInicioP definido por retro-compat),
+    // usar essa hora no dia desta OP; caso contrário, usar cursor cascateado da OP anterior.
+    const isManualStart = (op.inicioMode === 'manual') || (op.inicioMode === undefined && !!op.hInicioP);
+    let startPoint = cursor;
+    if (isManualStart && op.hInicioP) {
+      const [hh, mm] = op.hInicioP.split(':').map(Number);
+      const dayStart = new Date(weekStart);
+      dayStart.setDate(weekStart.getDate() + (op.diaIdx || 0));
+      dayStart.setHours(hh, mm, 0, 0);
+      startPoint = dayStart;
+    }
+    const { start, end } = advanceSkippingStops(startPoint, durH * HOUR_MS, stopRanges);
+    cursor = new Date(end.getTime() + SETUP_MS);
+    return { op, start, end, durH };
+  });
+}
+
+// ============================================================
+// Render — KANBAN lateral (um por painel mensal — todos partilham o mesmo conteúdo)
+// ============================================================
+function renderKanbanAll() {
+  // Renderiza o KANBAN dentro de todos os painéis mensais (contagem global única).
+  const term = SEARCH.value || '';
+  const allOps = DATA.filter(o => o.maquina === 'KANBAN').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  const ops = term ? allOps.filter(o => matchesSearch(o, term)) : allOps;
+  MONTHLY_TABS.forEach(t => renderKanbanInto(`col-kanban-${t.key}`, `count-kanban-${t.key}`, ops, allOps, term));
+}
+function renderKanbanInto(containerId, countId, ops, allOps, term) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = '';
+  const countEl = document.getElementById(countId);
+  if (countEl) countEl.textContent = term ? `${ops.length}/${allOps.length}` : ops.length;
+  if (ops.length === 0) {
+    c.innerHTML = term ? `<div class="empty">Sem resultados em KANBAN para "${term}"</div>` : '<div class="empty">Sem OPs por planear</div>';
+    return;
+  }
+  for (const op of ops) {
+    const row = document.createElement('div');
+    row.className = 'kanban-row';
+    row.draggable = !isReadOnly();
+    row.dataset.id = op.id;
+    row.innerHTML = `
+      <div class="k-op">${op.op}</div>
+      <div class="k-desc" title="${op.produto}">${op.produto}</div>
+      <div class="k-meta">${op.fileCliente || '—'} · <strong>${(op.qtdEntrada||0).toLocaleString('pt-PT')} kr</strong> · ${op.calibre || ''}</div>
+    `;
+    row.addEventListener('click', () => openModal(op));
+    setupRowDragHandlers(row, op);
+    c.appendChild(row);
+  }
+}
+
+// ============================================================
+// Render — Mês activo: blocos semanais com 2 sub-zonas (Linha 10 + Linha 9)
+// ============================================================
+function renderMonth(tabKey) {
+  const tabDef = MONTHLY_TABS.find(t => t.key === tabKey);
+  if (!tabDef) return;
+  const container = document.getElementById(`month-${tabKey}`);
+  if (!container) return;
+  container.innerHTML = '';
+  const year = MONTHLY_YEAR;
+  const month = tabDef.month;
+  const weeks = getWeeksInMonth(year, month);
+  const searchTerm = SEARCH.value || '';
+
+  // Indexa paragens de cada máquina por semana (para banner)
+  const stopsByWeekKey = {};
+  for (const machine of MACHINES) {
+    for (const stop of getStops(machine)) {
+      const sd = new Date(stop.date + 'T00:00');
+      const len = stop.days || 1;
+      for (let i = 0; i < len; i++) {
+        const d = new Date(sd.getTime() + i * DAY_MS);
+        const wk = weekKey(d);
+        if (!stopsByWeekKey[wk]) stopsByWeekKey[wk] = [];
+        const lbl = `${machine}: ${stop.label} (${fmtDate(d)})`;
+        if (!stopsByWeekKey[wk].includes(lbl)) stopsByWeekKey[wk].push(lbl);
+      }
+    }
+  }
+
+  let totalOps = 0;
+  for (const wk of weeks) {
+    const block = document.createElement('div');
+    const wkFrozen = isFrozenWeek(wk.key);
+    block.className = 'week-block' + (wkFrozen ? ' frozen' : '');
+    block.dataset.weekKey = wk.key;
+    block.dataset.frozen = wkFrozen ? '1' : '';
+
+    // Calcula schedules por máquina
+    const schedByMachine = {};
+    let weekTotalKr = 0;
+    let weekTotalH = 0;
+    let weekCapKr = 0;
+    let weekOpsCount = 0;
+    for (const machine of MACHINES) {
+      const all = calcScheduleForWeek(machine, wk.key, wk.monday);
+      const sched = searchTerm ? all.filter(s => matchesSearch(s.op, searchTerm)) : all;
+      schedByMachine[machine] = sched;
+      const workH = sched.reduce((a, b) => a + b.durH, 0);
+      const setupH = Math.max(0, sched.length - 1) * ((SETTINGS.setupMin || 10) / 60);
+      weekTotalH += workH + setupH;
+      weekTotalKr += sched.reduce((a, b) => a + (b.op.qtdEntrada || 0), 0);
+      weekCapKr += getWeekCapKr(machine);
+      weekOpsCount += sched.length;
+    }
+    if (searchTerm && weekOpsCount === 0) continue;
+    totalOps += weekOpsCount;
+
+    const weekHoursAvailable = MACHINES.length * getWeekHoursAvailable();
+    const pct = weekCapKr > 0 ? Math.min(999, (weekTotalKr / weekCapKr) * 100) : 0;
+    const occLevel = pct <= 80 ? 'low' : pct <= 100 ? 'mid' : 'high';
+    const barClass = occLevel === 'low' ? '' : occLevel;
+    const barWidth = Math.min(100, pct);
+    const freeKr = weekCapKr - weekTotalKr;
+    const isOver = freeKr < 0;
+    const freeKrStr = `${Math.abs(freeKr).toFixed(1)} kr`;
+    const freeHStr = `${Math.abs(weekHoursAvailable - weekTotalH).toFixed(1)}h`;
+    const hasStop = stopsByWeekKey[wk.key];
+
+    const header = document.createElement('div');
+    header.className = 'week-block-header' + (hasStop ? ' has-stop' : '');
+    const dRange = `${pad(wk.monday.getDate())} ${MONTHS_PT[wk.monday.getMonth()]} — ${pad(wk.sunday.getDate())} ${MONTHS_PT[wk.sunday.getMonth()]}`;
+    header.innerHTML = `
+      <div class="wbh-left">
+        <span class="semana">SEMANA ${wk.weekNum}</span>
+        <span class="dates">${dRange}</span>
+      </div>
+      <div class="meta-group">
+        <span class="meta">${weekOpsCount} OPs</span>
+        <span class="meta occ-${occLevel}">Ocupado <strong>${weekTotalH.toFixed(1)}h · ${weekTotalKr.toLocaleString('pt-PT')} kr</strong> (${pct.toFixed(0)}%)</span>
+        <div class="bar ${barClass}"><i style="width:${barWidth}%"></i></div>
+        <span class="meta ${isOver ? 'over' : 'free'}">${isOver ? 'Em excesso' : 'Livre'} <strong>${freeKrStr} · ${freeHStr}</strong></span>
+      </div>
+    `;
+    block.appendChild(header);
+    if (hasStop) {
+      const sb = document.createElement('div');
+      sb.className = 'stop-banner';
+      sb.textContent = '⚠ ' + hasStop.join(' · ');
+      block.appendChild(sb);
+    }
+
+    // 2 sub-zonas empilhadas (Linha 10 + Linha 9)
+    for (const machine of MACHINES) {
+      const zone = renderMachineZone(wk, machine, schedByMachine[machine], wkFrozen);
+      block.appendChild(zone);
+    }
+
+    container.appendChild(block);
+  }
+
+  const hitsEl = document.getElementById(`hits-${tabKey}`);
+  if (hitsEl) {
+    if (searchTerm) {
+      hitsEl.textContent = formatHitsPill(searchTerm);
+      hitsEl.style.display = 'inline-block';
+    } else {
+      hitsEl.style.display = 'none';
+    }
+  }
+  const countInfo = document.getElementById(`count-${tabKey}-info`);
+  if (countInfo) countInfo.textContent = `${totalOps} OPs`;
+}
+
+// Cria uma sub-zona (Linha 10 ou Linha 9) dentro de um bloco semanal
+function renderMachineZone(wk, machine, sched, wkFrozen) {
+  const zone = document.createElement('div');
+  zone.className = 'machine-zone';
+  zone.dataset.weekKey = wk.key;
+  zone.dataset.machine = machine;
+  zone.dataset.frozen = wkFrozen ? '1' : '';
+
+  const capKr = getWeekCapKr(machine);
+  const totalKr = sched.reduce((a, b) => a + (b.op.qtdEntrada || 0), 0);
+  const pct = capKr > 0 ? (totalKr / capKr) * 100 : 0;
+
+  const head = document.createElement('div');
+  head.className = 'machine-zone-header';
+  head.innerHTML = `
+    <span>🏭 ${machine}</span>
+    <span class="mz-meta">${sched.length} OPs · ${totalKr.toLocaleString('pt-PT')} / ${capKr.toLocaleString('pt-PT')} kr · ${pct.toFixed(0)}%</span>
+  `;
+  zone.appendChild(head);
+
+  if (sched.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-week';
+    empty.textContent = 'Sem OPs nesta máquina';
+    zone.appendChild(empty);
+  } else {
+    zone.appendChild(createWeekTable(sched, wk, machine));
+  }
+
+  setupZoneDropTarget(zone);
+  return zone;
+}
+
+// ============================================================
+// Render — Tabela Excel-like (18 colunas)
+// ============================================================
+function createWeekTable(sched, wk, machine) {
+  const tbl = document.createElement('table');
+  tbl.className = 'excel';
+  const cols = [
+    {w:18},  {w:24},  {w:90},  {w:110}, {w:200}, {w:55},  {w:70},  {w:70},
+    {w:100}, {w:60},  {w:60},  {w:60},  {w:90},  {w:55},  {w:75},  {w:130},
+    {w:120}, {w:30}
+  ];
+  const colgroup = document.createElement('colgroup');
+  cols.forEach(c => { const col = document.createElement('col'); col.style.width = c.w + 'px'; colgroup.appendChild(col); });
+  tbl.appendChild(colgroup);
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th></th><th>#</th><th>OP</th><th>File / Cliente</th><th>Produto</th>
+    <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
+    <th>H. Início P</th><th>H. Fim P</th><th>Duração P</th>
+    <th>Lote ADE</th><th>% ADE</th><th>Colaborador</th>
+    <th>Estado</th><th>Obs PI</th><th></th>
+  </tr>`;
+  tbl.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  // Agregar carga por dia (kr) para mostrar resumo na faixa separadora
+  const cargaPorDia = {};
+  sched.forEach(it => {
+    const d = it.op.diaIdx !== undefined ? it.op.diaIdx : 0;
+    cargaPorDia[d] = (cargaPorDia[d] || 0) + (it.op.qtdEntrada || 0);
+  });
+  let lastDia = -1;
+  sched.forEach((item, idx) => {
+    const op = item.op;
+    // Separador de dia: insere uma linha visual antes da 1ª OP de cada dia
+    const dia = op.diaIdx !== undefined ? op.diaIdx : 0;
+    if (dia !== lastDia) {
+      const sepDate = new Date(wk.monday);
+      sepDate.setDate(wk.monday.getDate() + dia);
+      const dataStr = `${pad(sepDate.getDate())}/${pad(sepDate.getMonth()+1)}`;
+      const diaNome = DIAS_PT_LONG[dia] || '';
+      const ehFds = (dia === 5 || dia === 6); // Sábado ou Domingo
+      const cargaDia = cargaPorDia[dia] || 0;
+      const sepRow = document.createElement('tr');
+      sepRow.className = 'day-separator' + (ehFds ? ' dia-fds' : '');
+      sepRow.innerHTML = `<td colspan="18"><span class="dia-num">${dataStr}</span>${diaNome}<span class="dia-load">${cargaDia.toLocaleString('pt-PT')} kr</span></td>`;
+      tbody.appendChild(sepRow);
+      lastDia = dia;
+    }
+    const tr = document.createElement('tr');
+    tr.draggable = !isReadOnly();
+    tr.dataset.id = op.id;
+    tr.dataset.estado = op.estado;
+    const estadoOpts = DENS_ESTADOS
+      .map(s => `<option ${s === op.estado ? 'selected' : ''}>${s}</option>`).join('');
+    const frozen = isFrozenDate(item.start);
+    if (frozen) tr.draggable = false;
+    // Verificar atraso vs hora limite Logística
+    let lateClass = '';
+    if (op.hFimP && op.estado !== 'PI entregue LOG' && op.estado !== 'CSP2-AI liberada') {
+      const horaLim = SETTINGS.horaLimiteLog || '09:00';
+      const finishH = timeStrToHours(op.hFimP);
+      const limH = timeStrToHours(horaLim);
+      // Se acaba muito tarde no dia, marcar at-risk
+      if (finishH > limH + 8) lateClass = 'at-risk';
+    }
+    tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '');
+    const pctAdeStr = op.pctAde > 0 ? (op.pctAde * 100).toFixed(1) + '%' : '';
+    const dur = op.duracaoP || (op.hInicioP && op.hFimP ? hoursToTimeStr(timeStrToHours(op.hFimP) - timeStrToHours(op.hInicioP)) : hoursToTimeStr(item.durH));
+    tr.innerHTML = `
+      <td class="ctr"><span class="row-handle">⋮⋮</span></td>
+      <td class="ctr num">${idx + 1}</td>
+      <td class="ctr"><strong>${op.op || ''}</strong></td>
+      <td title="${op.fileCliente || ''}">${op.fileCliente || ''}</td>
+      <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
+      <td class="ctr">${op.calibre || ''}</td>
+      <td class="ctr">${op.massas || ''}</td>
+      <td class="num">${(op.qtdEntrada || 0).toLocaleString('pt-PT')}</td>
+      <td title="${op.destino || ''}">${op.destino || ''}</td>
+      <td class="ctr">${op.hInicioP || fmtTime(item.start)}</td>
+      <td class="ctr">${op.hFimP || fmtTime(item.end)}</td>
+      <td class="ctr">${dur}</td>
+      <td class="mono ctr" title="${op.loteAde || ''}">${op.loteAde || ''}</td>
+      <td class="num">${pctAdeStr}</td>
+      <td title="${op.colaborador || ''}">${op.colaborador || ''}</td>
+      <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
+      <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
+      <td class="col-del" title="Apagar">×</td>
+    `;
+    const sel = tr.querySelector('.estado-select');
+    sel.addEventListener('mousedown', e => e.stopPropagation());
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', e => { e.stopPropagation(); changeEstado(op.id, e.target.value); });
+    tr.addEventListener('click', e => {
+      if (e.target.closest('.estado-select')) return;
+      if (e.target.classList.contains('col-del')) {
+        if (isReadOnly()) return;
+        if (confirm(`Apagar OP ${op.op}?`)) {
+          DATA = DATA.filter(o => o.id !== op.id);
+          saveData(); rerender();
+        }
+        return;
+      }
+      openModal(op);
+    });
+    setupRowDragHandlers(tr, op);
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  return tbl;
+}
+
+
+// ============================================================
+// Drag-and-drop nativo HTML5 — linhas e blocos
+// ============================================================
+let draggedOp = null;
+function setupRowDragHandlers(el, op) {
+  const hasHandle = !!el.querySelector('.row-handle');
+  let mouseDownInHandle = !hasHandle;
+  if (hasHandle) {
+    el.addEventListener('mousedown', e => {
+      mouseDownInHandle = !!(e.target && e.target.closest && e.target.closest('.row-handle'));
+    });
+  }
+  el.addEventListener('dragstart', e => {
+    if (isProducao()) { e.preventDefault(); return; }
+    if (hasHandle && !mouseDownInHandle) { e.preventDefault(); return; }
+    draggedOp = op;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(op.id));
+  });
+  el.addEventListener('dragend', () => {
+    mouseDownInHandle = !hasHandle;
+    el.classList.remove('dragging');
+    document.querySelectorAll('.drop-above,.drop-below,.drag-target,.drag-over').forEach(c => c.classList.remove('drop-above', 'drop-below', 'drag-target', 'drag-over'));
+  });
+  el.addEventListener('dragover', e => {
+    if (!draggedOp || draggedOp.id === op.id) return;
+    e.preventDefault(); e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = el.getBoundingClientRect();
+    const above = (e.clientY - rect.top) < rect.height / 2;
+    document.querySelectorAll('.drop-above,.drop-below').forEach(c => { if (c !== el) c.classList.remove('drop-above', 'drop-below'); });
+    el.classList.toggle('drop-above', above);
+    el.classList.toggle('drop-below', !above);
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-above', 'drop-below'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation();
+    if (!draggedOp || draggedOp.id === op.id) return;
+    const rect = el.getBoundingClientRect();
+    const above = (e.clientY - rect.top) < rect.height / 2;
+    moveOpRelativeTo(draggedOp, op, above ? 'before' : 'after');
+    draggedOp = null;
+  });
+}
+// Drop target a nível da sub-zona (máquina + semana): permite arrastar entre máquinas
+// e entre semanas (cross-machine cross-week com base na zona onde se larga).
+function setupZoneDropTarget(zone) {
+  zone.addEventListener('dragover', e => {
+    if (!draggedOp) return;
+    if (zone.dataset.frozen === '1') return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    zone.classList.add('drag-target');
+  });
+  zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-target'); });
+  zone.addEventListener('drop', e => {
+    if (zone.dataset.frozen === '1') return;
+    e.preventDefault();
+    zone.classList.remove('drag-target');
+    if (!draggedOp) return;
+    if (e.target.closest('tr.row-data')) return;
+    moveOpToWeek(draggedOp, zone.dataset.machine, zone.dataset.weekKey);
+    draggedOp = null;
+  });
+}
+
+function setupKanbanDropTargets() {
+  document.querySelectorAll('.kanban-body').forEach(body => {
+    body.addEventListener('dragover', e => {
+      if (!draggedOp) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', e => { if (e.target === body) body.classList.remove('drag-over'); });
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if (!draggedOp) return;
+      if (e.target.closest('.kanban-row')) return;
+      moveOpToKanban(draggedOp);
+      draggedOp = null;
+    });
+  });
+}
+
+function moveOpRelativeTo(opMoved, opTarget, position) {
+  if (isReadOnly()) return;
+  if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(opTarget.weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
+  const targetMachine = opTarget.maquina;
+  const targetWeek = opTarget.weekKey;
+  const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  const tIdx = peers.findIndex(o => o.id === opTarget.id);
+  const insertIdx = position === 'before' ? tIdx : tIdx + 1;
+  if (opMoved.maquina !== targetMachine || opMoved.weekKey !== targetWeek) {
+    opMoved.maquina = targetMachine;
+    opMoved.weekKey = targetWeek;
+    if (opMoved.estado === 'KANBAN') opMoved.estado = 'PI por liberar';
+  }
+  peers.splice(insertIdx, 0, opMoved);
+  peers.forEach((o, i) => { o.sortIdx = i; });
+  saveData(); rerender();
+}
+function moveOpToWeek(opMoved, machine, weekKey) {
+  if (isReadOnly()) return;
+  if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
+  const peers = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  opMoved.maquina = machine;
+  opMoved.weekKey = weekKey;
+  if (opMoved.estado === 'KANBAN') opMoved.estado = 'PI por liberar';
+  peers.push(opMoved);
+  peers.forEach((o, i) => { o.sortIdx = i; });
+  saveData(); rerender();
+}
+function moveOpToKanban(opMoved) {
+  if (isReadOnly()) return;
+  if (isFrozenWeek(opMoved.weekKey)) { alert('Esta OP está em semana fechada.'); return; }
+  const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  opMoved.maquina = 'KANBAN';
+  opMoved.weekKey = '';
+  opMoved.estado = 'KANBAN';
+  peers.push(opMoved);
+  peers.forEach((o, i) => { o.sortIdx = i; });
+  saveData(); rerender();
+}
+
+// Navegação mensal removida — cada tab é um mês fixo (Mai..Dez 2026).
+
+// ============================================================
+// Modal — editar / criar OP DENS
+// ============================================================
+let editingOP = null;
+function openModal(op) {
+  editingOP = op;
+  const isNewOp = !op;
+  document.getElementById('modalTitle').textContent = op ? `Editar OP ${op.op}` : 'Nova OP';
+  const get = id => document.getElementById(id);
+  get('m_op').value = op ? (op.op || '') : '';
+  get('m_fileCliente').value = op ? (op.fileCliente || '') : '';
+  get('m_produto').value = op ? (op.produto || '') : '';
+  get('m_calibre').value = op ? (op.calibre || '') : '';
+  get('m_massas').value = op ? (op.massas || '') : '';
+  get('m_qtdEntrada').value = op ? (op.qtdEntrada != null ? op.qtdEntrada : '') : '';
+  get('m_destino').value = op ? (op.destino || '') : '';
+  get('m_estado').value = op ? op.estado : 'KANBAN';
+  get('m_obsPi').value = op ? (op.obsPi || '') : '';
+  // Modo de Início (auto/manual) + Hora Início Manual condicional
+  const mode = op ? (op.inicioMode || (op.hInicioP ? 'manual' : 'auto')) : 'auto';
+  get('m_inicioMode').value = mode;
+  get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
+  get('m_hInicioP_wrap').style.display = mode === 'manual' ? '' : 'none';
+  // Bloco pós-execução (simplificado: Lote ADE, Qtd ADE, horas, atraso, colaborador, obs)
+  get('m_loteAde').value = op ? (op.loteAde || '') : '';
+  get('m_qtdFinalAde').value = op ? (op.qtdFinalAde != null ? op.qtdFinalAde : '') : '';
+  get('m_hInicioR').value = op ? (op.hInicioR || '') : '';
+  get('m_hFimR').value = op ? (op.hFimR || '') : '';
+  get('m_tempoAtraso').value = op ? (op.tempoAtraso || '') : '';
+  get('m_colaborador').value = op ? (op.colaborador || '') : '';
+  get('m_obs').value = op ? (op.obs || '') : '';
+  const saveBtn = document.getElementById('m_btnSave');
+  const deleteBtn = document.getElementById('m_btnDelete');
+  saveBtn.style.display = 'inline-block';
+  deleteBtn.style.display = isNewOp ? 'none' : 'inline-block';
+  document.getElementById('modal').classList.add('show');
+  applyProfileToModal('dens');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; }
+
+function saveOP() {
+  const get = id => document.getElementById(id).value;
+  const getNum = id => {
+    const v = document.getElementById(id).value;
+    if (v === '') return 0;
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  };
+  const qtdFinalAde = getNum('m_qtdFinalAde');
+  const maqVal = editingOP ? editingOP.maquina : 'KANBAN';
+  const weekVal = editingOP ? (editingOP.weekKey || '') : '';
+  const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'KANBAN');
+  const data = {
+    op: get('m_op'),
+    tipo: 'DENS',
+    fileCliente: get('m_fileCliente'),
+    produto: get('m_produto'),
+    calibre: get('m_calibre'),
+    massas: get('m_massas'),
+    qtdEntrada: getNum('m_qtdEntrada'),
+    obsPi: get('m_obsPi'),
+    destino: get('m_destino'),
+    loteAde: get('m_loteAde'),
+    qtdFinalAde,
+    colaborador: get('m_colaborador'),
+    maquina: maqVal,
+    estado: estadoVal,
+    inicioMode: (document.getElementById('m_inicioMode').value || 'auto'),
+    hInicioP: (document.getElementById('m_inicioMode').value === 'manual') ? get('m_hInicioP') : '',
+    // hFimP e duracaoP recalculados pelo scheduling (não são editáveis no modal)
+    hFimP: editingOP ? (editingOP.hFimP || '') : '',
+    duracaoP: editingOP ? (editingOP.duracaoP || '') : '',
+    hInicioR: get('m_hInicioR'),
+    hFimR: get('m_hFimR'),
+    tempoAtraso: get('m_tempoAtraso'),
+    obs: get('m_obs'),
+    weekKey: weekVal,
+    diaIdx: editingOP ? (editingOP.diaIdx != null ? editingOP.diaIdx : 0) : 0,
+  };
+  if (editingOP) {
+    Object.assign(editingOP, data);
+  } else {
+    data.id = Math.max(0, ...DATA.map(o => o.id)) + 1;
+    const peers = DATA.filter(o => o.maquina === data.maquina && o.weekKey === data.weekKey);
+    data.sortIdx = peers.length;
+    if (!data.maquina) { data.maquina = 'KANBAN'; data.weekKey = ''; data.estado = 'KANBAN'; }
+    DATA.push(data);
+  }
+  saveData(); closeModal(); rerender();
+}
+
+function deleteOP() {
+  if (!editingOP) return;
+  if (!confirm(`Apagar OP ${editingOP.op}?`)) return;
+  DATA = DATA.filter(o => o.id !== editingOP.id);
+  saveData(); closeModal(); rerender();
+}
+
+function addOP() { openModal(null); }
+
+// ============================================================
+// Modo Início Auto/Manual
+// ============================================================
+function onInicioModeChange() {
+  const mode = document.getElementById('m_inicioMode').value;
+  const wrap = document.getElementById('m_hInicioP_wrap');
+  wrap.style.display = mode === 'manual' ? '' : 'none';
+  if (mode === 'auto') document.getElementById('m_hInicioP').value = '';
+}
+
+// ============================================================
+// Trocar 2 OPs (swap de posições)
+// ============================================================
+function openSwapModal() {
+  if (isReadOnly()) return;
+  document.getElementById('swap_op1').value = '';
+  document.getElementById('swap_op2').value = '';
+  document.getElementById('swap_preview').style.display = 'none';
+  const opNums = [...new Set(DATA.map(o => o.op).filter(Boolean))].sort();
+  ['swap_dl1', 'swap_dl2'].forEach(id => {
+    document.getElementById(id).innerHTML = opNums.map(n => `<option value="${n}">`).join('');
+  });
+  document.getElementById('modalSwap').classList.add('show');
+  ['swap_op1', 'swap_op2'].forEach(id => {
+    document.getElementById(id).oninput = updateSwapPreview;
+  });
+}
+function closeSwapModal() { document.getElementById('modalSwap').classList.remove('show'); }
+function updateSwapPreview() {
+  const op1 = document.getElementById('swap_op1').value.trim();
+  const op2 = document.getElementById('swap_op2').value.trim();
+  const a = DATA.find(o => o.op === op1);
+  const b = DATA.find(o => o.op === op2);
+  const prev = document.getElementById('swap_preview');
+  if (a && b && op1 !== op2) {
+    prev.style.display = '';
+    prev.innerHTML = `
+      <strong>OP ${a.op}</strong>: ${a.maquina} · ${a.weekKey || 'KANBAN'} · seq ${a.sortIdx}<br>
+      <strong>OP ${b.op}</strong>: ${b.maquina} · ${b.weekKey || 'KANBAN'} · seq ${b.sortIdx}
+    `;
+  } else {
+    prev.style.display = 'none';
+  }
+}
+function doSwapOps() {
+  const op1 = document.getElementById('swap_op1').value.trim();
+  const op2 = document.getElementById('swap_op2').value.trim();
+  if (!op1 || !op2 || op1 === op2) { alert('Indica dois números de OP diferentes.'); return; }
+  const a = DATA.find(o => o.op === op1);
+  const b = DATA.find(o => o.op === op2);
+  if (!a || !b) { alert('Pelo menos uma das OPs não foi encontrada.'); return; }
+  ['maquina', 'weekKey', 'sortIdx', 'diaIdx'].forEach(k => {
+    const tmp = a[k]; a[k] = b[k]; b[k] = tmp;
+  });
+  saveData();
+  closeSwapModal();
+  rerender();
+}
+
+// ============================================================
+// Dividir OP em 1/2 + 2/2
+// ============================================================
+function openSplitDialog() {
+  if (!editingOP) { alert('Tem de gravar a OP antes de dividir.'); return; }
+  if (isReadOnly()) return;
+  const total = editingOP.qtdEntrada || 0;
+  if (total < 2) { alert('Qtd insuficiente para dividir.'); return; }
+  const halfDefault = Math.round(total / 2 * 10) / 10;
+  const ans = prompt(`Dividir OP ${editingOP.op} (${total} kr)\n\nQuantidade da 1ª parte (kr):`, String(halfDefault));
+  if (!ans) return;
+  const qtd1 = parseFloat(ans.replace(',', '.'));
+  if (isNaN(qtd1) || qtd1 <= 0 || qtd1 >= total) {
+    alert(`Quantidade inválida. Deve estar entre 0 e ${total}.`);
+    return;
+  }
+  const qtd2 = Math.round((total - qtd1) * 10) / 10;
+  const newId = Math.max(0, ...DATA.map(o => o.id)) + 1;
+  const newOp = JSON.parse(JSON.stringify(editingOP));
+  newOp.id = newId;
+  newOp.qtdEntrada = qtd2;
+  newOp.obsPi = ((newOp.obsPi || '').replace(/\s*\[(1|2)\/2\]\s*$/, '') + ' [2/2]').trim();
+  newOp.loteAde = '';
+  newOp.qtdFinalAde = 0;
+  newOp.hInicioR = '';
+  newOp.hFimR = '';
+  newOp.tempoAtraso = '';
+  newOp.colaborador = '';
+  newOp.obs = '';
+  newOp.inicioMode = 'auto';
+  newOp.hInicioP = '';
+  newOp.hFimP = '';
+  newOp.duracaoP = '';
+  newOp.sortIdx = (editingOP.sortIdx || 0) + 0.5;
+  editingOP.qtdEntrada = Math.round(qtd1 * 10) / 10;
+  editingOP.obsPi = ((editingOP.obsPi || '').replace(/\s*\[(1|2)\/2\]\s*$/, '') + ' [1/2]').trim();
+  DATA.push(newOp);
+  const peers = DATA.filter(o => o.maquina === editingOP.maquina && o.weekKey === editingOP.weekKey)
+                    .sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  peers.forEach((p, idx) => { p.sortIdx = idx; });
+  saveData();
+  closeModal();
+  rerender();
+  alert(`OP dividida: ${qtd1} + ${qtd2} kr`);
+}
+
+function changeEstado(id, newEstado) {
+  const op = DATA.find(o => o.id === id);
+  if (!op) return;
+  op.estado = newEstado;
+  if (newEstado === 'KANBAN' && op.maquina !== 'KANBAN') {
+    op.maquina = 'KANBAN';
+    op.weekKey = '';
+    const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== id);
+    peers.push(op);
+    peers.forEach((o, i) => { o.sortIdx = i; });
+  }
+  saveData(); rerender();
+}
+
+// ============================================================
+// Export / Import / Reset
+// ============================================================
+function exportJSON() {
+  const payload = {
+    schemaVersion: 2,
+    generatedAt: new Date().toISOString(),
+    data: DATA,
+    settings: SETTINGS,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'planeamento_densidades.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const p = JSON.parse(e.target.result);
+      if (Array.isArray(p)) {
+        DATA = p; saveData(); rerender();
+        alert(`Importadas ${p.length} OPs.`);
+      } else if (p && Array.isArray(p.data)) {
+        DATA = p.data;
+        // Migração: realoca antigas OPs "Maq 2" para Linha 10
+        for (const o of DATA) { if (o.maquina === 'Maq 2') o.maquina = 'Linha 10'; }
+        saveData();
+        if (p.settings) {
+          SETTINGS = Object.assign(SETTINGS, p.settings);
+          // Garantir que não existem chaves de Maq 2 nas definições importadas
+          if (SETTINGS.capacidades) delete SETTINGS.capacidades['Maq 2'];
+          if (SETTINGS.stops) delete SETTINGS.stops['Maq 2'];
+          saveSettings(); applySettingsToUI();
+        }
+        rerender();
+        alert(`Importadas ${p.data.length} OPs.`);
+      } else {
+        alert('Formato inválido.');
+      }
+    } catch (err) { alert('Erro: ' + err.message); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+function resetData() {
+  if (!confirm('Repor dados de planeamento DENSIDADES?')) return;
+  DATA = JSON.parse(JSON.stringify(DENS_DEFAULT_DATA));
+  saveData(); rerender();
+}
+
+// ============================================================
+// Tabs — construção dinâmica (8 meses + Configurações)
+// ============================================================
+function buildMonthlyTabs() {
+  const tabsBar = document.getElementById('tabs-bar');
+  const panelsHost = document.getElementById('monthly-panels');
+  if (!tabsBar || !panelsHost) return;
+  // Insere os tabs mensais antes do tab Configurações
+  const cfgTab = tabsBar.querySelector('.tab[data-tab="cfg"]');
+  const frag = document.createDocumentFragment();
+  MONTHLY_TABS.forEach(t => {
+    const tabEl = document.createElement('div');
+    tabEl.className = 'tab';
+    tabEl.dataset.tab = t.key;
+    tabEl.setAttribute('onclick', `switchTab('${t.key}')`);
+    tabEl.innerHTML = `<span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> ${t.label}</span> <span class="tab-count" id="tab-count-${t.key}">0</span>`;
+    frag.appendChild(tabEl);
+  });
+  tabsBar.insertBefore(frag, cfgTab);
+  // Constrói painéis (KANBAN + view-month) para cada tab mensal
+  const panelsFrag = document.createDocumentFragment();
+  MONTHLY_TABS.forEach(t => {
+    const panel = document.createElement('div');
+    panel.className = 'tab-panel';
+    panel.id = `panel-${t.key}`;
+    panel.innerHTML = `
+      <div class="panel">
+        <div class="kanban-header"><span>📋 KANBAN</span><span class="count" id="count-kanban-${t.key}">0</span></div>
+        <div class="kanban-body" id="col-kanban-${t.key}" data-machine="KANBAN"></div>
+      </div>
+      <div class="panel machine-panel">
+        <div class="machine-titlebar">
+          <span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> ${t.label}</span>
+          <div class="right">
+            <div class="search-box">
+              <input type="text" id="search-${t.key}" placeholder="Procurar OP, produto, lote…" oninput="onSearch('${t.key}', this.value)">
+              <button class="clear-btn" onclick="clearSearch('${t.key}')" title="Limpar">×</button>
+            </div>
+            <span class="search-hits" id="hits-${t.key}" style="display:none"></span>
+            <span style="font-size:11px; color:var(--c-muted)" id="count-${t.key}-info">0 OPs</span>
+          </div>
+        </div>
+        <div class="view-month" id="month-${t.key}"></div>
+      </div>
+    `;
+    panelsFrag.appendChild(panel);
+  });
+  panelsHost.appendChild(panelsFrag);
+}
+
+function switchTab(which) {
+  ACTIVE_TAB = which;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === which));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('panel-' + which);
+  if (panel) panel.classList.add('active');
+  // Sincronizar campo de pesquisa visível e re-render do mês activo
+  if (MONTHLY_TABS.some(t => t.key === which)) {
+    const inp = document.getElementById(`search-${which}`);
+    if (inp) inp.value = SEARCH.value || '';
+    rerender();
+  }
+}
+
+function pickDefaultTab() {
+  const now = new Date();
+  if (now.getFullYear() === MONTHLY_YEAR) {
+    const m = MONTHLY_TABS.find(t => t.month === now.getMonth());
+    if (m) return m.key;
+  }
+  return 'm05';
+}
+
+// ============================================================
+// Re-render global
+// ============================================================
+function rerender() {
+  renderKanbanAll();
+  // Renderiza apenas o mês activo (renderizar 8 painéis × 2 zonas seria desnecessário)
+  if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
+    renderMonth(ACTIVE_TAB);
+  }
+  // Contagens nos tabs (OPs do mês desse tab, só nas máquinas planeadas)
+  MONTHLY_TABS.forEach(t => {
+    const wkKeys = weekKeysOfMonth(MONTHLY_YEAR, t.month);
+    const n = DATA.filter(o => wkKeys.has(o.weekKey) && MACHINES.includes(o.maquina)).length;
+    const el = document.getElementById(`tab-count-${t.key}`);
+    if (el) el.textContent = n;
+  });
+}
+
+// ============================================================
+// BackupSync — integração UI (chip + botões)
+// ============================================================
+function updateBackupStatusUI() {
+  const chip = document.getElementById('backupStatus');
+  const btn = document.getElementById('backupConnectBtn');
+  if (!chip || !btn) return;
+  if (BackupSync.isConnected()) {
+    chip.style.display = 'inline-flex';
+    const last = BackupSync.getLastBackupAt();
+    const lastStr = last
+      ? `às ${String(last.getHours()).padStart(2, '0')}:${String(last.getMinutes()).padStart(2, '0')}`
+      : '—';
+    chip.innerHTML =
+      `💾 ${BackupSync.getFolderName()} <span class="backup-time">(${lastStr})</span>` +
+      ` <button class="backup-now" title="Backup agora" onclick="onBackupNow()">↻</button>` +
+      ` <button class="backup-disconnect" title="Desconectar" onclick="onBackupDisconnect()">×</button>`;
+    btn.style.display = 'none';
+  } else {
+    chip.style.display = 'none';
+    btn.style.display = BackupSync.isSupported() ? 'inline-block' : 'none';
+  }
+}
+async function onBackupConnect() {
+  if (!BackupSync.isSupported()) {
+    alert('Esta funcionalidade requer Chrome ou Edge (File System Access API).');
+    return;
+  }
+  const restored = await BackupSync.tryRestoreInteractive();
+  if (restored) { updateBackupStatusUI(); return; }
+  try {
+    const res = await BackupSync.connect();
+    updateBackupStatusUI();
+    alert(`Conectado à pasta "${res.folderName}". Backup automático activo, hora a hora.`);
+  } catch (e) {
+    if (e.name !== 'AbortError') alert('Não foi possível conectar à pasta: ' + e.message);
+  }
+}
+async function onBackupDisconnect() {
+  if (!confirm('Desativar backup automático? Os backups já gravados ficam onde estão.')) return;
+  await BackupSync.disconnect();
+  updateBackupStatusUI();
+}
+async function onBackupNow() {
+  const res = await BackupSync.backupNow();
+  updateBackupStatusUI();
+  if (!res.ok && res.reason === 'no-changes') {
+    console.info('[BackupSync] Sem alterações desde o último backup.');
+  } else if (!res.ok) {
+    alert('Não foi possível gravar o backup: ' + (res.reason || 'erro desconhecido'));
+  }
+}
+BackupSync.setOnStatusChange(updateBackupStatusUI);
+
+// ============================================================
+// Inicialização
+// ============================================================
+loadSettings();
+loadData();
+buildMonthlyTabs();
+applySettingsToUI();
+applyProfileToBody();
+switchTab(pickDefaultTab());
+rerender();
+updateBackupStatusUI();
+
+// Tentar restaurar a pasta de backup da sessão anterior (silenciosamente)
+(async () => {
+  try {
+    const ok = await BackupSync.tryRestore();
+    if (ok) updateBackupStatusUI();
+  } catch (e) { /* silencioso */ }
+})();
+
+// Fechar modal ao clicar fora ou premir Escape
+document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+document.getElementById('modalSwap').addEventListener('click', e => { if (e.target.id === 'modalSwap') closeSwapModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeSwapModal(); }
+});
+</script>
+
+</body>
+</html>
