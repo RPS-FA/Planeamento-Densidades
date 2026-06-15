@@ -456,8 +456,9 @@
 
 
 <div class="tabs" id="tabs-bar">
-  <!-- Tabs mensais são geradas dinamicamente (m05 a m12) -->
+  <div class="tab active" data-tab="mview" onclick="switchTab(pickDefaultTab())"><span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> Planeamento</span></div>
   <div class="tab" data-tab="cfg" onclick="switchTab('cfg')">⚙ Configurações</div>
+</div>
 </div>
 
 <div class="controls">
@@ -1239,19 +1240,14 @@ function formatHitsPill(term) {
 
 function onSearch(tab, value) {
   SEARCH.value = (value || '').trim().toLowerCase();
-  // Sincroniza o input visível em todos os tabs mensais
-  MONTHLY_TABS.forEach(t => {
-    const inp = document.getElementById(`search-${t.key}`);
-    if (inp && inp.value !== value) inp.value = value;
-  });
+  const inp = document.getElementById('search-mview');
+  if (inp && inp.value !== value) inp.value = value;
   rerender();
 }
 function clearSearch(/* tab */) {
   SEARCH.value = '';
-  MONTHLY_TABS.forEach(t => {
-    const inp = document.getElementById(`search-${t.key}`);
-    if (inp) inp.value = '';
-  });
+  const inp = document.getElementById('search-mview');
+  if (inp) inp.value = '';
   rerender();
 }
 
@@ -1493,11 +1489,11 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
 // Render — KANBAN lateral (um por painel mensal — todos partilham o mesmo conteúdo)
 // ============================================================
 function renderKanbanAll() {
-  // Renderiza o KANBAN dentro de todos os painéis mensais (contagem global única).
+  // KANBAN único (painel mview).
   const term = SEARCH.value || '';
   const allOps = DATA.filter(o => o.maquina === 'KANBAN').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   const ops = term ? allOps.filter(o => matchesSearch(o, term)) : allOps;
-  MONTHLY_TABS.forEach(t => renderKanbanInto(`col-kanban-${t.key}`, `count-kanban-${t.key}`, ops, allOps, term));
+  renderKanbanInto('col-kanban-mview', 'count-kanban-mview', ops, allOps, term);
 }
 function renderKanbanInto(containerId, countId, ops, allOps, term) {
   const c = document.getElementById(containerId);
@@ -1531,7 +1527,7 @@ function renderKanbanInto(containerId, countId, ops, allOps, term) {
 function renderMonth(tabKey) {
   const tabDef = MONTHLY_TABS.find(t => t.key === tabKey);
   if (!tabDef) return;
-  const container = document.getElementById(`month-${tabKey}`);
+  const container = document.getElementById('month-mview');
   if (!container) return;
   container.innerHTML = '';
   const year = MONTHLY_YEAR;
@@ -1585,7 +1581,7 @@ function renderMonth(tabKey) {
     container.appendChild(empty);
   }
 
-  const hitsEl = document.getElementById(`hits-${tabKey}`);
+  const hitsEl = document.getElementById('hits-mview');
   if (hitsEl) {
     if (searchTerm) {
       hitsEl.textContent = formatHitsPill(searchTerm);
@@ -1594,7 +1590,7 @@ function renderMonth(tabKey) {
       hitsEl.style.display = 'none';
     }
   }
-  const countInfo = document.getElementById(`count-${tabKey}-info`);
+  const countInfo = document.getElementById('count-mview-info');
   if (countInfo) countInfo.textContent = `${totalOps} OPs`;
 }
 
@@ -2224,62 +2220,83 @@ async function resetData() {
 // Tabs — construção dinâmica (8 meses + Configurações)
 // ============================================================
 function buildMonthlyTabs() {
-  const tabsBar = document.getElementById('tabs-bar');
+  // Cria um único painel mensal com toolbar (◀ Mês ▶ + barra de pesquisa).
+  // Os tabs mensais (m05..m12) foram substituídos por navegação directa.
   const panelsHost = document.getElementById('monthly-panels');
-  if (!tabsBar || !panelsHost) return;
-  // Insere os tabs mensais antes do tab Configurações
-  const cfgTab = tabsBar.querySelector('.tab[data-tab="cfg"]');
-  const frag = document.createDocumentFragment();
-  MONTHLY_TABS.forEach(t => {
-    const tabEl = document.createElement('div');
-    tabEl.className = 'tab';
-    tabEl.dataset.tab = t.key;
-    tabEl.setAttribute('onclick', `switchTab('${t.key}')`);
-    tabEl.innerHTML = `<span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> ${t.label}</span> <span class="tab-count" id="tab-count-${t.key}">0</span>`;
-    frag.appendChild(tabEl);
-  });
-  tabsBar.insertBefore(frag, cfgTab);
-  // Constrói painéis (KANBAN + view-month) para cada tab mensal
-  const panelsFrag = document.createDocumentFragment();
-  MONTHLY_TABS.forEach(t => {
-    const panel = document.createElement('div');
-    panel.className = 'tab-panel';
-    panel.id = `panel-${t.key}`;
-    panel.innerHTML = `
-      <div class="panel">
-        <div class="kanban-header"><span>📋 KANBAN</span><span class="count" id="count-kanban-${t.key}">0</span></div>
-        <div class="kanban-body" id="col-kanban-${t.key}" data-machine="KANBAN"></div>
-      </div>
-      <div class="panel machine-panel">
-        <div class="machine-titlebar">
-          <span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> ${t.label}</span>
-          <div class="right">
-            <div class="search-box">
-              <input type="text" id="search-${t.key}" placeholder="Procurar OP, produto, lote…" oninput="onSearch('${t.key}', this.value)">
-              <button class="clear-btn" onclick="clearSearch('${t.key}')" title="Limpar">×</button>
-            </div>
-            <span class="search-hits" id="hits-${t.key}" style="display:none"></span>
-            <span style="font-size:11px; color:var(--c-muted)" id="count-${t.key}-info">0 OPs</span>
+  if (!panelsHost) return;
+  const panel = document.createElement('div');
+  panel.className = 'tab-panel';
+  panel.id = 'panel-mview';
+  panel.innerHTML = `
+    <div class="panel">
+      <div class="kanban-header"><span>📋 KANBAN</span><span class="count" id="count-kanban-mview">0</span></div>
+      <div class="kanban-body" id="col-kanban-mview" data-machine="KANBAN"></div>
+    </div>
+    <div class="panel machine-panel">
+      <div class="machine-titlebar">
+        <div class="left">
+          <div class="search-box">
+            <input type="text" id="search-mview" placeholder="Procurar OP, cliente, PO, produto, lote..." oninput="onSearch('mview', this.value)">
+            <button class="clear-btn" onclick="clearSearch('mview')" title="Limpar">×</button>
           </div>
+          <span class="search-hits" id="hits-mview" style="display:none"></span>
         </div>
-        <div class="view-month" id="month-${t.key}"></div>
+        <div class="right">
+          <div class="month-nav">
+            <button onclick="prevMonth()" title="Mês anterior">◀</button>
+            <span class="label" id="month-label">—</span>
+            <button onclick="nextMonth()" title="Próximo mês">▶</button>
+            <button onclick="goToCurrentMonth()" style="margin-left:6px" title="Mês actual">Hoje</button>
+          </div>
+          <span style="font-size:11px; color:var(--c-muted); margin-left:8px" id="count-mview-info">0 OPs</span>
+        </div>
       </div>
-    `;
-    panelsFrag.appendChild(panel);
-  });
-  panelsHost.appendChild(panelsFrag);
+      <div class="view-month" id="month-mview"></div>
+    </div>
+  `;
+  panelsHost.appendChild(panel);
+}
+
+// Navegação de mês (substitui os tabs mensais)
+function prevMonth() {
+  const idx = MONTHLY_TABS.findIndex(t => t.key === ACTIVE_TAB);
+  if (idx > 0) switchTab(MONTHLY_TABS[idx - 1].key);
+}
+function nextMonth() {
+  const idx = MONTHLY_TABS.findIndex(t => t.key === ACTIVE_TAB);
+  if (idx >= 0 && idx < MONTHLY_TABS.length - 1) switchTab(MONTHLY_TABS[idx + 1].key);
+}
+function goToCurrentMonth() { switchTab(pickDefaultTab()); }
+
+function updateMonthLabel() {
+  const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
+  const el = document.getElementById('month-label');
+  if (!el) return;
+  if (t) el.textContent = (MONTHS_PT_LONG[t.month] || '') + ' ' + MONTHLY_YEAR;
+  else el.textContent = '—';
+  // Habilitar/desabilitar ◀ ▶ nos extremos
+  const idx = MONTHLY_TABS.findIndex(x => x.key === ACTIVE_TAB);
+  const btns = document.querySelectorAll('.month-nav button');
+  if (btns.length >= 3) {
+    btns[0].disabled = idx <= 0;
+    btns[1].disabled = idx >= MONTHLY_TABS.length - 1;
+  }
 }
 
 function switchTab(which) {
   ACTIVE_TAB = which;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === which));
+  // Toggle visual das tabs (apenas Configurações é um tab real agora)
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === (which === 'cfg' ? 'cfg' : 'mview')));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const panel = document.getElementById('panel-' + which);
+  // Vista mensal usa sempre o painel único `panel-mview`. Configurações tem o seu painel.
+  const panelId = (which === 'cfg') ? 'panel-cfg' : 'panel-mview';
+  const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
-  // Sincronizar campo de pesquisa visível e re-render do mês activo
+  // Se for vista mensal, actualizar label + pesquisa + re-renderizar
   if (MONTHLY_TABS.some(t => t.key === which)) {
-    const inp = document.getElementById(`search-${which}`);
+    const inp = document.getElementById('search-mview');
     if (inp) inp.value = SEARCH.value || '';
+    updateMonthLabel();
     rerender();
   }
 }
@@ -2298,17 +2315,10 @@ function pickDefaultTab() {
 // ============================================================
 function rerender() {
   renderKanbanAll();
-  // Renderiza apenas o mês activo (renderizar 8 painéis × 2 zonas seria desnecessário)
   if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
     renderMonth(ACTIVE_TAB);
   }
-  // Contagens nos tabs (OPs do mês desse tab, só nas máquinas planeadas)
-  MONTHLY_TABS.forEach(t => {
-    const wkKeys = weekKeysOfMonth(MONTHLY_YEAR, t.month);
-    const n = DATA.filter(o => wkKeys.has(o.weekKey) && MACHINES.includes(o.maquina)).length;
-    const el = document.getElementById(`tab-count-${t.key}`);
-    if (el) el.textContent = n;
-  });
+  updateMonthLabel();
 }
 
 
