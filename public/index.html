@@ -2544,11 +2544,11 @@ setInterval(async () => {
   }
 }, 30000);
 
-// Fechar modal ao clicar fora ou premir Escape
-document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// Modal de edição de OP: só fecha pelo botão "Fechar" (não fecha por clique fora nem Escape).
+// O modal de Trocar OPs mantém o comportamento normal (clique fora / Escape fecham).
 document.getElementById('modalSwap').addEventListener('click', e => { if (e.target.id === 'modalSwap') closeSwapModal(); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeModal(); closeSwapModal(); }
+  if (e.key === 'Escape') closeSwapModal();
 });
 </script>
 
