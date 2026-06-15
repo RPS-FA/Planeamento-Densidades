@@ -673,19 +673,7 @@
       </div>
     </div>
     <div class="field"><label>Obs PI</label><textarea id="m_obsPi" rows="2"></textarea></div>
-    <div class="row">
-      <div class="field">
-        <label>Modo de Início</label>
-        <select id="m_inicioMode" onchange="onInicioModeChange()">
-          <option value="auto">Auto (cascata da OP anterior)</option>
-          <option value="manual">Manual (forçar hora)</option>
-        </select>
-      </div>
-      <div class="field" id="m_hInicioP_wrap" style="display:none">
-        <label>Hora Início Manual</label>
-        <input id="m_hInicioP" type="time">
-      </div>
-    </div>
+
 
     <div class="post-exec">
       <div class="post-exec-title">Pós-execução · preenchimento depois da OP estar feita</div>
@@ -694,7 +682,11 @@
         <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="0.1" placeholder="kr"></div>
       </div>
       <div class="row">
+        <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
         <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Data Fim Real</label><input id="m_dataFimR" type="date"></div>
         <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time"></div>
         <div class="field"><label>Tempo Atraso</label><input id="m_tempoAtraso" type="text" placeholder="HH:MM"></div>
       </div>
@@ -1006,6 +998,7 @@ function changeProfile(p) {
 const PRODUCAO_EDITABLE = [
   'm_estado',
   'm_loteAde', 'm_qtdFinalAde',
+  'm_dataInicioR', 'm_dataFimR',
   'm_hInicioR', 'm_hFimR', 'm_tempoAtraso',
   'm_colaborador', 'm_obs',
 ];
@@ -2173,15 +2166,12 @@ function openModal(op) {
   get('m_destino').value = op ? (op.destino || '') : '';
   get('m_estado').value = op ? op.estado : 'KANBAN';
   get('m_obsPi').value = op ? (op.obsPi || '') : '';
-  // Modo de Início (auto/manual) + Hora Início Manual condicional
-  const mode = op ? (op.inicioMode || (op.hInicioP ? 'manual' : 'auto')) : 'auto';
-  get('m_inicioMode').value = mode;
-  get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
-  get('m_hInicioP_wrap').style.display = mode === 'manual' ? '' : 'none';
-  // Bloco pós-execução (simplificado: Lote ADE, Qtd ADE, horas, atraso, colaborador, obs)
+  // Bloco pós-execução (simplificado: Lote ADE, Qtd ADE, datas+horas reais, atraso, colaborador, obs)
   get('m_loteAde').value = op ? (op.loteAde || '') : '';
   get('m_qtdFinalAde').value = op ? (op.qtdFinalAde != null ? op.qtdFinalAde : '') : '';
+  get('m_dataInicioR').value = op ? (op.dataInicioR || '') : '';
   get('m_hInicioR').value = op ? (op.hInicioR || '') : '';
+  get('m_dataFimR').value = op ? (op.dataFimR || '') : '';
   get('m_hFimR').value = op ? (op.hFimR || '') : '';
   get('m_tempoAtraso').value = op ? (op.tempoAtraso || '') : '';
   get('m_colaborador').value = op ? (op.colaborador || '') : '';
@@ -2222,12 +2212,14 @@ function saveOP() {
     colaborador: get('m_colaborador'),
     maquina: maqVal,
     estado: estadoVal,
-    inicioMode: (document.getElementById('m_inicioMode').value || 'auto'),
-    hInicioP: (document.getElementById('m_inicioMode').value === 'manual') ? get('m_hInicioP') : '',
+    inicioMode: 'auto',
+    hInicioP: '',
     // hFimP e duracaoP recalculados pelo scheduling (não são editáveis no modal)
     hFimP: editingOP ? (editingOP.hFimP || '') : '',
     duracaoP: editingOP ? (editingOP.duracaoP || '') : '',
+    dataInicioR: get('m_dataInicioR'),
     hInicioR: get('m_hInicioR'),
+    dataFimR: get('m_dataFimR'),
     hFimR: get('m_hFimR'),
     tempoAtraso: get('m_tempoAtraso'),
     obs: get('m_obs'),
@@ -2258,12 +2250,6 @@ function addOP() { openModal(null); }
 // ============================================================
 // Modo Início Auto/Manual
 // ============================================================
-function onInicioModeChange() {
-  const mode = document.getElementById('m_inicioMode').value;
-  const wrap = document.getElementById('m_hInicioP_wrap');
-  wrap.style.display = mode === 'manual' ? '' : 'none';
-  if (mode === 'auto') document.getElementById('m_hInicioP').value = '';
-}
 
 // ============================================================
 // Trocar 2 OPs (swap de posições)
