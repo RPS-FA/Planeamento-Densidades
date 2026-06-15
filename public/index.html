@@ -1949,33 +1949,10 @@ function createWeekTable(sched, wk, machine) {
   </tr>`;
   tbl.appendChild(thead);
   const tbody = document.createElement('tbody');
-  // Agregar carga por dia (kr) para mostrar resumo na faixa separadora
-  const cargaPorDia = {};
-  sched.forEach(it => {
-    const d = it.op.diaIdx !== undefined ? it.op.diaIdx : 0;
-    cargaPorDia[d] = (cargaPorDia[d] || 0) + (it.op.qtdEntrada || 0);
-  });
-  // Se todas as OPs são do mesmo dia (caso típico dentro de um day-block), suprimir separadores.
-  const distinctDias = Object.keys(cargaPorDia).length;
-  const skipSeparators = distinctDias <= 1;
-  let lastDia = -1;
+  // Dentro de uma sub-zona de dia específico, NÃO inserir separadores de dia interiores
+  // (todas as OPs estão no mesmo dia; o cabeçalho do day-block já indica a data).
   sched.forEach((item, idx) => {
     const op = item.op;
-    // Separador de dia: insere uma linha visual antes da 1ª OP de cada dia
-    const dia = op.diaIdx !== undefined ? op.diaIdx : 0;
-    if (!skipSeparators && dia !== lastDia) {
-      const sepDate = new Date(wk.monday);
-      sepDate.setDate(wk.monday.getDate() + dia);
-      const dataStr = `${pad(sepDate.getDate())}/${pad(sepDate.getMonth()+1)}`;
-      const diaNome = DIAS_PT_LONG[dia] || '';
-      const ehFds = (dia === 5 || dia === 6); // Sábado ou Domingo
-      const cargaDia = cargaPorDia[dia] || 0;
-      const sepRow = document.createElement('tr');
-      sepRow.className = 'day-separator' + (ehFds ? ' dia-fds' : '');
-      sepRow.innerHTML = `<td colspan="18"><span class="dia-num">${dataStr}</span>${diaNome}<span class="dia-load">${cargaDia.toLocaleString('pt-PT')} kr</span></td>`;
-      tbody.appendChild(sepRow);
-      lastDia = dia;
-    }
     const tr = document.createElement('tr');
     tr.draggable = !isReadOnly();
     tr.dataset.id = op.id;
