@@ -2503,6 +2503,30 @@ function buildMonthlyTabs() {
   panelsHost.appendChild(panel);
 }
 
+function switchTab(which) {
+  ACTIVE_TAB = which;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === (which === 'cfg' ? 'cfg' : 'mview')));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const panelId = (which === 'cfg') ? 'panel-cfg' : 'panel-mview';
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (MONTHLY_TABS.some(t => t.key === which)) {
+    const inp = document.getElementById('search-mview');
+    if (inp) inp.value = SEARCH.value || '';
+    updateMonthLabel();
+    rerender();
+  }
+}
+
+function pickDefaultTab() {
+  const now = new Date();
+  if (now.getFullYear() === MONTHLY_YEAR) {
+    const m = MONTHLY_TABS.find(t => t.month === now.getMonth());
+    if (m) return m.key;
+  }
+  return 'm05';
+}
+
 // Navegação de mês (substitui os tabs mensais)
 function prevMonth() {
   const idx = MONTHLY_TABS.findIndex(t => t.key === ACTIVE_TAB);
@@ -2527,6 +2551,80 @@ function updateMonthLabel() {
     btns[1].disabled = idx >= MONTHLY_TABS.length - 1;
   }
 }
+
+// ============================================================
+// Inicialização (bootstrap)
+// ============================================================
+loadSettings();
+loadData();
+buildMonthlyTabs();
+setupKanbanDropTargets();
+applySettingsToUI();
+applyProfileToBody();
+switchTab(pickDefaultTab());
+rerender();
+setConnStatus('loading', 'A carregar...');
+
+(async () => {
+  const ok = await loadStateFromServer();
+  if (ok) rerender();
+})();
+
+function _modalAberto() {
+  const m = document.getElementById('modal');
+  const ms = document.getElementById('modalSwap');
+  return (m && m.classList.contains('show')) || (ms && ms.classList.contains('show'));
+}
+setInterval(async () => {
+  if (_modalAberto()) return;
+  try {
+    const state = await Api.getState();
+    DATA = Array.isArray(state.ops) ? state.ops : [];
+    migrateMachineNames(DATA);
+    applyServerSettings(state.settings || {});
+    rerender();
+    setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
+  } catch (e) {
+    setConnStatus('error', 'Sem ligação');
+  }
+}, 30000);
+
+// ============================================================
+// Inicialização (bootstrap)
+// ============================================================
+loadSettings();
+loadData();
+buildMonthlyTabs();
+setupKanbanDropTargets();
+applySettingsToUI();
+applyProfileToBody();
+switchTab(pickDefaultTab());
+rerender();
+setConnStatus('loading', 'A carregar...');
+
+(async () => {
+  const ok = await loadStateFromServer();
+  if (ok) rerender();
+})();
+
+function _modalAberto() {
+  const m = document.getElementById('modal');
+  const ms = document.getElementById('modalSwap');
+  return (m && m.classList.contains('show')) || (ms && ms.classList.contains('show'));
+}
+setInterval(async () => {
+  if (_modalAberto()) return;
+  try {
+    const state = await Api.getState();
+    DATA = Array.isArray(state.ops) ? state.ops : [];
+    migrateMachineNames(DATA);
+    applyServerSettings(state.settings || {});
+    rerender();
+    setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
+  } catch (e) {
+    setConnStatus('error', 'Sem ligação');
+  }
+}, 30000);
 
 // Modal de edição de OP: só fecha pelo botão "Fechar".
 document.getElementById('modalSwap').addEventListener('click', e => { if (e.target.id === 'modalSwap') closeSwapModal(); });
