@@ -1646,6 +1646,8 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
   const lookEnd = new Date(weekStart.getTime() + 28 * DAY_MS);
   const stopRanges = getStops(machine).map(getStopRange).filter(s => s.end > cursor && s.start < lookEnd);
   const SETUP_MS = (SETTINGS.setupMin || 10) * 60 * 1000;
+  // Regra: 1ª OP de cada dia = início do turno desse dia; restantes = fim da anterior + setup
+  const seenDays = new Set();
   return ops.map((op, i) => {
     // Duração: derivada de qtdEntrada / krH (a duração planeada fica em duracaoP, recalculada aqui)
     let durH = krH > 0 && op.qtdEntrada > 0 ? (op.qtdEntrada / krH) : 0;
@@ -1654,16 +1656,20 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       const d = timeStrToHours(op.hFimP) - timeStrToHours(op.hInicioP);
       if (d > 0) durH = d;
     }
-    // Ponto de partida: se a OP tiver modo de início manual (ou hInicioP definido por retro-compat),
-    // usar essa hora no dia desta OP; caso contrário, usar cursor cascateado da OP anterior.
-    const isManualStart = (op.inicioMode === 'manual') || (op.inicioMode === undefined && !!op.hInicioP);
-    let startPoint = cursor;
-    if (isManualStart && op.hInicioP) {
-      const [hh, mm] = op.hInicioP.split(':').map(Number);
-      const dayStart = new Date(weekStart);
-      dayStart.setDate(weekStart.getDate() + (op.diaIdx || 0));
-      dayStart.setHours(hh, mm, 0, 0);
+    const dayIdx = op.diaIdx || 0;
+    let startPoint;
+    if (!seenDays.has(dayIdx)) {
+      // 1ª OP deste dia → começa no início do turno do dia
+      const dayDate = new Date(weekStart);
+      dayDate.setDate(weekStart.getDate() + dayIdx);
+      const startH = getStartHourForDate(dayDate);
+      const dayStart = new Date(dayDate);
+      dayStart.setHours(startH.h, startH.m, 0, 0);
       startPoint = dayStart;
+      seenDays.add(dayIdx);
+    } else {
+      // OPs seguintes do mesmo dia → cascateiam do cursor (fim anterior + setup)
+      startPoint = cursor;
     }
     const { start, end } = advanceSkippingStops(startPoint, durH * HOUR_MS, stopRanges);
     cursor = new Date(end.getTime() + SETUP_MS);
@@ -1953,15 +1959,15 @@ function renderDayMachineSubzone(dayKey, machine, items) {
 }
 
 // ============================================================
-// Render — Tabela Excel-like (18 colunas)
+// Render — Tabela Excel-like (20 colunas)
 // ============================================================
 function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
   const cols = [
     {w:18},  {w:24},  {w:90},  {w:110}, {w:200}, {w:55},  {w:70},  {w:70},
-    {w:100}, {w:60},  {w:60},  {w:60},  {w:90},  {w:55},  {w:75},
-    {w:90},  {w:90},  {w:55},
+    {w:100}, {w:60},  {w:60},  {w:90},  {w:90},
+    {w:90},  {w:55},  {w:75},  {w:55},
     {w:130}, {w:120}, {w:30}
   ];
   const colgroup = document.createElement('colgroup');
@@ -1971,9 +1977,8 @@ function createWeekTable(sched, wk, machine) {
   thead.innerHTML = `<tr>
     <th></th><th>#</th><th>OP</th><th>File / Cliente</th><th>Produto</th>
     <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
-    <th>H. Início P</th><th>H. Fim P</th><th>Duração P</th>
-    <th>Lote ADE</th><th>% ADE</th><th>Colaborador</th>
-    <th>Início Real</th><th>Fim Real</th><th>Atraso</th>
+    <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
+    <th>Lote ADE</th><th>% ADE</th><th>Colaborador</th><th>Atraso</th>
     <th>Estado</th><th>Obs PI</th><th></th>
   </tr>`;
   tbl.appendChild(thead);
@@ -2001,7 +2006,6 @@ function createWeekTable(sched, wk, machine) {
     }
     tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '');
     const pctAdeStr = op.pctAde > 0 ? (op.pctAde * 100).toFixed(1) + '%' : '';
-    const dur = op.duracaoP || (op.hInicioP && op.hFimP ? hoursToTimeStr(timeStrToHours(op.hFimP) - timeStrToHours(op.hInicioP)) : hoursToTimeStr(item.durH));
     tr.innerHTML = `
       <td class="ctr"><span class="row-handle">⋮⋮</span></td>
       <td class="ctr num">${idx + 1}</td>
@@ -2014,12 +2018,11 @@ function createWeekTable(sched, wk, machine) {
       <td title="${op.destino || ''}">${op.destino || ''}</td>
       <td class="ctr">${op.hInicioP || fmtTime(item.start)}</td>
       <td class="ctr">${op.hFimP || fmtTime(item.end)}</td>
-      <td class="ctr">${dur}</td>
+      <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
+      <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
       <td class="mono ctr" title="${op.loteAde || ''}">${op.loteAde || ''}</td>
       <td class="num">${pctAdeStr}</td>
       <td title="${op.colaborador || ''}">${op.colaborador || ''}</td>
-      <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
-      <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
       <td class="ctr">${op.tempoAtraso || ''}</td>
       <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
