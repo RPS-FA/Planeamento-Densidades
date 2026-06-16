@@ -1997,15 +1997,14 @@ function renderDayMachineSubzone(dayKey, machine, items) {
 }
 
 // ============================================================
-// Render — Tabela Excel-like (20 colunas)
+// Render — Tabela Excel-like (17 colunas)
 // ============================================================
 function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
   const cols = [
     {w:18},  {w:24},  {w:90},  {w:110}, {w:200}, {w:55},  {w:70},  {w:70},
-    {w:100}, {w:60},  {w:60},  {w:90},  {w:90},
-    {w:90},  {w:55},  {w:75},  {w:55},
+    {w:100}, {w:60},  {w:60},  {w:90},  {w:90},  {w:55},
     {w:130}, {w:120}, {w:30}
   ];
   const colgroup = document.createElement('colgroup');
@@ -2016,7 +2015,7 @@ function createWeekTable(sched, wk, machine) {
     <th></th><th>#</th><th>OP</th><th>File / Cliente</th><th>Produto</th>
     <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
-    <th>Lote ADE</th><th>% ADE</th><th>Colaborador</th><th>Atraso</th>
+    <th>Atraso</th>
     <th>Estado</th><th>Obs PI</th><th></th>
   </tr>`;
   tbl.appendChild(thead);
@@ -2043,7 +2042,6 @@ function createWeekTable(sched, wk, machine) {
       if (finishH > limH + 8) lateClass = 'at-risk';
     }
     tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '');
-    const pctAdeStr = op.pctAde > 0 ? (op.pctAde * 100).toFixed(1) + '%' : '';
     tr.innerHTML = `
       <td class="ctr"><span class="row-handle">⋮⋮</span></td>
       <td class="ctr num">${idx + 1}</td>
@@ -2058,9 +2056,6 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr">${op.hFimP || fmtTime(item.end)}</td>
       <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
       <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
-      <td class="mono ctr" title="${op.loteAde || ''}">${op.loteAde || ''}</td>
-      <td class="num">${pctAdeStr}</td>
-      <td title="${op.colaborador || ''}">${op.colaborador || ''}</td>
       <td class="ctr">${op.tempoAtraso || ''}</td>
       <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
