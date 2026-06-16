@@ -518,6 +518,9 @@
 .row-data.segmented { background: linear-gradient(to right, transparent 0%, rgba(212, 160, 23, 0.06) 100%); }
 .row-data.seg-cont  { background: rgba(212, 160, 23, 0.10); }
 .row-data.seg-cont td { font-style: italic; }
+
+/* ===== Entrega Logística ===== */
+.entrega-log { font-size: 11px; color: #2c5e8f; font-weight: 600; background: rgba(44, 94, 143, 0.04); }
 </style>
 </head>
 <body>
@@ -2106,6 +2109,20 @@ function _minToHHMM(mins) {
   const a = Math.abs(mins);
   return sign + String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0');
 }
+// ============================================================
+// Entrega Logística:
+//   - Se Início P < 09:00  → "dia anterior"
+//   - Senão                → Início P - 1h (HH:MM)
+// ============================================================
+function calcEntregaLog(hIniP) {
+  if (!hIniP || !/^\d{2}:\d{2}$/.test(hIniP)) return '';
+  const [h, m] = hIniP.split(':').map(Number);
+  const mins = h * 60 + m;
+  if (mins < 9 * 60) return 'dia anterior';
+  const newMins = mins - 60;
+  return String(Math.floor(newMins / 60)).padStart(2, '0') + ':' + String(newMins % 60).padStart(2, '0');
+}
+
 function calcAtraso(hIniR, hIniP, hFimR, hFimP) {
   // Prioridade: fim real vs fim planeado
   if (hFimR && hFimP) {
@@ -2121,14 +2138,14 @@ function calcAtraso(hIniR, hIniP, hFimR, hFimP) {
 }
 
 // ============================================================
-// Render — Tabela Excel-like (17 colunas)
+// Render — Tabela Excel-like (18 colunas)
 // ============================================================
 function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
   const cols = [
     {w:18},  {w:24},  {w:90},  {w:110}, {w:200}, {w:55},  {w:70},  {w:70},
-    {w:100}, {w:60},  {w:60},  {w:90},  {w:90},  {w:55},
+    {w:100}, {w:95},  {w:60},  {w:60},  {w:90},  {w:90},  {w:55},
     {w:130}, {w:120}, {w:30}
   ];
   const colgroup = document.createElement('colgroup');
@@ -2138,6 +2155,7 @@ function createWeekTable(sched, wk, machine) {
   thead.innerHTML = `<tr>
     <th></th><th>#</th><th>OP</th><th>File / Cliente</th><th>Produto</th>
     <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
+    <th>Entrega Logística</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
     <th>Atraso</th>
     <th>Estado</th><th>Obs PI</th><th></th>
@@ -2190,6 +2208,7 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr">${op.massas || ''}</td>
       <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' kr' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
+      <td class="ctr entrega-log" title="Hora de entrega logística (1h antes do início) ou 'dia anterior' se início for antes das 09:00">${isFirstSeg ? calcEntregaLog(_hIniP_calc) : ''}</td>
       <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
       <td class="ctr">${_hFimP_calc}</td>
       <td class="ctr mono" title="${isLastSeg ? (op.dataInicioR||'')+' '+(op.hInicioR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataInicioR, op.hInicioR) : ''}</td>
