@@ -239,6 +239,7 @@ app.get('*', (req, res, next) => {
     if (db.isConnected()) {
       await db.initSchema();
       await db.migrateLegacyEstados();
+      await db.migrateClearImportedHours();
       await db.seedIfEmpty();
     } else {
       console.warn('[server] A arrancar em modo demo (sem persistência). Todas as escritas devolverão 503.');

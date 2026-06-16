@@ -157,6 +157,39 @@ async function migrateLegacyEstados() {
   if (total === 0) console.log('[db] migrateLegacyEstados: nenhum estado legacy "PI ..." encontrado.');
 }
 
+// ------------------------------------------------------------
+// Migração one-shot — zera hInicioP/hFimP/duracaoP (horas planeadas)
+// vindas da importação Excel. Após zerar, o cliente recalcula tudo
+// automaticamente a partir do início do turno + qtdEntrada/krH.
+// Idempotente: usa flag em `settings` para correr apenas 1× por BD.
+// ------------------------------------------------------------
+async function migrateClearImportedHours() {
+  if (!pool) return;
+  const FLAG = '_migration_clearImportedHours_v1';
+  const f = await pool.query(`SELECT value FROM settings WHERE key = $1`, [FLAG]);
+  if (f.rows.length && f.rows[0].value === true) {
+    console.log('[db] migrateClearImportedHours: já corrida (flag presente).');
+    return;
+  }
+  const r = await pool.query(
+    `UPDATE ops
+        SET payload = jsonb_set(
+                        jsonb_set(
+                          jsonb_set(payload, '{hInicioP}', '""'::jsonb),
+                          '{hFimP}', '""'::jsonb),
+                        '{duracaoP}', '""'::jsonb),
+            updated_at = NOW(),
+            updated_by = 'migration-hours'
+      WHERE (payload->>'hInicioP') <> '' OR (payload->>'hFimP') <> '' OR (payload->>'duracaoP') <> ''`
+  );
+  console.log(`[db] migrateClearImportedHours: ${r.rowCount} OPs limpas (hInicioP/hFimP/duracaoP -> '').`);
+  await pool.query(
+    `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [FLAG, JSON.stringify(true)]
+  );
+}
+
 async function seedIfEmpty() {
   if (!pool) return;
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM ops');
@@ -267,6 +300,7 @@ module.exports = {
   isConnected,
   initSchema,
   migrateLegacyEstados,
+  migrateClearImportedHours,
   seedIfEmpty,
   listOps,
   getOp,
