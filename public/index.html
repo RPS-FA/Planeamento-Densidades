@@ -1689,11 +1689,7 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
   return ops.map((op, i) => {
     // Duração: derivada de qtdEntrada / krH (a duração planeada fica em duracaoP, recalculada aqui)
     let durH = krH > 0 && op.qtdEntrada > 0 ? (op.qtdEntrada / krH) : 0;
-    // Override de duração se a OP tem hInicio + hFim manuais (cenário real importado)
-    if (op.hInicioP && op.hFimP) {
-      const d = timeStrToHours(op.hFimP) - timeStrToHours(op.hInicioP);
-      if (d > 0) durH = d;
-    }
+    // Nota: ignoramos op.hInicioP/op.hFimP da BD — duração vem só de qtdEntrada/krH (auto-puro)
     const dayIdx = op.diaIdx || 0;
     let startPoint;
     if (!seenDays.has(dayIdx)) {
@@ -2052,8 +2048,8 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr">${op.massas || ''}</td>
       <td class="num">${(op.qtdEntrada || 0).toLocaleString('pt-PT')}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
-      <td class="ctr">${op.hInicioP || fmtTime(item.start)}</td>
-      <td class="ctr">${op.hFimP || fmtTime(item.end)}</td>
+      <td class="ctr">${fmtTime(item.start)}</td>
+      <td class="ctr">${fmtTime(item.end)}</td>
       <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
       <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
       <td class="ctr">${op.tempoAtraso || ''}</td>
