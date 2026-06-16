@@ -836,6 +836,18 @@ function isFrozenDate(date) {
   if (!date) return false;
   return date < getFreezeDate();
 }
+// Converte weekKey "YYYY-Www" para Date da Segunda dessa semana ISO
+function isoWeekToMonday(weekKey) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(weekKey || '');
+  if (!m) return null;
+  const yy = parseInt(m[1], 10), ww = parseInt(m[2], 10);
+  const jan4 = new Date(yy, 0, 4);
+  const dayOfJan4 = (jan4.getDay() || 7) - 1;
+  const monday1 = new Date(jan4); monday1.setDate(jan4.getDate() - dayOfJan4);
+  const weekMonday = new Date(monday1); weekMonday.setDate(monday1.getDate() + (ww - 1) * 7);
+  return weekMonday;
+}
+
 function isFrozenWeek(weekKey) {
   // Semana totalmente congelada se o Domingo (último dia) é anterior à freeze date
   const m = /^(\d{4})-W(\d{2})$/.exec(weekKey || '');
@@ -2443,6 +2455,30 @@ function onInicioModeChange() {
 function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; }
 
 function saveOP() {
+  // Validação: OP manual em dia fechado/sem turno → confirmar
+  const _inicioModeEl = document.getElementById('m_inicioMode');
+  const _modeVal = _inicioModeEl ? _inicioModeEl.value : 'auto';
+  if (_modeVal === 'manual' && editingOP && editingOP.weekKey) {
+    const _wkMon = isoWeekToMonday(editingOP.weekKey);
+    if (_wkMon) {
+      const _dayDate = new Date(_wkMon);
+      _dayDate.setDate(_wkMon.getDate() + (editingOP.diaIdx || 0));
+      const _shift = getShiftRangeForDate(_dayDate);
+      if (!_shift) {
+        const _dayKey = fmtDate(_dayDate);
+        const _hMan = document.getElementById('m_hInicioP').value || '(sem hora)';
+        const _ok = confirm(
+          'Atenção: o dia ' + _dayKey + ' está fechado ou sem turno definido.\n\n' +
+          'A OP com início manual ' + _hMan + ' NÃO ficará nesse dia — ' +
+          'o scheduler vai deslocá-la para o próximo dia útil disponível.\n\n' +
+          'Para a OP arrancar exactamente à hora indicada nesse dia, ' +
+          'abra o cabeçalho do dia ' + _dayKey + ' e defina um turno (Início e Fim) que inclua essa hora.\n\n' +
+          'Continuar a gravar mesmo assim?'
+        );
+        if (!_ok) return;
+      }
+    }
+  }
   const get = id => document.getElementById(id).value;
   const getNum = id => {
     const v = document.getElementById(id).value;
