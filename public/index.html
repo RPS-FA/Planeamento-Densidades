@@ -509,6 +509,10 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.6); }
   50%      { box-shadow: 0 0 0 4px rgba(212, 160, 23, 0); }
 }
+
+/* ===== Atraso na tabela ===== */
+.atraso-neg { color: #1f7a3b; font-weight: 600; }   /* adiantado (negativo) */
+.atraso-pos { color: #c2410c; font-weight: 600; }   /* atrasado (positivo) */
 </style>
 </head>
 <body>
@@ -724,12 +728,12 @@
       </div>
       <div class="row">
         <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
-        <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time"></div>
+        <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time" oninput="recalcAtrasoInModal()"></div>
       </div>
       <div class="row">
         <div class="field"><label>Data Fim Real</label><input id="m_dataFimR" type="date"></div>
-        <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time"></div>
-        <div class="field"><label>Tempo Atraso</label><input id="m_tempoAtraso" type="text" placeholder="HH:MM"></div>
+        <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time" oninput="recalcAtrasoInModal()"></div>
+        <div class="field"><label>Tempo Atraso <span style="font-size:10px;color:var(--c-muted)">(automático)</span></label><input id="m_tempoAtraso" type="text" placeholder="—" readonly style="background:#f4f4f4;color:#374151"></div>
       </div>
       <div class="field"><label>Colaborador</label><input id="m_colaborador" type="text"></div>
       <div class="field"><label>Observações</label><textarea id="m_obs" rows="2"></textarea></div>
@@ -2013,6 +2017,34 @@ function renderDayMachineSubzone(dayKey, machine, items) {
 }
 
 // ============================================================
+// Atraso automático = fim real - fim planeado; fallback início real - início planeado
+// Devolve string "HH:MM" (atraso positivo) ou "-HH:MM" (adiantado) ou "".
+// ============================================================
+function _timeToMin(hhmm) {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+function _minToHHMM(mins) {
+  const sign = mins < 0 ? '-' : '';
+  const a = Math.abs(mins);
+  return sign + String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0');
+}
+function calcAtraso(hIniR, hIniP, hFimR, hFimP) {
+  // Prioridade: fim real vs fim planeado
+  if (hFimR && hFimP) {
+    const r = _timeToMin(hFimR), p = _timeToMin(hFimP);
+    if (r !== null && p !== null) return _minToHHMM(r - p);
+  }
+  // Fallback: início real vs início planeado
+  if (hIniR && hIniP) {
+    const r = _timeToMin(hIniR), p = _timeToMin(hIniP);
+    if (r !== null && p !== null) return _minToHHMM(r - p);
+  }
+  return '';
+}
+
+// ============================================================
 // Render — Tabela Excel-like (17 colunas)
 // ============================================================
 function createWeekTable(sched, wk, machine) {
@@ -2058,6 +2090,13 @@ function createWeekTable(sched, wk, machine) {
       if (finishH > limH + 8) lateClass = 'at-risk';
     }
     tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '');
+    // Anotar horas calculadas no op (não persistido) para o modal usar
+    const _hIniP_calc = fmtTime(item.start);
+    const _hFimP_calc = fmtTime(item.end);
+    op._calcInicioP = _hIniP_calc;
+    op._calcFimP = _hFimP_calc;
+    const atrasoStr = calcAtraso(op.hInicioR, _hIniP_calc, op.hFimR, _hFimP_calc);
+    const atrasoClass = atrasoStr && atrasoStr.startsWith('-') ? 'atraso-neg' : (atrasoStr ? 'atraso-pos' : '');
     tr.innerHTML = `
       <td class="ctr"><span class="row-handle">⋮⋮</span></td>
       <td class="ctr num">${idx + 1}</td>
@@ -2068,11 +2107,11 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr">${op.massas || ''}</td>
       <td class="num">${(op.qtdEntrada || 0).toLocaleString('pt-PT')}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
-      <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${fmtTime(item.start)}${op.inicioMode === 'manual' ? ' 🔒' : ''}</td>
-      <td class="ctr">${fmtTime(item.end)}</td>
+      <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' ? ' 🔒' : ''}</td>
+      <td class="ctr">${_hFimP_calc}</td>
       <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
       <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
-      <td class="ctr">${op.tempoAtraso || ''}</td>
+      <td class="ctr ${atrasoClass}" title="Diferença automática: Real - Planeado">${atrasoStr}</td>
       <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="col-del" title="Apagar">×</td>
@@ -2267,7 +2306,8 @@ function openModal(op) {
   get('m_hInicioR').value = op ? (op.hInicioR || '') : '';
   get('m_dataFimR').value = op ? (op.dataFimR || '') : '';
   get('m_hFimR').value = op ? (op.hFimR || '') : '';
-  get('m_tempoAtraso').value = op ? (op.tempoAtraso || '') : '';
+  // Tempo Atraso é calculado dos campos reais + horas planeadas (anotadas em op._calcInicioP/_calcFimP)
+  get('m_tempoAtraso').value = op ? calcAtraso(op.hInicioR || '', op._calcInicioP || '', op.hFimR || '', op._calcFimP || '') : '';
   get('m_colaborador').value = op ? (op.colaborador || '') : '';
   get('m_obs').value = op ? (op.obs || '') : '';
   const saveBtn = document.getElementById('m_btnSave');
@@ -2276,6 +2316,17 @@ function openModal(op) {
   deleteBtn.style.display = isNewOp ? 'none' : 'inline-block';
   document.getElementById('modal').classList.add('show');
   applyProfileToModal('dens');
+}
+function recalcAtrasoInModal() {
+  if (!editingOP) {
+    document.getElementById('m_tempoAtraso').value = '';
+    return;
+  }
+  const hIniR = document.getElementById('m_hInicioR').value;
+  const hFimR = document.getElementById('m_hFimR').value;
+  const hIniP = editingOP._calcInicioP || '';
+  const hFimP = editingOP._calcFimP || '';
+  document.getElementById('m_tempoAtraso').value = calcAtraso(hIniR, hIniP, hFimR, hFimP);
 }
 function onInicioModeChange() {
   const sel = document.getElementById('m_inicioMode');
@@ -2321,7 +2372,12 @@ function saveOP() {
     hInicioR: get('m_hInicioR'),
     dataFimR: get('m_dataFimR'),
     hFimR: get('m_hFimR'),
-    tempoAtraso: get('m_tempoAtraso'),
+    tempoAtraso: calcAtraso(
+                    document.getElementById('m_hInicioR').value,
+                    editingOP ? (editingOP._calcInicioP || '') : '',
+                    document.getElementById('m_hFimR').value,
+                    editingOP ? (editingOP._calcFimP || '') : ''
+                  ),
     obs: get('m_obs'),
     weekKey: weekVal,
     diaIdx: editingOP ? (editingOP.diaIdx != null ? editingOP.diaIdx : 0) : 0,
