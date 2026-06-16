@@ -513,6 +513,11 @@
 /* ===== Atraso na tabela ===== */
 .atraso-neg { color: #1f7a3b; font-weight: 600; }   /* adiantado (negativo) */
 .atraso-pos { color: #c2410c; font-weight: 600; }   /* atrasado (positivo) */
+
+/* ===== OPs partidas em múltiplos turnos ===== */
+.row-data.segmented { background: linear-gradient(to right, transparent 0%, rgba(212, 160, 23, 0.06) 100%); }
+.row-data.seg-cont  { background: rgba(212, 160, 23, 0.10); }
+.row-data.seg-cont td { font-style: italic; }
 </style>
 </head>
 <body>
@@ -1643,6 +1648,59 @@ function nextDayMidnight(date) {
   return d;
 }
 
+// Avança o cursor consumindo `durMs` e devolve uma lista de SEGMENTOS [{start,end}].
+// Cada segmento está confinado a um único turno/dia. Paragens dentro do mesmo dia
+// são saltadas mas NÃO partem o segmento (continua-se depois da paragem).
+// Quando o turno acaba ou o dia é fechado, fecha-se o segmento e abre-se outro no dia seguinte.
+function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges) {
+  const sortedStops = stopRanges.slice().sort((a, b) => a.start - b.start);
+  function inStop(c) { for (const s of sortedStops) if (c >= s.start && c < s.end) return s; return null; }
+  function nextStopAfter(c) { for (const s of sortedStops) if (s.start > c) return s; return null; }
+  const segments = [];
+  let cursor = new Date(startCursor.getTime());
+  let remaining = durMs;
+  let segStart = null;
+  const MAX_ITER = 600;
+  let iter = 0;
+  while (remaining > 0 && iter++ < MAX_ITER) {
+    const shift = getShiftRangeForDate(cursor);
+    if (!shift) {
+      if (segStart) { segments.push({ start: segStart, end: new Date(cursor.getTime()) }); segStart = null; }
+      cursor = nextDayMidnight(cursor);
+      continue;
+    }
+    if (cursor < shift.start) cursor = new Date(shift.start);
+    if (cursor >= shift.end) {
+      if (segStart) { segments.push({ start: segStart, end: new Date(cursor.getTime()) }); segStart = null; }
+      cursor = nextDayMidnight(cursor);
+      continue;
+    }
+    const sNow = inStop(cursor);
+    if (sNow) { cursor = new Date(sNow.end); continue; }
+    if (segStart === null) segStart = new Date(cursor.getTime());
+    const sNext = nextStopAfter(cursor);
+    let limit = shift.end;
+    if (sNext && sNext.start < limit) limit = sNext.start;
+    const available = limit - cursor;
+    if (remaining <= available) {
+      const end = new Date(cursor.getTime() + remaining);
+      segments.push({ start: segStart, end });
+      return segments;
+    }
+    remaining -= available;
+    cursor = new Date(limit);
+    if (cursor.getTime() === shift.end.getTime()) {
+      // fim de turno → fecha segmento, próximo dia
+      segments.push({ start: segStart, end: new Date(cursor.getTime()) });
+      segStart = null;
+      cursor = nextDayMidnight(cursor);
+    }
+    // se for paragem intermédia, segStart continua e o loop saltará a paragem
+  }
+  if (segStart) segments.push({ start: segStart, end: new Date(cursor.getTime()) });
+  return segments;
+}
+
 // Avança o cursor consumindo `durMs` respeitando:
 //   - turno (ini-fim) de cada dia (se exceder fim, transborda para próximo dia)
 //   - paragens da máquina (stopRanges)
@@ -1702,14 +1760,13 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
   const SETUP_MS = (SETTINGS.setupMin || 10) * 60 * 1000;
   // Regra: 1ª OP de cada dia = início do turno desse dia; restantes = fim da anterior + setup
   const seenDays = new Set();
-  return ops.map((op, i) => {
-    // Duração: derivada de qtdEntrada / krH (a duração planeada fica em duracaoP, recalculada aqui)
+  const result = [];
+  for (const op of ops) {
+    // Duração: derivada de qtdEntrada / krH (auto-puro)
     let durH = krH > 0 && op.qtdEntrada > 0 ? (op.qtdEntrada / krH) : 0;
-    // Nota: ignoramos op.hInicioP/op.hFimP da BD — duração vem só de qtdEntrada/krH (auto-puro)
     const dayIdx = op.diaIdx || 0;
     let startPoint;
     if (op.inicioMode === 'manual' && op.hInicioP && /^\d{2}:\d{2}$/.test(op.hInicioP)) {
-      // OP com início manual → respeita a hora definida (cascata reinicia daqui)
       const [hh, mm] = op.hInicioP.split(':').map(Number);
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + dayIdx);
@@ -1717,7 +1774,6 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       startPoint = dayDate;
       seenDays.add(dayIdx);
     } else if (!seenDays.has(dayIdx)) {
-      // 1ª OP automática deste dia → começa no início do turno do dia
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + dayIdx);
       const startH = getStartHourForDate(dayDate);
@@ -1726,13 +1782,33 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       startPoint = dayStart;
       seenDays.add(dayIdx);
     } else {
-      // OPs seguintes do mesmo dia → cascateiam do cursor (fim anterior + setup)
       startPoint = cursor;
     }
-    const { start, end } = advanceSkippingStops(startPoint, durH * HOUR_MS, stopRanges);
-    cursor = new Date(end.getTime() + SETUP_MS);
-    return { op, start, end, durH };
-  });
+    const totalDurMs = durH * HOUR_MS;
+    const segs = advanceWithinShiftsSegmented(startPoint, totalDurMs, stopRanges);
+    if (segs.length === 0) {
+      // edge case (durH<=0): cria 1 item zero
+      result.push({ op, start: startPoint, end: startPoint, durH: 0, segIdx: 0, totalSegs: 1, qtdSeg: op.qtdEntrada || 0 });
+      cursor = new Date(startPoint.getTime() + SETUP_MS);
+      continue;
+    }
+    for (let s = 0; s < segs.length; s++) {
+      const seg = segs[s];
+      const segMs = seg.end - seg.start;
+      const fraction = totalDurMs > 0 ? (segMs / totalDurMs) : 1;
+      result.push({
+        op,
+        start: seg.start,
+        end: seg.end,
+        durH: segMs / HOUR_MS,
+        segIdx: s,
+        totalSegs: segs.length,
+        qtdSeg: (op.qtdEntrada || 0) * fraction,
+      });
+    }
+    cursor = new Date(segs[segs.length - 1].end.getTime() + SETUP_MS);
+  }
+  return result;
 }
 
 // ============================================================
@@ -1876,12 +1952,12 @@ function renderDayBlock(dayKey, byMachine) {
   const ehFds = diaSem === 5 || diaSem === 6;
   const dataStr = `${pad(d)}/${pad(m)}`;
 
-  // Total kr do dia (todas as máquinas)
+  // Total kr do dia (todas as máquinas) — usa qtdSeg (proporcional) para OPs partidas
   let totalKr = 0;
   let totalOpsDia = 0;
   for (const machine of MACHINES) {
     for (const item of (byMachine[machine] || [])) {
-      totalKr += item.op.qtdEntrada || 0;
+      totalKr += (item.qtdSeg != null) ? item.qtdSeg : (item.op.qtdEntrada || 0);
       totalOpsDia += 1;
     }
   }
@@ -2072,46 +2148,53 @@ function createWeekTable(sched, wk, machine) {
   // (todas as OPs estão no mesmo dia; o cabeçalho do day-block já indica a data).
   sched.forEach((item, idx) => {
     const op = item.op;
+    const segIdx = item.segIdx || 0;
+    const totalSegs = item.totalSegs || 1;
+    const isFirstSeg = (segIdx === 0);
+    const isLastSeg = (segIdx === totalSegs - 1);
     const tr = document.createElement('tr');
-    tr.draggable = !isReadOnly();
+    tr.draggable = isFirstSeg && !isReadOnly();
     tr.dataset.id = op.id;
+    tr.dataset.seg = segIdx;
     tr.dataset.estado = op.estado;
     const estadoOpts = DENS_ESTADOS
       .map(s => `<option ${s === op.estado ? 'selected' : ''}>${s}</option>`).join('');
     const frozen = isFrozenDate(item.start);
     if (frozen) tr.draggable = false;
-    // Verificar atraso vs hora limite Logística
     let lateClass = '';
     if (op.hFimP && op.estado !== 'Entregue LOG' && op.estado !== 'CSP2-AI liberada') {
       const horaLim = SETTINGS.horaLimiteLog || '09:00';
       const finishH = timeStrToHours(op.hFimP);
       const limH = timeStrToHours(horaLim);
-      // Se acaba muito tarde no dia, marcar at-risk
       if (finishH > limH + 8) lateClass = 'at-risk';
     }
-    tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '');
-    // Anotar horas calculadas no op (não persistido) para o modal usar
+    tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '') + (totalSegs > 1 ? ' segmented' : '') + (!isFirstSeg ? ' seg-cont' : '');
     const _hIniP_calc = fmtTime(item.start);
     const _hFimP_calc = fmtTime(item.end);
-    op._calcInicioP = _hIniP_calc;
-    op._calcFimP = _hFimP_calc;
-    const atrasoStr = calcAtraso(op.hInicioR, _hIniP_calc, op.hFimR, _hFimP_calc);
+    if (isFirstSeg) { op._calcInicioP = _hIniP_calc; }
+    if (isLastSeg)  { op._calcFimP    = _hFimP_calc; }
+    const atrasoStr = isLastSeg ? calcAtraso(op.hInicioR, op._calcInicioP || _hIniP_calc, op.hFimR, _hFimP_calc) : '';
     const atrasoClass = atrasoStr && atrasoStr.startsWith('-') ? 'atraso-neg' : (atrasoStr ? 'atraso-pos' : '');
+    const qtdSeg = (item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0);
+    const segLabel = (totalSegs > 1) ? ` <small style="color:var(--c-muted);font-weight:normal">(${segIdx+1}/${totalSegs})</small>` : '';
+    const qtdLabel = (totalSegs > 1)
+      ? `${qtdSeg.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}<small style="color:var(--c-muted)"> / ${(op.qtdEntrada||0).toLocaleString('pt-PT')}</small>`
+      : `${(op.qtdEntrada || 0).toLocaleString('pt-PT')}`;
     tr.innerHTML = `
-      <td class="ctr"><span class="row-handle">⋮⋮</span></td>
+      <td class="ctr">${isFirstSeg ? '<span class="row-handle">⋮⋮</span>' : '<span style="color:#bbb">↳</span>'}</td>
       <td class="ctr num">${idx + 1}</td>
-      <td class="ctr"><strong>${op.op || ''}</strong></td>
+      <td class="ctr"><strong>${op.op || ''}${segLabel}</strong></td>
       <td title="${op.fileCliente || ''}">${op.fileCliente || ''}</td>
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
       <td class="ctr">${op.calibre || ''}</td>
       <td class="ctr">${op.massas || ''}</td>
-      <td class="num">${(op.qtdEntrada || 0).toLocaleString('pt-PT')}</td>
+      <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' kr' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
-      <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' ? ' 🔒' : ''}</td>
+      <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
       <td class="ctr">${_hFimP_calc}</td>
-      <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
-      <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
-      <td class="ctr ${atrasoClass}" title="Diferença automática: Real - Planeado">${atrasoStr}</td>
+      <td class="ctr mono" title="${isLastSeg ? (op.dataInicioR||'')+' '+(op.hInicioR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataInicioR, op.hInicioR) : ''}</td>
+      <td class="ctr mono" title="${isLastSeg ? (op.dataFimR||'')+' '+(op.hFimR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataFimR, op.hFimR) : ''}</td>
+      <td class="ctr ${atrasoClass}" title="${isLastSeg ? 'Diferença automática: Real - Planeado' : ''}">${atrasoStr}</td>
       <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="col-del" title="Apagar">×</td>
