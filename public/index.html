@@ -497,6 +497,18 @@
   .btn-primary:hover { background: var(--c-primary-dark); }
   .btn-danger { background: #fff; color: #b91c1c; border: 1px solid #b91c1c; }
   .btn-danger:hover { background: #fef3f3; }
+
+/* ===== Botão Guardar Definições (dirty) ===== */
+.btn-dirty {
+  background: #d4a017 !important;
+  color: #1f2d20 !important;
+  border-color: #c2410c !important;
+  animation: cfg-dirty-pulse 1.6s ease-in-out infinite;
+}
+@keyframes cfg-dirty-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.6); }
+  50%      { box-shadow: 0 0 0 4px rgba(212, 160, 23, 0); }
+}
 </style>
 </head>
 <body>
@@ -532,8 +544,6 @@
     <button class="btn secondary" id="addOpBtn" onclick="addOP()">+ Nova OP DENS</button>
     <button class="btn secondary" id="swapOpsBtn" onclick="openSwapModal()">🔄 Trocar OPs</button>
     <button class="btn secondary" onclick="exportJSON()">Exportar JSON</button>
-    <button class="btn secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
-    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
     <button class="btn" onclick="resetData()">Reset demo</button>
   </div>
 </header>
@@ -646,6 +656,8 @@
   </div>
   <div class="settings-actions">
     <button class="btn btn-danger" onclick="resetSettings()">Repor predefinições</button>
+    <button class="btn btn-primary" id="cfg-save-btn" onclick="saveSettingsExplicit()" disabled>💾 Guardar alterações</button>
+    <span id="cfg-dirty-hint" style="font-size:11px; color:var(--c-muted); margin-left:8px"></span>
   </div>
 </div>
 
@@ -1206,9 +1218,35 @@ function readSettingsFromUI() {
 
 function onSettingsChange() {
   readSettingsFromUI();
-  saveSettings();
+  markSettingsDirty();
   updateGlobalCapacityStatus();
   rerender();
+}
+
+// ===== Save explícito de definições + indicador "dirty" =====
+let _settingsDirty = false;
+function markSettingsDirty() {
+  _settingsDirty = true;
+  const btn = document.getElementById('cfg-save-btn');
+  const hint = document.getElementById('cfg-dirty-hint');
+  if (btn) { btn.disabled = false; btn.classList.add('btn-dirty'); }
+  if (hint) hint.textContent = '● Alterações por guardar';
+}
+function clearSettingsDirty() {
+  _settingsDirty = false;
+  const btn = document.getElementById('cfg-save-btn');
+  const hint = document.getElementById('cfg-dirty-hint');
+  if (btn) { btn.disabled = true; btn.classList.remove('btn-dirty'); }
+  if (hint) hint.textContent = '';
+}
+function saveSettingsExplicit() {
+  Api.putSettings(SETTINGS).then(() => {
+    setConnStatus('ok', '✓ Definições guardadas · ' + new Date().toLocaleTimeString('pt-PT'));
+    clearSettingsDirty();
+  }).catch(e => {
+    setConnStatus('error', 'Sem ligação');
+    showErrorToast('Falha ao guardar definições: ' + e.message);
+  });
 }
 
 function updateGlobalCapacityStatus() {
