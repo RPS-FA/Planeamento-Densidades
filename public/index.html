@@ -522,6 +522,7 @@
 /* ===== Entrega Logística ===== */
 .entrega-log { font-size: 11px; color: #2c5e8f; font-weight: 600; background: rgba(44, 94, 143, 0.04); }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -556,7 +557,7 @@
     <button class="btn secondary" id="addOpBtn" onclick="addOP()">+ Nova OP DENS</button>
     <button class="btn secondary" id="swapOpsBtn" onclick="openSwapModal()">🔄 Trocar OPs</button>
     <button class="btn secondary" onclick="exportJSON()">Exportar JSON</button>
-    <button class="btn" onclick="resetData()">Reset demo</button>
+    <button class="btn secondary" onclick="exportExcel()">📊 Exportar Excel</button>
   </div>
 </header>
 
@@ -2143,22 +2144,25 @@ function calcAtraso(hIniR, hIniP, hFimR, hFimP) {
 function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
+  // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Massas, Qtd, Destino,
+  //        Início P, Fim P, Início Real, Fim Real, Atraso, Obs PI, delete
   const cols = [
-    {w:18},  {w:24},  {w:90},  {w:110}, {w:200}, {w:55},  {w:70},  {w:70},
-    {w:100}, {w:95},  {w:60},  {w:60},  {w:90},  {w:90},  {w:55},
-    {w:130}, {w:120}, {w:30}
+    {w:18},  {w:24},  {w:95},  {w:130}, {w:90},  {w:110}, {w:200}, {w:55},
+    {w:70},  {w:70},  {w:100}, {w:60},  {w:60},  {w:90},  {w:90},  {w:55},
+    {w:120}, {w:30}
   ];
   const colgroup = document.createElement('colgroup');
   cols.forEach(c => { const col = document.createElement('col'); col.style.width = c.w + 'px'; colgroup.appendChild(col); });
   tbl.appendChild(colgroup);
   const thead = document.createElement('thead');
   thead.innerHTML = `<tr>
-    <th></th><th>#</th><th>OP</th><th>File / Cliente</th><th>Produto</th>
+    <th></th><th>#</th>
+    <th>Entrega Logística</th><th>Estado</th>
+    <th>OP</th><th>File / Cliente</th><th>Produto</th>
     <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
-    <th>Entrega Logística</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
     <th>Atraso</th>
-    <th>Estado</th><th>Obs PI</th><th></th>
+    <th>Obs PI</th><th></th>
   </tr>`;
   tbl.appendChild(thead);
   const tbody = document.createElement('tbody');
@@ -2201,6 +2205,8 @@ function createWeekTable(sched, wk, machine) {
     tr.innerHTML = `
       <td class="ctr">${isFirstSeg ? '<span class="row-handle">⋮⋮</span>' : '<span style="color:#bbb">↳</span>'}</td>
       <td class="ctr num">${idx + 1}</td>
+      <td class="ctr entrega-log" title="Hora de entrega logística (1h antes do início) ou 'dia anterior' se início for antes das 09:00">${isFirstSeg ? calcEntregaLog(_hIniP_calc) : ''}</td>
+      <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td class="ctr"><strong>${op.op || ''}${segLabel}</strong></td>
       <td title="${op.fileCliente || ''}">${op.fileCliente || ''}</td>
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
@@ -2208,13 +2214,11 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr">${op.massas || ''}</td>
       <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' kr' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
-      <td class="ctr entrega-log" title="Hora de entrega logística (1h antes do início) ou 'dia anterior' se início for antes das 09:00">${isFirstSeg ? calcEntregaLog(_hIniP_calc) : ''}</td>
       <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
       <td class="ctr">${_hFimP_calc}</td>
       <td class="ctr mono" title="${isLastSeg ? (op.dataInicioR||'')+' '+(op.hInicioR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataInicioR, op.hInicioR) : ''}</td>
       <td class="ctr mono" title="${isLastSeg ? (op.dataFimR||'')+' '+(op.hFimR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataFimR, op.hFimR) : ''}</td>
       <td class="ctr ${atrasoClass}" title="${isLastSeg ? 'Diferença automática: Real - Planeado' : ''}">${atrasoStr}</td>
-      <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="col-del" title="Apagar">×</td>
     `;
@@ -2621,6 +2625,103 @@ function changeEstado(id, newEstado) {
 // ============================================================
 // Export / Import / Reset
 // ============================================================
+function exportExcel() {
+  if (typeof XLSX === 'undefined') {
+    showErrorToast('Biblioteca Excel ainda não carregou — aguarde uns segundos e tente outra vez.');
+    return;
+  }
+  const tabDef = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
+  if (!tabDef) {
+    showErrorToast('Selecione primeiro um mês para exportar.');
+    return;
+  }
+  const year = MONTHLY_YEAR;
+  const month = tabDef.month;
+  const weeks = getWeeksInMonth(year, month);
+
+  // Recolher segmentos de todas as máquinas, no mês activo
+  const allItems = [];
+  for (const machine of MACHINES) {
+    for (const wk of weeks) {
+      const wkSched = calcScheduleForWeek(machine, wk.key, wk.monday);
+      for (const item of wkSched) {
+        if (!item.start || isNaN(item.start)) continue;
+        if (item.start.getFullYear() === year && item.start.getMonth() === month) {
+          allItems.push({ item, machine });
+        }
+      }
+    }
+  }
+  // Ordenar por máquina, depois por data/hora de início
+  allItems.sort((a, b) => {
+    if (a.machine !== b.machine) return a.machine.localeCompare(b.machine);
+    return a.item.start - b.item.start;
+  });
+
+  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (kr)','Qtd Total OP (kr)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
+  const rows = [headers];
+
+  for (const { item, machine } of allItems) {
+    const op = item.op;
+    const segIdx = item.segIdx || 0;
+    const totalSegs = item.totalSegs || 1;
+    const isLastSeg = (segIdx === totalSegs - 1);
+    const isFirstSeg = (segIdx === 0);
+    const hIniP = fmtTime(item.start);
+    const hFimP = fmtTime(item.end);
+    rows.push([
+      machine,
+      fmtDate(item.start),
+      op.weekKey || '',
+      isFirstSeg ? calcEntregaLog(hIniP) : '',
+      op.estado || '',
+      op.op || '',
+      totalSegs > 1 ? (segIdx + 1) + '/' + totalSegs : '',
+      op.fileCliente || '',
+      op.produto || '',
+      op.calibre || '',
+      op.massas || '',
+      Number(((item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0)).toFixed(2)),
+      Number((op.qtdEntrada || 0).toFixed(2)),
+      op.destino || '',
+      hIniP,
+      hFimP,
+      isLastSeg ? (op.dataInicioR || '') : '',
+      isLastSeg ? (op.hInicioR || '') : '',
+      isLastSeg ? (op.dataFimR || '') : '',
+      isLastSeg ? (op.hFimR || '') : '',
+      isLastSeg ? calcAtraso(op.hInicioR, hIniP, op.hFimR, hFimP) : '',
+      op.obsPi || '',
+      op.loteAde || '',
+      op.qtdFinalAde || 0,
+      op.colaborador || '',
+      op.obs || '',
+    ]);
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  // Auto-width
+  ws['!cols'] = headers.map((h, i) => {
+    let maxLen = h.length;
+    for (let r = 1; r < rows.length; r++) {
+      const v = rows[r][i];
+      if (v != null) {
+        const len = String(v).length;
+        if (len > maxLen) maxLen = len;
+      }
+    }
+    return { wch: Math.min(40, maxLen + 2) };
+  });
+
+  const wb = XLSX.utils.book_new();
+  const monthName = tabDef.label || ('Mes' + (month + 1));
+  XLSX.utils.book_append_sheet(wb, ws, monthName.substring(0, 31));
+
+  const filename = `Planeamento_DENSIDADES_${monthName.replace(/\s+/g,'_')}_${year}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  setConnStatus('ok', '✓ Excel exportado: ' + filename);
+}
+
 function exportJSON() {
   const payload = {
     schemaVersion: 2,
