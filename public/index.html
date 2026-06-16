@@ -521,6 +521,20 @@
 
 /* ===== Entrega Logística ===== */
 .entrega-log { font-size: 11px; color: #2c5e8f; font-weight: 600; background: rgba(44, 94, 143, 0.04); }
+
+/* ===== Header dia: OPs que continuam para o dia seguinte ===== */
+.dh-continua {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(212, 160, 23, 0.18);
+  color: #7a5300;
+  border: 1px solid rgba(212, 160, 23, 0.45);
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 11px;
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1969,12 +1983,23 @@ function renderDayBlock(dayKey, byMachine) {
   const dataStr = `${pad(d)}/${pad(m)}`;
 
   // Total kr do dia (todas as máquinas) — usa qtdSeg (proporcional) para OPs partidas
+  // Contar também OPs que CONTINUAM para o dia seguinte (segmento não é o último)
   let totalKr = 0;
   let totalOpsDia = 0;
+  let opsContinuam = 0;
+  let krQueContinua = 0;
   for (const machine of MACHINES) {
     for (const item of (byMachine[machine] || [])) {
       totalKr += (item.qtdSeg != null) ? item.qtdSeg : (item.op.qtdEntrada || 0);
       totalOpsDia += 1;
+      const segIdx = item.segIdx || 0;
+      const totalSegs = item.totalSegs || 1;
+      if (segIdx < totalSegs - 1) {
+        opsContinuam += 1;
+        // qtd que sobra desta OP para os próximos dias
+        const qtdFeita = (item.qtdSeg != null) ? item.qtdSeg : 0;
+        krQueContinua += Math.max(0, (item.op.qtdEntrada || 0) - qtdFeita);
+      }
     }
   }
   const turno = getTurnoForDate(date);
@@ -2000,14 +2025,15 @@ function renderDayBlock(dayKey, byMachine) {
   const closedBtn = isClosed
     ? `<button class="dh-close-btn closed" title="Dia fechado — clique para reabrir" onclick="onDayClosedToggle('${dayKey}')">🔒 Dia fechado</button>`
     : `<button class="dh-close-btn" title="Marcar dia como fechado (sem produção)" onclick="onDayClosedToggle('${dayKey}')">🔓</button>`;
+  const continuaStr = opsContinuam > 0
+    ? `<span class="dh-continua" title="${opsContinuam} OP(s) deste dia não cabem no turno e continuam no dia seguinte. Total que transita: ${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 1})} kr">⏭ ${opsContinuam} OP${opsContinuam > 1 ? 's' : ''} continua${opsContinuam > 1 ? 'm' : ''} amanhã (${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 1})} kr)</span>`
+    : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 1})} kr</strong>`;
   const dispStr = isClosed
     ? `<span class="dh-disp closed">🔒 Sem produção</span>`
     : `<span class="dh-disp occ-${occLevel}">
         <span class="dh-disp-bar"><i style="width:${Math.min(100, pctDia).toFixed(0)}%"></i></span>
-        Capacidade: <strong>${totalKr.toLocaleString('pt-PT')} / ${capDiaKr.toLocaleString('pt-PT')} kr</strong>
-        · ${excessoKr > 0
-            ? `<span class="dh-over">⚠ Excesso ${excessoKr.toLocaleString('pt-PT')} kr</span>`
-            : `Livre <strong>${livreKr.toLocaleString('pt-PT')} kr</strong>`}
+        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', {maximumFractionDigits: 1})} / ${capDiaKr.toLocaleString('pt-PT')} kr</strong>
+        · ${continuaStr}
         · ${pctDia.toFixed(0)}%
       </span>`;
   header.innerHTML = `
