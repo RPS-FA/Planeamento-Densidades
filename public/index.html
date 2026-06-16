@@ -703,6 +703,18 @@
     </div>
     <div class="field"><label>Obs PI</label><textarea id="m_obsPi" rows="2"></textarea></div>
 
+    <div class="row">
+      <div class="field"><label>Início</label>
+        <select id="m_inicioMode" onchange="onInicioModeChange()">
+          <option value="auto">Automático (calculado)</option>
+          <option value="manual">Manual (definir hora)</option>
+        </select>
+      </div>
+      <div class="field" id="m_hInicioP_wrap" style="display:none">
+        <label>Hora Início Planeada</label>
+        <input id="m_hInicioP" type="time">
+      </div>
+    </div>
 
     <div class="post-exec">
       <div class="post-exec-title">Pós-execução · preenchimento depois da OP estar feita</div>
@@ -1692,8 +1704,16 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
     // Nota: ignoramos op.hInicioP/op.hFimP da BD — duração vem só de qtdEntrada/krH (auto-puro)
     const dayIdx = op.diaIdx || 0;
     let startPoint;
-    if (!seenDays.has(dayIdx)) {
-      // 1ª OP deste dia → começa no início do turno do dia
+    if (op.inicioMode === 'manual' && op.hInicioP && /^\d{2}:\d{2}$/.test(op.hInicioP)) {
+      // OP com início manual → respeita a hora definida (cascata reinicia daqui)
+      const [hh, mm] = op.hInicioP.split(':').map(Number);
+      const dayDate = new Date(weekStart);
+      dayDate.setDate(weekStart.getDate() + dayIdx);
+      dayDate.setHours(hh, mm, 0, 0);
+      startPoint = dayDate;
+      seenDays.add(dayIdx);
+    } else if (!seenDays.has(dayIdx)) {
+      // 1ª OP automática deste dia → começa no início do turno do dia
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + dayIdx);
       const startH = getStartHourForDate(dayDate);
@@ -2048,7 +2068,7 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr">${op.massas || ''}</td>
       <td class="num">${(op.qtdEntrada || 0).toLocaleString('pt-PT')}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
-      <td class="ctr">${fmtTime(item.start)}</td>
+      <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${fmtTime(item.start)}${op.inicioMode === 'manual' ? ' 🔒' : ''}</td>
       <td class="ctr">${fmtTime(item.end)}</td>
       <td class="ctr mono" title="${(op.dataInicioR||'')+' '+(op.hInicioR||'')}">${fmtRealStr(op.dataInicioR, op.hInicioR)}</td>
       <td class="ctr mono" title="${(op.dataFimR||'')+' '+(op.hFimR||'')}">${fmtRealStr(op.dataFimR, op.hFimR)}</td>
@@ -2237,6 +2257,9 @@ function openModal(op) {
   get('m_destino').value = op ? (op.destino || '') : '';
   get('m_estado').value = op ? op.estado : 'KANBAN';
   get('m_obsPi').value = op ? (op.obsPi || '') : '';
+  get('m_inicioMode').value = op ? (op.inicioMode || 'auto') : 'auto';
+  get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
+  onInicioModeChange();
   // Bloco pós-execução (simplificado: Lote ADE, Qtd ADE, datas+horas reais, atraso, colaborador, obs)
   get('m_loteAde').value = op ? (op.loteAde || '') : '';
   get('m_qtdFinalAde').value = op ? (op.qtdFinalAde != null ? op.qtdFinalAde : '') : '';
@@ -2253,6 +2276,12 @@ function openModal(op) {
   deleteBtn.style.display = isNewOp ? 'none' : 'inline-block';
   document.getElementById('modal').classList.add('show');
   applyProfileToModal('dens');
+}
+function onInicioModeChange() {
+  const sel = document.getElementById('m_inicioMode');
+  const wrap = document.getElementById('m_hInicioP_wrap');
+  if (!sel || !wrap) return;
+  wrap.style.display = (sel.value === 'manual') ? '' : 'none';
 }
 function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; }
 
@@ -2283,8 +2312,8 @@ function saveOP() {
     colaborador: get('m_colaborador'),
     maquina: maqVal,
     estado: estadoVal,
-    inicioMode: 'auto',
-    hInicioP: '',
+    inicioMode: (document.getElementById('m_inicioMode').value || 'auto'),
+    hInicioP: (document.getElementById('m_inicioMode').value === 'manual') ? document.getElementById('m_hInicioP').value : '',
     // hFimP e duracaoP recalculados pelo scheduling (não são editáveis no modal)
     hFimP: editingOP ? (editingOP.hFimP || '') : '',
     duracaoP: editingOP ? (editingOP.duracaoP || '') : '',
