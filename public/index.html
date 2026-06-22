@@ -584,7 +584,7 @@
 
 <div class="controls">
   <div style="font-size:11px; color:var(--c-muted)">
-    Capacidade global: <strong id="status-rate" style="color:var(--c-text)">196 000 un/8h · 28 000 un/h</strong>
+    Capacidade global: <strong id="status-rate" style="color:var(--c-text)">196 000 rolhas/8h · 28 000 rolhas/h</strong>
     &nbsp;·&nbsp; <a href="#" onclick="switchTab('cfg');return false" style="color:var(--c-primary)">⚙ alterar definições</a>
   </div>
   <div class="legend">
@@ -622,10 +622,10 @@
     </div>
 
     <div class="settings-section">
-      <h3>⚙ Capacidades por máquina <span class="badge">unidades/hora</span></h3>
+      <h3>⚙ Capacidades por máquina <span class="badge">rolhas/hora</span></h3>
       <p class="desc">Capacidade real de cada máquina em kilo-rolhas por hora. Multiplicado pelo tempo disponível diário dá o output diário.</p>
       <table class="settings-table">
-        <thead><tr><th style="width:45%">Máquina</th><th>un/8h</th><th>un/h</th></tr></thead>
+        <thead><tr><th style="width:45%">Máquina</th><th>rolhas/8h</th><th>rolhas/h</th></tr></thead>
         <tbody id="cfg-capacidades">
           <tr><td>Maq 1 - Linha 10</td>
               <td><input type="number" data-key="Maq 1 - Linha 10" data-field="kr8h" min="0" max="500" step="1" value="100" onchange="onSettingsChange()"></td>
@@ -707,7 +707,7 @@
         </select>
       </div>
       <div class="field"><label>Massas</label><input id="m_massas" type="text" placeholder="2,9-3,7"></div>
-      <div class="field"><label>Qtd Entrada (un)</label><input id="m_qtdEntrada" type="number" step="1" min="0"></div>
+      <div class="field"><label>Qtd Entrada (rolhas)</label><input id="m_qtdEntrada" type="number" step="1" min="0"></div>
     </div>
     <div class="row">
       <div class="field"><label>Destino</label>
@@ -748,7 +748,7 @@
       <div class="post-exec-title">Pós-execução · preenchimento depois da OP estar feita</div>
       <div class="row">
         <div class="field"><label>Lote ADE</label><input id="m_loteAde" type="text" class="mono" placeholder="LT02307833"></div>
-        <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="1" placeholder="un"></div>
+        <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="1" placeholder="rolhas"></div>
       </div>
       <div class="row">
         <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
@@ -1347,7 +1347,7 @@ function updateGlobalCapacityStatus() {
   const totalKr8h = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].kr8h || 0 : 0), 0);
   const totalKrH = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].krH || 0 : 0), 0);
   document.getElementById('status-rate').textContent =
-    `${totalKr8h.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un/8h · ${totalKrH.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un/h`;
+    `${totalKr8h.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas/8h · ${totalKrH.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas/h`;
 }
 
 function renderStopsTable(machine) {
@@ -1912,7 +1912,7 @@ function renderKanbanInto(containerId, countId, ops, allOps, term) {
     row.innerHTML = `
       <div class="k-op">${op.op}</div>
       <div class="k-desc" title="${op.produto}">${op.produto}</div>
-      <div class="k-meta">${op.fileCliente || '—'} · <strong>${(op.qtdEntrada||0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong> · ${op.calibre || ''}</div>
+      <div class="k-meta">${op.fileCliente || '—'} · <strong>${(op.qtdEntrada||0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas</strong> · ${op.calibre || ''}</div>
     `;
     row.addEventListener('click', () => openModal(op));
     setupRowDragHandlers(row, op);
@@ -2069,13 +2069,13 @@ function renderDayBlock(dayKey, byMachine) {
     ? `<button class="dh-close-btn closed" title="Dia fechado — clique para reabrir" onclick="onDayClosedToggle('${dayKey}')">🔒 Dia fechado</button>`
     : `<button class="dh-close-btn" title="Marcar dia como fechado (sem produção)" onclick="onDayClosedToggle('${dayKey}')">🔓</button>`;
   const continuaStr = opsContinuam > 0
-    ? `<span class="dh-continua" title="${opsContinuam} OP(s) deste dia não cabem no turno e continuam no dia seguinte. Total que transita: ${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} un">⏭ ${opsContinuam} OP${opsContinuam > 1 ? 's' : ''} continua${opsContinuam > 1 ? 'm' : ''} amanhã (${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} un)</span>`
-    : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} un</strong>`;
+    ? `<span class="dh-continua" title="${opsContinuam} OP(s) deste dia não cabem no turno e continuam no dia seguinte. Total que transita: ${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas">⏭ ${opsContinuam} OP${opsContinuam > 1 ? 's' : ''} continua${opsContinuam > 1 ? 'm' : ''} amanhã (${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas)</span>`
+    : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas</strong>`;
   const dispStr = isClosed
     ? `<span class="dh-disp closed">🔒 Sem produção</span>`
     : `<span class="dh-disp occ-${occLevel}">
         <span class="dh-disp-bar"><i style="width:${Math.min(100, pctDia).toFixed(0)}%"></i></span>
-        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong>
+        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas</strong>
         · ${continuaStr}
         · ${pctDia.toFixed(0)}%
       </span>`;
@@ -2141,11 +2141,11 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const head = document.createElement('div');
   head.className = 'dms-header occ-' + occMaq + (items.length === 0 ? ' empty' : '');
   const metaTxt = capDiaMaq === 0
-    ? `<span class="dms-meta">${items.length} OPs · ${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un · sem turno</span>`
-    : `<span class="dms-meta">${items.length} OPs · <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong>` +
+    ? `<span class="dms-meta">${items.length} OPs · ${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas · sem turno</span>`
+    : `<span class="dms-meta">${items.length} OPs · <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas</strong>` +
       ` · ${excessoMaq > 0
-            ? `<span class="dms-over">⚠ Excesso ${excessoMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</span>`
-            : `Livre <strong>${livreMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong>`}` +
+            ? `<span class="dms-over">⚠ Excesso ${excessoMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas</span>`
+            : `Livre <strong>${livreMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas</strong>`}` +
       ` · ${pct.toFixed(0)}%</span>`;
   head.innerHTML = `
     <span>🏭 ${machine}</span>
@@ -2240,7 +2240,7 @@ function createWeekTable(sched, wk, machine) {
     <th></th><th>#</th>
     <th>Entrega Logística</th><th>Estado</th>
     <th>OP</th><th>File / Cliente</th><th>Produto</th>
-    <th>Calibre</th><th>Massas</th><th>Qtd Entrada (un)</th><th>Destino</th>
+    <th>Calibre</th><th>Massas</th><th>Qtd Entrada (rolhas)</th><th>Destino</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
     <th>Atraso</th>
     <th>Obs PI</th><th></th>
@@ -2293,7 +2293,7 @@ function createWeekTable(sched, wk, machine) {
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
       <td class="ctr">${op.calibre || ''}</td>
       <td class="ctr">${op.massas || ''}</td>
-      <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' un' : ''}">${qtdLabel}</td>
+      <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' rolhas' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
       <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
       <td class="ctr">${_hFimP_calc}</td>
@@ -2711,7 +2711,7 @@ function openSplitDialog() {
   const total = editingOP.qtdEntrada || 0;
   if (total < 2) { alert('Qtd insuficiente para dividir.'); return; }
   const halfDefault = Math.round(total / 2 * 10) / 10;
-  const ans = prompt(`Dividir OP ${editingOP.op} (${total} un)\n\nQuantidade da 1ª parte (un):`, String(halfDefault));
+  const ans = prompt(`Dividir OP ${editingOP.op} (${total} rolhas)\n\nQuantidade da 1ª parte (rolhas):`, String(halfDefault));
   if (!ans) return;
   const qtd1 = parseFloat(ans.replace(',', '.'));
   if (isNaN(qtd1) || qtd1 <= 0 || qtd1 >= total) {
@@ -2747,7 +2747,7 @@ function openSplitDialog() {
     saveData();  // grava actualizações (sortIdx + editingOP modificado)
     closeModal();
     rerender();
-    alert(`OP dividida: ${qtd1.toLocaleString('pt-PT')} + ${qtd2.toLocaleString('pt-PT')} un`);
+    alert(`OP dividida: ${qtd1.toLocaleString('pt-PT')} + ${qtd2.toLocaleString('pt-PT')} rolhas`);
   }).catch(e => {
     // rollback do editingOP modificado
     editingOP.qtdEntrada = total;
@@ -2832,7 +2832,7 @@ function exportExcel() {
     return a.item.start - b.item.start;
   });
 
-  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (un)','Qtd Total OP (un)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
+  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (rolhas)','Qtd Total OP (rolhas)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
   const rows = [headers];
 
   for (const { item, machine } of allItems) {
