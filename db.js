@@ -190,6 +190,63 @@ async function migrateClearImportedHours() {
   );
 }
 
+// ------------------------------------------------------------
+// Migração one-shot — converte kr (kilo-rolhas) → unidades (×1000)
+// Aplica-se a SETTINGS.capacidades.X.{kr8h,krH} e payload das OPs
+// Idempotente via flag _migration_unidades_v1 em settings.
+// ------------------------------------------------------------
+async function migrateToUnidades() {
+  if (!pool) return;
+  const FLAG = '_migration_unidades_v1';
+  const f = await pool.query(`SELECT value FROM settings WHERE key = $1`, [FLAG]);
+  if (f.rows.length && f.rows[0].value === true) {
+    console.log('[db] migrateToUnidades: já corrida.');
+    return;
+  }
+  // 1) Capacidades — kr8h e krH × 1000 (se ainda < 1000, está em kr)
+  const capR = await pool.query(`SELECT value FROM settings WHERE key = 'capacidades'`);
+  if (capR.rows.length) {
+    const caps = capR.rows[0].value || {};
+    let changed = false;
+    for (const m of Object.keys(caps)) {
+      const c = caps[m] || {};
+      if (typeof c.kr8h === 'number' && c.kr8h > 0 && c.kr8h < 1000) { c.kr8h = Math.round(c.kr8h * 1000); changed = true; }
+      if (typeof c.krH  === 'number' && c.krH  > 0 && c.krH  < 1000) { c.krH  = Math.round(c.krH  * 1000); changed = true; }
+    }
+    if (changed) {
+      await pool.query(
+        `UPDATE settings SET value = $1, updated_at = NOW() WHERE key = 'capacidades'`,
+        [JSON.stringify(caps)]
+      );
+      console.log('[db] migrateToUnidades: capacidades ×1000');
+    }
+  }
+  // 2) OPs — qtdEntrada/qtdFinalAde/qtdEntradaAde/qtdReprocReal/qtdReprocEstimada × 1000
+  const opsR = await pool.query(`SELECT id, payload FROM ops`);
+  let opsUpdated = 0;
+  for (const row of opsR.rows) {
+    const p = row.payload || {};
+    let changed = false;
+    for (const k of ['qtdEntrada','qtdFinalAde','qtdEntradaAde','qtdReprocReal','qtdReprocEstimada']) {
+      if (typeof p[k] === 'number' && p[k] > 0 && p[k] < 1000) {
+        p[k] = Math.round(p[k] * 1000);
+        changed = true;
+      }
+    }
+    if (changed) {
+      await pool.query(`UPDATE ops SET payload = $1, updated_at = NOW(), updated_by = 'migration-unidades' WHERE id = $2`,
+        [JSON.stringify(p), row.id]);
+      opsUpdated++;
+    }
+  }
+  console.log(`[db] migrateToUnidades: ${opsUpdated} OPs convertidas.`);
+  await pool.query(
+    `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [FLAG, JSON.stringify(true)]
+  );
+}
+
 async function seedIfEmpty() {
   if (!pool) return;
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM ops');
@@ -305,6 +362,7 @@ async function resetOps(updatedBy) {
 
 module.exports = {
   isConnected,
+  migrateToUnidades,
   deleteAllOps,
   initSchema,
   migrateLegacyEstados,

@@ -584,7 +584,7 @@
 
 <div class="controls">
   <div style="font-size:11px; color:var(--c-muted)">
-    Capacidade global: <strong id="status-rate" style="color:var(--c-text)">196 kr/8h · 28.0 kr/h</strong>
+    Capacidade global: <strong id="status-rate" style="color:var(--c-text)">196 000 un/8h · 28 000 un/h</strong>
     &nbsp;·&nbsp; <a href="#" onclick="switchTab('cfg');return false" style="color:var(--c-primary)">⚙ alterar definições</a>
   </div>
   <div class="legend">
@@ -622,10 +622,10 @@
     </div>
 
     <div class="settings-section">
-      <h3>⚙ Capacidades por máquina <span class="badge">kr/hora</span></h3>
+      <h3>⚙ Capacidades por máquina <span class="badge">unidades/hora</span></h3>
       <p class="desc">Capacidade real de cada máquina em kilo-rolhas por hora. Multiplicado pelo tempo disponível diário dá o output diário.</p>
       <table class="settings-table">
-        <thead><tr><th style="width:45%">Máquina</th><th>kr/8h</th><th>kr/h</th></tr></thead>
+        <thead><tr><th style="width:45%">Máquina</th><th>un/8h</th><th>un/h</th></tr></thead>
         <tbody id="cfg-capacidades">
           <tr><td>Maq 1 - Linha 10</td>
               <td><input type="number" data-key="Maq 1 - Linha 10" data-field="kr8h" min="0" max="500" step="1" value="100" onchange="onSettingsChange()"></td>
@@ -697,7 +697,7 @@
       <div class="field"><label>OP</label><input id="m_op" type="text"></div>
       <div class="field"><label>File / Cliente</label><input id="m_fileCliente" type="text"></div>
     </div>
-    <div class="field"><label>Produto</label><input id="m_produto" type="text" class="mono" placeholder="N-QV2-..."></div>
+    <div class="field"><label>Produto</label><input id="m_produto" type="text" class="mono" placeholder="N-QV2-..." oninput="onProdutoChange()"></div>
     <div class="row">
       <div class="field"><label>Calibre</label>
         <select id="m_calibre">
@@ -707,7 +707,7 @@
         </select>
       </div>
       <div class="field"><label>Massas</label><input id="m_massas" type="text" placeholder="2,9-3,7"></div>
-      <div class="field"><label>Qtd Entrada (kr)</label><input id="m_qtdEntrada" type="number" step="0.1"></div>
+      <div class="field"><label>Qtd Entrada (un)</label><input id="m_qtdEntrada" type="number" step="1" min="0"></div>
     </div>
     <div class="row">
       <div class="field"><label>Destino</label>
@@ -748,7 +748,7 @@
       <div class="post-exec-title">Pós-execução · preenchimento depois da OP estar feita</div>
       <div class="row">
         <div class="field"><label>Lote ADE</label><input id="m_loteAde" type="text" class="mono" placeholder="LT02307833"></div>
-        <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="0.1" placeholder="kr"></div>
+        <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="1" placeholder="un"></div>
       </div>
       <div class="row">
         <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
@@ -1305,7 +1305,7 @@ function updateGlobalCapacityStatus() {
   const totalKr8h = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].kr8h || 0 : 0), 0);
   const totalKrH = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].krH || 0 : 0), 0);
   document.getElementById('status-rate').textContent =
-    `${totalKr8h} kr/8h · ${totalKrH.toFixed(1)} kr/h`;
+    `${totalKr8h.toLocaleString('pt-PT')} un/8h · ${totalKrH.toLocaleString('pt-PT')} un/h`;
 }
 
 function renderStopsTable(machine) {
@@ -2027,13 +2027,13 @@ function renderDayBlock(dayKey, byMachine) {
     ? `<button class="dh-close-btn closed" title="Dia fechado — clique para reabrir" onclick="onDayClosedToggle('${dayKey}')">🔒 Dia fechado</button>`
     : `<button class="dh-close-btn" title="Marcar dia como fechado (sem produção)" onclick="onDayClosedToggle('${dayKey}')">🔓</button>`;
   const continuaStr = opsContinuam > 0
-    ? `<span class="dh-continua" title="${opsContinuam} OP(s) deste dia não cabem no turno e continuam no dia seguinte. Total que transita: ${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 1})} kr">⏭ ${opsContinuam} OP${opsContinuam > 1 ? 's' : ''} continua${opsContinuam > 1 ? 'm' : ''} amanhã (${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 1})} kr)</span>`
-    : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 1})} kr</strong>`;
+    ? `<span class="dh-continua" title="${opsContinuam} OP(s) deste dia não cabem no turno e continuam no dia seguinte. Total que transita: ${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} un">⏭ ${opsContinuam} OP${opsContinuam > 1 ? 's' : ''} continua${opsContinuam > 1 ? 'm' : ''} amanhã (${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} un)</span>`
+    : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} un</strong>`;
   const dispStr = isClosed
     ? `<span class="dh-disp closed">🔒 Sem produção</span>`
     : `<span class="dh-disp occ-${occLevel}">
         <span class="dh-disp-bar"><i style="width:${Math.min(100, pctDia).toFixed(0)}%"></i></span>
-        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', {maximumFractionDigits: 1})} / ${capDiaKr.toLocaleString('pt-PT')} kr</strong>
+        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} / ${capDiaKr.toLocaleString('pt-PT')} un</strong>
         · ${continuaStr}
         · ${pctDia.toFixed(0)}%
       </span>`;
@@ -2198,7 +2198,7 @@ function createWeekTable(sched, wk, machine) {
     <th></th><th>#</th>
     <th>Entrega Logística</th><th>Estado</th>
     <th>OP</th><th>File / Cliente</th><th>Produto</th>
-    <th>Calibre</th><th>Massas</th><th>Qtd Entrada (kr)</th><th>Destino</th>
+    <th>Calibre</th><th>Massas</th><th>Qtd Entrada (un)</th><th>Destino</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
     <th>Atraso</th>
     <th>Obs PI</th><th></th>
@@ -2239,7 +2239,7 @@ function createWeekTable(sched, wk, machine) {
     const qtdSeg = (item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0);
     const segLabel = (totalSegs > 1) ? ` <small style="color:var(--c-muted);font-weight:normal">(${segIdx+1}/${totalSegs})</small>` : '';
     const qtdLabel = (totalSegs > 1)
-      ? `${qtdSeg.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}<small style="color:var(--c-muted)"> / ${(op.qtdEntrada||0).toLocaleString('pt-PT')}</small>`
+      ? `${qtdSeg.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}<small style="color:var(--c-muted)"> / ${(op.qtdEntrada||0).toLocaleString('pt-PT')}</small>`
       : `${(op.qtdEntrada || 0).toLocaleString('pt-PT')}`;
     tr.innerHTML = `
       <td class="ctr">${isFirstSeg ? '<span class="row-handle">⋮⋮</span>' : '<span style="color:#bbb">↳</span>'}</td>
@@ -2251,7 +2251,7 @@ function createWeekTable(sched, wk, machine) {
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
       <td class="ctr">${op.calibre || ''}</td>
       <td class="ctr">${op.massas || ''}</td>
-      <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' kr' : ''}">${qtdLabel}</td>
+      <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' un' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
       <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
       <td class="ctr">${_hFimP_calc}</td>
@@ -2427,6 +2427,30 @@ function moveOpToKanban(opMoved) {
 // Modal — editar / criar OP DENS
 // ============================================================
 let editingOP = null;
+// Extrai calibre (ex: "45x26") a partir do código do produto (ex: "N-QV2-NAT-45X260-..").
+// Lê 2 dígitos do diâmetro + os 2 primeiros do comprimento (descartando o último 0).
+function inferCalibreFromProduto(produto) {
+  if (!produto) return '';
+  const m = /(\d{2})X(\d{2})/i.exec(produto);
+  if (!m) return '';
+  return m[1] + 'x' + m[2];
+}
+function onProdutoChange() {
+  const prod = document.getElementById('m_produto').value;
+  const cal = inferCalibreFromProduto(prod);
+  if (!cal) return;
+  const sel = document.getElementById('m_calibre');
+  if (!sel) return;
+  for (const opt of sel.options) {
+    if (opt.value === cal || opt.text === cal) {
+      sel.value = opt.value || opt.text;
+      return;
+    }
+  }
+  // Calibre não está na lista: avisar via title (não bloqueia)
+  sel.title = 'Calibre detectado: ' + cal + ' (não está nas opções)';
+}
+
 function openModal(op) {
   editingOP = op;
   const isNewOp = !op;
@@ -2645,7 +2669,7 @@ function openSplitDialog() {
   const total = editingOP.qtdEntrada || 0;
   if (total < 2) { alert('Qtd insuficiente para dividir.'); return; }
   const halfDefault = Math.round(total / 2 * 10) / 10;
-  const ans = prompt(`Dividir OP ${editingOP.op} (${total} kr)\n\nQuantidade da 1ª parte (kr):`, String(halfDefault));
+  const ans = prompt(`Dividir OP ${editingOP.op} (${total} un)\n\nQuantidade da 1ª parte (un):`, String(halfDefault));
   if (!ans) return;
   const qtd1 = parseFloat(ans.replace(',', '.'));
   if (isNaN(qtd1) || qtd1 <= 0 || qtd1 >= total) {
@@ -2766,7 +2790,7 @@ function exportExcel() {
     return a.item.start - b.item.start;
   });
 
-  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (kr)','Qtd Total OP (kr)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
+  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (un)','Qtd Total OP (un)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
   const rows = [headers];
 
   for (const { item, machine } of allItems) {
