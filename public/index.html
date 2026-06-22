@@ -1305,7 +1305,7 @@ function updateGlobalCapacityStatus() {
   const totalKr8h = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].kr8h || 0 : 0), 0);
   const totalKrH = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].krH || 0 : 0), 0);
   document.getElementById('status-rate').textContent =
-    `${totalKr8h.toLocaleString('pt-PT')} un/8h · ${totalKrH.toLocaleString('pt-PT')} un/h`;
+    `${totalKr8h.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un/8h · ${totalKrH.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un/h`;
 }
 
 function renderStopsTable(machine) {
@@ -1870,7 +1870,7 @@ function renderKanbanInto(containerId, countId, ops, allOps, term) {
     row.innerHTML = `
       <div class="k-op">${op.op}</div>
       <div class="k-desc" title="${op.produto}">${op.produto}</div>
-      <div class="k-meta">${op.fileCliente || '—'} · <strong>${(op.qtdEntrada||0).toLocaleString('pt-PT')} kr</strong> · ${op.calibre || ''}</div>
+      <div class="k-meta">${op.fileCliente || '—'} · <strong>${(op.qtdEntrada||0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong> · ${op.calibre || ''}</div>
     `;
     row.addEventListener('click', () => openModal(op));
     setupRowDragHandlers(row, op);
@@ -2033,7 +2033,7 @@ function renderDayBlock(dayKey, byMachine) {
     ? `<span class="dh-disp closed">🔒 Sem produção</span>`
     : `<span class="dh-disp occ-${occLevel}">
         <span class="dh-disp-bar"><i style="width:${Math.min(100, pctDia).toFixed(0)}%"></i></span>
-        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} / ${capDiaKr.toLocaleString('pt-PT')} un</strong>
+        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong>
         · ${continuaStr}
         · ${pctDia.toFixed(0)}%
       </span>`;
@@ -2099,11 +2099,11 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const head = document.createElement('div');
   head.className = 'dms-header occ-' + occMaq + (items.length === 0 ? ' empty' : '');
   const metaTxt = capDiaMaq === 0
-    ? `<span class="dms-meta">${items.length} OPs · ${totalKr.toLocaleString('pt-PT')} kr · sem turno</span>`
-    : `<span class="dms-meta">${items.length} OPs · <strong>${totalKr.toLocaleString('pt-PT')} / ${capDiaMaq.toLocaleString('pt-PT')} kr</strong>` +
+    ? `<span class="dms-meta">${items.length} OPs · ${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un · sem turno</span>`
+    : `<span class="dms-meta">${items.length} OPs · <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong>` +
       ` · ${excessoMaq > 0
-            ? `<span class="dms-over">⚠ Excesso ${excessoMaq.toLocaleString('pt-PT')} kr</span>`
-            : `Livre <strong>${livreMaq.toLocaleString('pt-PT')} kr</strong>`}` +
+            ? `<span class="dms-over">⚠ Excesso ${excessoMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</span>`
+            : `Livre <strong>${livreMaq.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} un</strong>`}` +
       ` · ${pct.toFixed(0)}%</span>`;
   head.innerHTML = `
     <span>🏭 ${machine}</span>
@@ -2239,8 +2239,8 @@ function createWeekTable(sched, wk, machine) {
     const qtdSeg = (item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0);
     const segLabel = (totalSegs > 1) ? ` <small style="color:var(--c-muted);font-weight:normal">(${segIdx+1}/${totalSegs})</small>` : '';
     const qtdLabel = (totalSegs > 1)
-      ? `${qtdSeg.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}<small style="color:var(--c-muted)"> / ${(op.qtdEntrada||0).toLocaleString('pt-PT')}</small>`
-      : `${(op.qtdEntrada || 0).toLocaleString('pt-PT')}`;
+      ? `${qtdSeg.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}<small style="color:var(--c-muted)"> / ${(op.qtdEntrada||0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</small>`
+      : `${(op.qtdEntrada || 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })}`;
     tr.innerHTML = `
       <td class="ctr">${isFirstSeg ? '<span class="row-handle">⋮⋮</span>' : '<span style="color:#bbb">↳</span>'}</td>
       <td class="ctr num">${idx + 1}</td>
@@ -2705,7 +2705,7 @@ function openSplitDialog() {
     saveData();  // grava actualizações (sortIdx + editingOP modificado)
     closeModal();
     rerender();
-    alert(`OP dividida: ${qtd1} + ${qtd2} kr`);
+    alert(`OP dividida: ${qtd1.toLocaleString('pt-PT')} + ${qtd2.toLocaleString('pt-PT')} un`);
   }).catch(e => {
     // rollback do editingOP modificado
     editingOP.qtdEntrada = total;
@@ -2813,8 +2813,8 @@ function exportExcel() {
       op.produto || '',
       op.calibre || '',
       op.massas || '',
-      Number(((item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0)).toFixed(2)),
-      Number((op.qtdEntrada || 0).toFixed(2)),
+      Math.round((item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0)),
+      Math.round(op.qtdEntrada || 0),
       op.destino || '',
       hIniP,
       hFimP,
