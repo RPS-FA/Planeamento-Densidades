@@ -2696,7 +2696,7 @@ function wipeAllOps() {
   if (!confirm('Última confirmação:\n\nTem MESMO a certeza?\n\nNão é possível recuperar depois.')) return;
   fetch('/api/admin/wipe', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Profile': PROFILE }
+    headers: { 'Content-Type': 'application/json', 'X-Profile': 'planeador' }
   })
     .then(r => r.json())
     .then(r => {
