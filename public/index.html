@@ -571,6 +571,7 @@
     <span id="connStatus" class="conn-chip loading" title="Estado da ligação ao servidor">… A ligar</span>
     <button class="btn secondary" id="addOpBtn" onclick="addOP()">+ Nova OP DENS</button>
     <button class="btn secondary" id="swapOpsBtn" onclick="openSwapModal()">🔄 Trocar OPs</button>
+    <button class="btn secondary" id="undoBtn" onclick="doUndo()" title="Desfazer última acção" disabled>↶ Undo</button>
     <button class="btn secondary" onclick="exportJSON()">Exportar JSON</button>
     <button class="btn secondary" onclick="exportExcel()">📊 Exportar Excel</button>
   </div>
@@ -683,8 +684,6 @@
 
   </div>
   <div class="settings-actions">
-    <button class="btn btn-danger" onclick="resetSettings()">Repor predefinições</button>
-    <button class="btn btn-danger" onclick="wipeAllOps()" style="background:#7a1e1e">🗑 Apagar TODAS as OPs</button>
     <button class="btn btn-primary" id="cfg-save-btn" onclick="saveSettingsExplicit()" disabled>💾 Guardar alterações</button>
     <span id="cfg-dirty-hint" style="font-size:11px; color:var(--c-muted); margin-left:8px"></span>
   </div>
@@ -1256,6 +1255,73 @@ function applyServerSettings(serverSettings) {
 // Compat: loadSettings agora apenas garante shape (carregamento real é via Api.getState)
 function loadSettings() { ensureSettingsShape(); }
 
+// ============================================================
+// Undo stack — snapshot de DATA + SETTINGS antes de cada acção destrutiva
+// ============================================================
+const UNDO_STACK = [];
+const UNDO_LIMIT = 20;
+function pushUndo(label) {
+  UNDO_STACK.push({
+    label: label || 'Acção',
+    ts: Date.now(),
+    data: JSON.parse(JSON.stringify(DATA)),
+    settings: JSON.parse(JSON.stringify(SETTINGS || {})),
+  });
+  if (UNDO_STACK.length > UNDO_LIMIT) UNDO_STACK.shift();
+  updateUndoButton();
+}
+function updateUndoButton() {
+  const btn = document.getElementById('undoBtn');
+  if (!btn) return;
+  btn.disabled = UNDO_STACK.length === 0;
+  if (UNDO_STACK.length > 0) {
+    const last = UNDO_STACK[UNDO_STACK.length - 1];
+    btn.title = 'Desfazer: ' + last.label + ' (' + UNDO_STACK.length + ' acções na stack)';
+  } else {
+    btn.title = 'Nada para desfazer';
+  }
+}
+async function doUndo() {
+  if (UNDO_STACK.length === 0) { setConnStatus('ok', 'Nada para desfazer'); return; }
+  const last = UNDO_STACK.pop();
+  const oldData = last.data;
+  const oldById = new Map(oldData.map(o => [o.id, o]));
+  const curById = new Map(DATA.map(o => [o.id, o]));
+  const toDelete = [];
+  const toRecreate = [];
+  const toUpdate = [];
+  for (const id of curById.keys()) if (!oldById.has(id)) toDelete.push(id);
+  for (const o of oldData) {
+    if (curById.has(o.id)) {
+      // payload diferente → update
+      if (JSON.stringify(curById.get(o.id)) !== JSON.stringify(o)) toUpdate.push(o);
+    } else {
+      // foi apagada → recriar (servidor gera novo id)
+      toRecreate.push(o);
+    }
+  }
+  try {
+    for (const id of toDelete) await Api.deleteOp(id);
+    for (const op of toRecreate) { const cp = Object.assign({}, op); delete cp.id; await Api.postOp(cp); }
+    for (const op of toUpdate)   await Api.putOp(op.id, op, 'planeador');
+    // Settings — sync se mudaram
+    const settingsDiff = JSON.stringify(SETTINGS || {}) !== JSON.stringify(last.settings || {});
+    if (settingsDiff && typeof Api.putSettings === 'function') {
+      await Api.putSettings(last.settings);
+    }
+    // Re-fetch state do servidor para garantir consistência (IDs novos depois de recreate)
+    const st = await Api.getState();
+    if (st && st.ops) DATA = st.ops;
+    if (st && st.settings) SETTINGS = Object.assign(SETTINGS || {}, st.settings);
+    setConnStatus('ok', '↶ Desfeito: ' + last.label);
+    rerender();
+  } catch (e) {
+    setConnStatus('error', 'Falha no undo');
+    showErrorToast('Erro ao desfazer: ' + e.message);
+  }
+  updateUndoButton();
+}
+
 // saveSettings — envia para o backend (fire-and-forget; erros via toast)
 // Em produção, o servidor só aceita 'turnosPorDia' — enviamos apenas isso.
 function saveSettings() {
@@ -1608,6 +1674,7 @@ function isDayClosed(dayKey) {
 
 function onDayClosedToggle(dayKey) {
   // Produção pode fechar/abrir dia
+  pushUndo('Fechar/abrir dia ' + dayKey);
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   const cur = SETTINGS.turnosPorDia[dayKey] || { ini: '', fim: '' };
   const novo = !cur.fechado;
@@ -1647,6 +1714,7 @@ function markDayTurnoDirty(dayKey) {
 
 function applyDayTurno(dayKey) {
   // Produção pode editar turnos (responsável pela operação)
+  pushUndo('Alterar turno ' + dayKey);
   const span = document.querySelector(`.dh-turno[data-day="${dayKey}"]`);
   if (!span) return;
   const ini = (span.querySelector('input[data-field="ini"]') || {}).value || '';
@@ -2424,6 +2492,7 @@ function setupKanbanDropTargets() {
 }
 
 function moveOpRelativeTo(opMoved, opTarget, position) {
+  pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(opTarget.weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
   const targetMachine = opTarget.maquina;
@@ -2441,6 +2510,7 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   saveData(); rerender();
 }
 function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
+  pushUndo('Mover OP ' + (opMoved.op || opMoved.id) + ' → ' + machine);
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
   const peers = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
@@ -2549,6 +2619,7 @@ function onInicioModeChange() {
 function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; }
 
 function saveOP() {
+  pushUndo(editingOP ? 'Editar OP ' + (editingOP.op || editingOP.id) : 'Criar OP');
   // Validação: OP manual em dia fechado/sem turno → confirmar
   const _inicioModeEl = document.getElementById('m_inicioMode');
   const _modeVal = _inicioModeEl ? _inicioModeEl.value : 'auto';
@@ -2644,6 +2715,7 @@ function saveOP() {
 function deleteOP() {
   if (!editingOP) return;
   if (!confirm(`Apagar OP ${editingOP.op}?`)) return;
+  pushUndo('Apagar OP ' + (editingOP.op || editingOP.id));
   DATA = DATA.filter(o => o.id !== editingOP.id);
   saveData(); closeModal(); rerender();
 }
@@ -2689,6 +2761,7 @@ function updateSwapPreview() {
   }
 }
 function doSwapOps() {
+  pushUndo('Trocar 2 OPs');
   const op1 = document.getElementById('swap_op1').value.trim();
   const op2 = document.getElementById('swap_op2').value.trim();
   if (!op1 || !op2 || op1 === op2) { alert('Indica dois números de OP diferentes.'); return; }
@@ -2719,6 +2792,7 @@ function openSplitDialog() {
     alert(`Quantidade inválida. Deve estar entre 0 e ${total}.`);
     return;
   }
+  pushUndo('Dividir OP ' + (editingOP.op || editingOP.id));
   const qtd2 = Math.round((total - qtd1) * 10) / 10;
   // Preparar 2ª parte (SEM id local fabricado — POST devolve o id real da BD)
   const newOp = JSON.parse(JSON.stringify(editingOP));
@@ -2760,6 +2834,7 @@ function openSplitDialog() {
 function changeEstado(id, newEstado) {
   const op = DATA.find(o => o.id === id);
   if (!op) return;
+  pushUndo('Estado OP ' + (op.op || op.id) + ' → ' + newEstado);
   op.estado = newEstado;
   if (newEstado === 'KANBAN' && op.maquina !== 'KANBAN') {
     op.maquina = 'KANBAN';
