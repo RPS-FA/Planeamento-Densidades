@@ -346,12 +346,13 @@
   .day-machine-subzone .dms-header.occ-high { background: #fde2e2; border-left-color: #ef4444; }
   .day-machine-subzone.drag-target { background: #eaf3fb; outline: 2px dashed var(--c-primary); outline-offset: -2px; }
   .day-machine-subzone .empty-day-machine { padding: 6px 12px; color: var(--c-muted); font-size: 10.5px; font-style: italic; }
-  table.excel { border-collapse: collapse; font-size: 10.5px; table-layout: fixed; }
+  table.excel { border-collapse: collapse; font-size: 10.5px; table-layout: fixed; width: 100%; }
   table.excel th {
     background: var(--c-subheader); color: var(--c-text); font-weight: 600;
     padding: 4px 3px; border: 1px solid var(--c-grid);
     text-align: center; vertical-align: middle;
-    white-space: normal; line-height: 1.15; font-size: 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.15; font-size: 10px;
   }
   table.excel td {
     padding: 3px 5px; border: 1px solid var(--c-grid);
@@ -2228,8 +2229,8 @@ function createWeekTable(sched, wk, machine) {
   // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Massas, Qtd, Destino,
   //        Início P, Fim P, Início Real, Fim Real, Atraso, Obs PI, delete
   const cols = [
-    {w:18},  {w:24},  {w:95},  {w:130}, {w:90},  {w:110}, {w:200}, {w:55},
-    {w:70},  {w:70},  {w:100}, {w:60},  {w:60},  {w:90},  {w:90},  {w:55},
+    {w:18},  {w:24},  {w:100}, {w:115}, {w:90},  {w:115}, {w:175}, {w:55},
+    {w:70},  {w:110}, {w:90},  {w:60},  {w:60},  {w:95},  {w:95},  {w:55},
     {w:120}, {w:30}
   ];
   const colgroup = document.createElement('colgroup');
