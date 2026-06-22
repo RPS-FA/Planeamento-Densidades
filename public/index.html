@@ -1062,13 +1062,30 @@ function showErrorToast(msg) {
 // ============================================================
 // Perfis de edição (Planeador / Produção)
 // ============================================================
-// Perfil — mantém-se em localStorage (preferência local, não-crítica)
+// Perfil — preferência local (não é autenticação séria, é barreira contra alterações acidentais)
+// Default: Produção. Para entrar em Planeador é pedida password (válida durante a sessão do browser).
 const LS_PROFILE = 'planeamento_profile_v1';
+const SS_PLANEADOR_AUTH = 'planeamento_planeador_auth_v1';  // sessionStorage flag
+const PLANEADOR_PASSWORD = 'Cork2026!';
+
+function isPlaneadorAuthed() {
+  try { return sessionStorage.getItem(SS_PLANEADOR_AUTH) === '1'; }
+  catch (e) { return false; }
+}
+function setPlaneadorAuthed(v) {
+  try {
+    if (v) sessionStorage.setItem(SS_PLANEADOR_AUTH, '1');
+    else sessionStorage.removeItem(SS_PLANEADOR_AUTH);
+  } catch (e) {}
+}
+
 function getProfile() {
   try {
     const p = localStorage.getItem(LS_PROFILE);
-    return (p === 'producao') ? 'producao' : 'planeador';
-  } catch (e) { return 'planeador'; }
+    // Planeador exige autenticação válida na sessão; senão cai para Produção
+    if (p === 'planeador' && isPlaneadorAuthed()) return 'planeador';
+    return 'producao';
+  } catch (e) { return 'producao'; }
 }
 function isProducao() { return getProfile() === 'producao'; }
 function applyProfileToBody() {
@@ -1077,6 +1094,27 @@ function applyProfileToBody() {
   if (sel) sel.value = getProfile();
 }
 function changeProfile(p) {
+  if (p === 'planeador') {
+    if (!isPlaneadorAuthed()) {
+      const pw = prompt('Modo Planeador — introduza a password:');
+      if (pw === null) {
+        // Cancelado → reverter dropdown
+        const sel = document.getElementById('profileSelect');
+        if (sel) sel.value = getProfile();
+        return;
+      }
+      if (pw !== PLANEADOR_PASSWORD) {
+        alert('Password incorrecta. Permaneces em Produção.');
+        const sel = document.getElementById('profileSelect');
+        if (sel) sel.value = 'producao';
+        return;
+      }
+      setPlaneadorAuthed(true);
+    }
+  } else {
+    // Sair do Planeador → invalidar auth
+    setPlaneadorAuthed(false);
+  }
   try { localStorage.setItem(LS_PROFILE, p); } catch (e) {}
   applyProfileToBody();
   if (typeof closeModal === 'function') closeModal();
