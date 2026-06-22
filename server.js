@@ -175,19 +175,27 @@ app.get('/api/settings', async (req, res) => {
   } catch (e) { sendError(res, e, 'GET /api/settings falhou'); }
 });
 
-// PUT /api/settings — só Planeador
+// PUT /api/settings — Planeador edita tudo; Produção edita só 'turnosPorDia'
+const PRODUCAO_SETTING_KEYS = ['turnosPorDia'];
 app.put('/api/settings', async (req, res) => {
   if (!requireDb(res)) return;
   try {
     const profile = profileOf(req);
-    if (profile !== 'planeador') {
-      return res.status(403).json({ ok: false, error: 'Apenas o perfil planeador pode editar settings.' });
-    }
     const body = req.body || {};
     if (typeof body !== 'object' || Array.isArray(body)) {
       return res.status(400).json({ ok: false, error: 'Body inválido.' });
     }
-    const settings = await db.putSettings(body);
+    let payload = body;
+    if (profile === 'producao') {
+      payload = {};
+      for (const k of PRODUCAO_SETTING_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(body, k)) payload[k] = body[k];
+      }
+      if (Object.keys(payload).length === 0) {
+        return res.status(403).json({ ok: false, error: 'Produção só pode editar: ' + PRODUCAO_SETTING_KEYS.join(', ') });
+      }
+    }
+    const settings = await db.putSettings(payload);
     res.json({ ok: true, settings });
   } catch (e) { sendError(res, e, 'PUT /api/settings falhou'); }
 });

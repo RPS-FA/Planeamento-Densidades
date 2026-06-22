@@ -278,7 +278,7 @@
   .day-block-header .dh-close-btn.closed {
     background: rgba(220, 38, 38, 0.7); border-color: rgba(220, 38, 38, 0.9); font-weight: 700;
   }
-  body.profile-producao .day-block-header .dh-close-btn { display: none; }
+  /* Produção pode fechar/abrir dia */
 
   /* Dia fechado — visual cinza e listrado */
   .day-block.day-closed { opacity: 0.7; }
@@ -299,7 +299,7 @@
   .day-machine-subzone.day-closed-zone.empty-zone { background: repeating-linear-gradient(
     45deg, #e5e7eb, #e5e7eb 6px, #d1d5db 6px, #d1d5db 12px
   ) !important; border-color: #9ca3af; }
-  body.profile-producao .day-block-header .dh-turno .dh-time { pointer-events: none; opacity: 0.6; }
+  /* Produção PODE alterar turnos — pointer-events restored */
   .day-block-header .dh-turno .dh-ok-btn {
     background: rgba(255,255,255,0.25); color: #fff;
     border: 1px solid rgba(255,255,255,0.4); border-radius: 3px;
@@ -316,7 +316,7 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.6); }
     50%      { box-shadow: 0 0 0 4px rgba(212, 160, 23, 0); }
   }
-  body.profile-producao .day-block-header .dh-turno .dh-ok-btn { display: none; }
+  /* Produção PODE clicar OK no turno — botão visível */
   .day-block-header .dh-meta strong { color: #fff; }
   .day-machine-subzone { border-top: 1px solid var(--c-grid); background: #fff; }
   .day-machine-subzone:first-of-type { border-top: none; }
@@ -1218,8 +1218,12 @@ function applyServerSettings(serverSettings) {
 function loadSettings() { ensureSettingsShape(); }
 
 // saveSettings — envia para o backend (fire-and-forget; erros via toast)
+// Em produção, o servidor só aceita 'turnosPorDia' — enviamos apenas isso.
 function saveSettings() {
-  Api.putSettings(SETTINGS).then(() => {
+  const payload = isProducao()
+    ? { turnosPorDia: SETTINGS.turnosPorDia || {} }
+    : SETTINGS;
+  Api.putSettings(payload).then(() => {
     setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
   }).catch(e => {
     setConnStatus('error', 'Sem ligação');
@@ -1564,7 +1568,7 @@ function isDayClosed(dayKey) {
 }
 
 function onDayClosedToggle(dayKey) {
-  if (isReadOnly()) return;
+  // Produção pode fechar/abrir dia
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   const cur = SETTINGS.turnosPorDia[dayKey] || { ini: '', fim: '' };
   const novo = !cur.fechado;
@@ -1603,7 +1607,7 @@ function markDayTurnoDirty(dayKey) {
 }
 
 function applyDayTurno(dayKey) {
-  if (isReadOnly()) { rerender(); return; }
+  // Produção pode editar turnos (responsável pela operação)
   const span = document.querySelector(`.dh-turno[data-day="${dayKey}"]`);
   if (!span) return;
   const ini = (span.querySelector('input[data-field="ini"]') || {}).value || '';
