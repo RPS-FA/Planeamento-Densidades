@@ -281,6 +281,13 @@ async function putSettings(settings) {
   return getSettings();
 }
 
+async function deleteAllOps(updatedBy) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query('DELETE FROM ops');
+  console.log(`[db] deleteAllOps: ${r.rowCount} OPs apagadas por ${updatedBy || 'unknown'}`);
+  return r.rowCount;
+}
+
 async function resetOps(updatedBy) {
   if (!pool) throw new Error('Sem ligação à BD.');
   await pool.query('DELETE FROM ops');
@@ -298,6 +305,7 @@ async function resetOps(updatedBy) {
 
 module.exports = {
   isConnected,
+  deleteAllOps,
   initSchema,
   migrateLegacyEstados,
   migrateClearImportedHours,

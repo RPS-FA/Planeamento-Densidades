@@ -683,6 +683,7 @@
   </div>
   <div class="settings-actions">
     <button class="btn btn-danger" onclick="resetSettings()">Repor predefinições</button>
+    <button class="btn btn-danger" onclick="wipeAllOps()" style="background:#7a1e1e">🗑 Apagar TODAS as OPs</button>
     <button class="btn btn-primary" id="cfg-save-btn" onclick="saveSettingsExplicit()" disabled>💾 Guardar alterações</button>
     <span id="cfg-dirty-hint" style="font-size:11px; color:var(--c-muted); margin-left:8px"></span>
   </div>
@@ -2687,6 +2688,32 @@ function changeEstado(id, newEstado) {
 // ============================================================
 // Export / Import / Reset
 // ============================================================
+function wipeAllOps() {
+  if (isReadOnly()) { showErrorToast('Sem permissão (perfil produção).'); return; }
+  const n = DATA.length;
+  if (n === 0) { setConnStatus('ok', 'Não há OPs para apagar.'); return; }
+  if (!confirm('ATENÇÃO\n\nVai APAGAR ' + n + ' OPs (planeadas + KANBAN).\n\nEsta acção é IRREVERSÍVEL.\n\nContinuar?')) return;
+  if (!confirm('Última confirmação:\n\nTem MESMO a certeza?\n\nNão é possível recuperar depois.')) return;
+  fetch('/api/admin/wipe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Profile': PROFILE }
+  })
+    .then(r => r.json())
+    .then(r => {
+      if (r.ok) {
+        DATA = [];
+        rerender();
+        setConnStatus('ok', '✓ ' + r.deleted + ' OPs apagadas');
+      } else {
+        showErrorToast(r.error || 'Falha ao apagar.');
+      }
+    })
+    .catch(e => {
+      setConnStatus('error', 'Sem ligação');
+      showErrorToast('Erro: ' + e.message);
+    });
+}
+
 function exportExcel() {
   if (typeof XLSX === 'undefined') {
     showErrorToast('Biblioteca Excel ainda não carregou — aguarde uns segundos e tente outra vez.');

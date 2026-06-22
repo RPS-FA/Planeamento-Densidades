@@ -192,6 +192,19 @@ app.put('/api/settings', async (req, res) => {
   } catch (e) { sendError(res, e, 'PUT /api/settings falhou'); }
 });
 
+// POST /api/admin/wipe — apaga TODAS as OPs (sem re-seed) — só Planeador
+app.post('/api/admin/wipe', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const profile = profileOf(req);
+    if (profile !== 'planeador') {
+      return res.status(403).json({ ok: false, error: 'Apenas o perfil planeador pode limpar.' });
+    }
+    const deleted = await db.deleteAllOps(profile);
+    res.json({ ok: true, deleted });
+  } catch (e) { sendError(res, e, 'POST /api/admin/wipe falhou'); }
+});
+
 // POST /api/admin/reset — apaga tudo e re-seeds (só Planeador)
 app.post('/api/admin/reset', async (req, res) => {
   if (!requireDb(res)) return;
