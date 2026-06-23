@@ -668,6 +668,18 @@
     </div>
 
     <div class="settings-section full">
+      <h3>📐 Calibres autorizados por máquina</h3>
+      <p class="desc">Quando se planeia uma OP numa máquina, o calibre tem de constar na lista abaixo. Por defeito todos os calibres estão autorizados.</p>
+      <table class="settings-table">
+        <thead><tr><th style="width:25%">Máquina</th><th>38x240</th><th>45x240</th><th>45x250</th><th>45x260</th><th>49x240</th><th>49x250</th><th>49x260</th><th>54x240</th></tr></thead>
+        <tbody id="cfg-calibres">
+          <tr><td>Maq 1 - Linha 10</td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="38x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="45x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="45x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="45x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="49x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="49x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="49x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="54x240" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Maq 3 - Linha 9</td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="38x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="45x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="45x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="45x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="49x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="49x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="49x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="54x240" onchange="onSettingsChange()"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-section full">
       <h3>📅 Paragens · Maq 1 - Linha 10</h3>
       <p class="desc">Feriados e paragens previstas para Maq 1 - Linha 10. As OPs cascateadas saltam estes períodos.<br>Para paragens parciais (ex. almoço, manutenção curta), preencher Hora Início e Hora Fim. Para dia completo, deixar em branco.</p>
       <table class="settings-table" id="cfg-stops-m1">
@@ -1186,6 +1198,10 @@ const DEFAULT_SETTINGS = {
     'Maq 1 - Linha 10': { kr8h: 100000, krH: 14600 },
     'Maq 3 - Linha 9':  { kr8h: 36000,  krH: 4500  },
   },
+  calibresPorMaquina: {
+    'Maq 1 - Linha 10': ['38x240','45x240','45x250','45x260','49x240','49x250','49x260','54x240'],
+    'Maq 3 - Linha 9':  ['38x240','45x240','45x250','45x260','49x240','49x250','49x260','54x240'],
+  },
   ade: {
     massa_le1:      { pct: 50, tol: 5 },
     massa_gt1:      { pct: 65, tol: 5 },
@@ -1221,6 +1237,12 @@ function ensureSettingsShape() {
     if (!SETTINGS.capacidades[m]) SETTINGS.capacidades[m] = Object.assign({}, DEFAULT_SETTINGS.capacidades[m]);
   }
   if (!SETTINGS.ade) SETTINGS.ade = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.ade));
+  if (!SETTINGS.calibresPorMaquina) SETTINGS.calibresPorMaquina = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.calibresPorMaquina));
+  for (const m of MACHINES) {
+    if (!Array.isArray(SETTINGS.calibresPorMaquina[m])) {
+      SETTINGS.calibresPorMaquina[m] = (DEFAULT_SETTINGS.calibresPorMaquina[m] || []).slice();
+    }
+  }
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   delete SETTINGS.turnos;
 }
@@ -1377,6 +1399,12 @@ function applySettingsToUI() {
       i.value = SETTINGS.ade[k][f];
     }
   });
+  document.querySelectorAll('#cfg-calibres input[type=checkbox]').forEach(c => {
+    const m = c.dataset.key;
+    const cal = c.dataset.cal;
+    const list = (SETTINGS.calibresPorMaquina && SETTINGS.calibresPorMaquina[m]) || [];
+    c.checked = list.includes(cal);
+  });
   renderStopsTable('Maq 1 - Linha 10');
   renderStopsTable('Maq 3 - Linha 9');
   updateGlobalCapacityStatus();
@@ -1398,6 +1426,16 @@ function readSettingsFromUI() {
     if (!SETTINGS.ade[k]) SETTINGS.ade[k] = {};
     SETTINGS.ade[k][f] = parseFloat(i.value) || 0;
   });
+  // Calibres por máquina — ler checkboxes
+  if (!SETTINGS.calibresPorMaquina) SETTINGS.calibresPorMaquina = {};
+  const _calMap = {};
+  document.querySelectorAll('#cfg-calibres input[type=checkbox]').forEach(c => {
+    const m = c.dataset.key;
+    const cal = c.dataset.cal;
+    if (!_calMap[m]) _calMap[m] = [];
+    if (c.checked) _calMap[m].push(cal);
+  });
+  for (const m of Object.keys(_calMap)) SETTINGS.calibresPorMaquina[m] = _calMap[m];
 }
 
 function onSettingsChange() {
@@ -2570,7 +2608,23 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
 }
+// Calibres autorizados por máquina — devolve true se o calibre está na lista (ou sem restrição)
+function isCalibreAuthorizedOnMachine(calibre, machine) {
+  if (!machine || machine === 'KANBAN') return true;
+  if (!calibre) return true;  // sem calibre definido não bloqueia
+  const list = (SETTINGS.calibresPorMaquina && SETTINGS.calibresPorMaquina[machine]) || null;
+  if (!list || list.length === 0) return true;  // sem lista = sem restrição
+  return list.includes(calibre);
+}
+
 function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
+  // Validação de restrição de calibre
+  if (!isCalibreAuthorizedOnMachine(opMoved.calibre, machine)) {
+    alert('⚠ Restrição de calibre\n\n' +
+          'Calibre ' + (opMoved.calibre || '(vazio)') + ' NÃO está autorizado em ' + machine + '.\n\n' +
+          'Para mover esta OP, vá a Configurações → "Calibres autorizados por máquina" e marque o calibre nessa máquina.');
+    return;
+  }
   pushUndo('Mover OP ' + (opMoved.op || opMoved.id) + ' → ' + machine);
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
@@ -2703,6 +2757,16 @@ function saveOP() {
   if (!_massasVal) {
     alert('O campo Massas é obrigatório.\n\nPreencha antes de gravar.');
     document.getElementById('m_massas').focus();
+    return;
+  }
+  // Validação: calibre autorizado na máquina
+  const _calVal = (document.getElementById('m_calibre').value || '').trim();
+  const _maqVal = editingOP ? editingOP.maquina : '';
+  if (_maqVal && _maqVal !== 'KANBAN' && _calVal && !isCalibreAuthorizedOnMachine(_calVal, _maqVal)) {
+    alert('⚠ Restrição de calibre\n\n' +
+          'Calibre ' + _calVal + ' NÃO está autorizado em ' + _maqVal + '.\n\n' +
+          'Para gravar nesta máquina, vá a Configurações → "Calibres autorizados por máquina" e marque o calibre.\n\n' +
+          'Ou mude o produto para outro calibre compatível.');
     return;
   }
   pushUndo(editingOP ? 'Editar OP ' + (editingOP.op || editingOP.id) : 'Criar OP');
