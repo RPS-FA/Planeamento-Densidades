@@ -2624,7 +2624,7 @@ function renderCalibresUI() {
     const addWrap = document.createElement('span');
     addWrap.style.cssText = 'display:inline-flex; gap:4px; align-items:center; margin-left:8px';
     const inp = document.createElement('input');
-    inp.type = 'text'; inp.placeholder = '45x240'; inp.maxLength = 6;
+    inp.type = 'text'; inp.maxLength = 6;
     inp.style.cssText = 'width:65px; font-size:11px; padding:3px 6px; border:1px solid var(--c-grid); border-radius:3px';
     inp.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); addCalibreToMachine(machine, inp.value); inp.value = ''; }
