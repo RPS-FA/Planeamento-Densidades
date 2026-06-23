@@ -704,12 +704,8 @@
     </div>
     <div class="field"><label>Produto</label><input id="m_produto" type="text" class="mono" placeholder="N-QV2-..." oninput="onProdutoChange()"></div>
     <div class="row">
-      <div class="field"><label>Calibre</label>
-        <select id="m_calibre">
-          <option value="">—</option>
-          <option>38x240</option><option>45x240</option><option>45x250</option><option>45x260</option>
-          <option>49x240</option><option>49x250</option><option>49x260</option><option>54x240</option>
-        </select>
+      <div class="field"><label>Calibre <span style="font-size:10px;color:var(--c-muted)">(auto)</span></label>
+        <input id="m_calibre" type="text" readonly style="background:#f4f4f4;color:#374151" placeholder="—">
       </div>
       <div class="field"><label>Massas <span style="color:#c2410c">*</span></label><input id="m_massas" type="text" required></div>
       <div class="field"><label>Qtd Entrada (rolhas)</label><input id="m_qtdEntrada" type="number" step="1" min="0"></div>
@@ -2609,18 +2605,11 @@ function inferCalibreFromProduto(produto) {
 }
 function onProdutoChange() {
   const prod = document.getElementById('m_produto').value;
+  const inp = document.getElementById('m_calibre');
+  if (!inp) return;
   const cal = inferCalibreFromProduto(prod);
-  if (!cal) return;
-  const sel = document.getElementById('m_calibre');
-  if (!sel) return;
-  for (const opt of sel.options) {
-    if (opt.value === cal || opt.text === cal) {
-      sel.value = opt.value || opt.text;
-      return;
-    }
-  }
-  // Calibre não está na lista: avisar via title (não bloqueia)
-  sel.title = 'Calibre detectado: ' + cal + ' (não está nas opções)';
+  inp.value = cal;
+  inp.title = cal ? 'Calibre detectado a partir do código do produto' : 'Calibre não detectado — verifique o código do produto';
 }
 
 function openModal(op) {
