@@ -247,6 +247,37 @@ async function migrateToUnidades() {
   );
 }
 
+// ------------------------------------------------------------
+// Migração one-shot — calibres do formato "45x24" (4 dígitos) para
+// "45x240" (6 dígitos). Idempotente via flag _migration_calibre6_v1.
+// ------------------------------------------------------------
+async function migrateCalibre6Digits() {
+  if (!pool) return;
+  const FLAG = '_migration_calibre6_v1';
+  const f = await pool.query(`SELECT value FROM settings WHERE key = $1`, [FLAG]);
+  if (f.rows.length && f.rows[0].value === true) {
+    console.log('[db] migrateCalibre6Digits: já corrida.');
+    return;
+  }
+  const r = await pool.query(`SELECT id, payload FROM ops WHERE payload->>'calibre' ~ '^\d{2}x\d{2}$'`);
+  let updated = 0;
+  for (const row of r.rows) {
+    const p = row.payload || {};
+    if (p.calibre && /^\d{2}x\d{2}$/.test(p.calibre)) {
+      p.calibre = p.calibre + '0';  // 45x24 → 45x240
+      await pool.query(`UPDATE ops SET payload = $1, updated_at = NOW(), updated_by = 'migration-calibre6' WHERE id = $2`,
+        [JSON.stringify(p), row.id]);
+      updated++;
+    }
+  }
+  console.log(`[db] migrateCalibre6Digits: ${updated} OPs convertidas.`);
+  await pool.query(
+    `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [FLAG, JSON.stringify(true)]
+  );
+}
+
 async function seedIfEmpty() {
   if (!pool) return;
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM ops');
@@ -362,6 +393,7 @@ async function resetOps(updatedBy) {
 
 module.exports = {
   isConnected,
+  migrateCalibre6Digits,
   migrateToUnidades,
   deleteAllOps,
   initSchema,

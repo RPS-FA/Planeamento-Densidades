@@ -707,11 +707,11 @@
       <div class="field"><label>Calibre</label>
         <select id="m_calibre">
           <option value="">—</option>
-          <option>38x24</option><option>45x24</option><option>45x25</option><option>45x26</option>
-          <option>49x24</option><option>49x25</option><option>49x26</option><option>54x24</option>
+          <option>38x240</option><option>45x240</option><option>45x250</option><option>45x260</option>
+          <option>49x240</option><option>49x250</option><option>49x260</option><option>54x240</option>
         </select>
       </div>
-      <div class="field"><label>Massas</label><input id="m_massas" type="text" placeholder="2,9-3,7"></div>
+      <div class="field"><label>Massas <span style="color:#c2410c">*</span></label><input id="m_massas" type="text" required></div>
       <div class="field"><label>Qtd Entrada (rolhas)</label><input id="m_qtdEntrada" type="number" step="1" min="0"></div>
     </div>
     <div class="row">
@@ -2602,7 +2602,8 @@ let editingOP = null;
 // Lê 2 dígitos do diâmetro + os 2 primeiros do comprimento (descartando o último 0).
 function inferCalibreFromProduto(produto) {
   if (!produto) return '';
-  const m = /(\d{2})X(\d{2})/i.exec(produto);
+  // Formato 6 dígitos: 2 diâmetro + 'x' + 3 comprimento (ex: 45x240)
+  const m = /(\d{2})X(\d{3})/i.exec(produto);
   if (!m) return '';
   return m[1] + 'x' + m[2];
 }
@@ -2677,6 +2678,13 @@ function onInicioModeChange() {
 function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; }
 
 function saveOP() {
+  // Validação obrigatória: Massas é obrigatório
+  const _massasVal = (document.getElementById('m_massas').value || '').trim();
+  if (!_massasVal) {
+    alert('O campo Massas é obrigatório.\n\nPreencha antes de gravar.');
+    document.getElementById('m_massas').focus();
+    return;
+  }
   pushUndo(editingOP ? 'Editar OP ' + (editingOP.op || editingOP.id) : 'Criar OP');
   // Validação: OP manual em dia fechado/sem turno → confirmar
   const _inicioModeEl = document.getElementById('m_inicioMode');
