@@ -669,14 +669,10 @@
 
     <div class="settings-section full">
       <h3>📐 Calibres autorizados por máquina</h3>
-      <p class="desc">Quando se planeia uma OP numa máquina, o calibre tem de constar na lista abaixo. Por defeito todos os calibres estão autorizados.</p>
-      <table class="settings-table">
-        <thead><tr><th style="width:25%">Máquina</th><th>38x240</th><th>45x240</th><th>45x250</th><th>45x260</th><th>49x240</th><th>49x250</th><th>49x260</th><th>54x240</th></tr></thead>
-        <tbody id="cfg-calibres">
-          <tr><td>Maq 1 - Linha 10</td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="38x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="45x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="45x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="45x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="49x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="49x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="49x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 1 - Linha 10" data-cal="54x240" onchange="onSettingsChange()"></td></tr>
-          <tr><td>Maq 3 - Linha 9</td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="38x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="45x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="45x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="45x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="49x240" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="49x250" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="49x260" onchange="onSettingsChange()"></td><td style="text-align:center"><input type="checkbox" data-key="Maq 3 - Linha 9" data-cal="54x240" onchange="onSettingsChange()"></td></tr>
-        </tbody>
-      </table>
+      <p class="desc">Para cada máquina, lista de calibres autorizados. Use [+ Adicionar] para incluir novo calibre (ex: 45x240) e × para remover. Lista vazia = sem restrição.</p>
+      <div id="cfg-calibres-host">
+        <!-- Preenchido dinamicamente por renderCalibresUI() -->
+      </div>
     </div>
 
     <div class="settings-section full">
@@ -1399,12 +1395,7 @@ function applySettingsToUI() {
       i.value = SETTINGS.ade[k][f];
     }
   });
-  document.querySelectorAll('#cfg-calibres input[type=checkbox]').forEach(c => {
-    const m = c.dataset.key;
-    const cal = c.dataset.cal;
-    const list = (SETTINGS.calibresPorMaquina && SETTINGS.calibresPorMaquina[m]) || [];
-    c.checked = list.includes(cal);
-  });
+  renderCalibresUI();
   renderStopsTable('Maq 1 - Linha 10');
   renderStopsTable('Maq 3 - Linha 9');
   updateGlobalCapacityStatus();
@@ -1426,16 +1417,7 @@ function readSettingsFromUI() {
     if (!SETTINGS.ade[k]) SETTINGS.ade[k] = {};
     SETTINGS.ade[k][f] = parseFloat(i.value) || 0;
   });
-  // Calibres por máquina — ler checkboxes
-  if (!SETTINGS.calibresPorMaquina) SETTINGS.calibresPorMaquina = {};
-  const _calMap = {};
-  document.querySelectorAll('#cfg-calibres input[type=checkbox]').forEach(c => {
-    const m = c.dataset.key;
-    const cal = c.dataset.cal;
-    if (!_calMap[m]) _calMap[m] = [];
-    if (c.checked) _calMap[m].push(cal);
-  });
-  for (const m of Object.keys(_calMap)) SETTINGS.calibresPorMaquina[m] = _calMap[m];
+  // Calibres por máquina — já estão actualizados em SETTINGS pelos handlers addCalibreToMachine/removeCalibreFromMachine
 }
 
 function onSettingsChange() {
@@ -2608,6 +2590,83 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
 }
+// ============================================================
+// UI dinâmica para Calibres autorizados por máquina
+// ============================================================
+function renderCalibresUI() {
+  const host = document.getElementById('cfg-calibres-host');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const machine of MACHINES) {
+    const list = (SETTINGS.calibresPorMaquina && SETTINGS.calibresPorMaquina[machine]) || [];
+    const box = document.createElement('div');
+    box.className = 'cal-machine-box';
+    box.style.cssText = 'border:1px solid var(--c-grid); border-radius:4px; padding:8px 10px; margin-bottom:8px; background:#fafafa';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:600; font-size:12px; color:var(--c-text); margin-bottom:6px';
+    title.textContent = machine + ' · ' + list.length + ' calibre' + (list.length === 1 ? '' : 's');
+    box.appendChild(title);
+    const chipRow = document.createElement('div');
+    chipRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; align-items:center';
+    if (list.length === 0) {
+      const empty = document.createElement('em');
+      empty.style.cssText = 'color:var(--c-muted); font-size:11px';
+      empty.textContent = '(sem calibres — todos permitidos)';
+      chipRow.appendChild(empty);
+    }
+    for (const cal of list) {
+      const chip = document.createElement('span');
+      chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#e8efe6; color:#2a4f2c; border:1px solid #b8c8a8; border-radius:12px; padding:3px 4px 3px 9px; font-size:11px; font-weight:600';
+      chip.innerHTML = cal + ' <button type="button" title="Remover" onclick="removeCalibreFromMachine(\'' + machine + '\', \'' + cal + '\')" style="background:transparent; border:none; color:#7a1e1e; cursor:pointer; font-size:14px; line-height:1; padding:0 4px">×</button>';
+      chipRow.appendChild(chip);
+    }
+    // Input para adicionar
+    const addWrap = document.createElement('span');
+    addWrap.style.cssText = 'display:inline-flex; gap:4px; align-items:center; margin-left:8px';
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.placeholder = '45x240'; inp.maxLength = 6;
+    inp.style.cssText = 'width:65px; font-size:11px; padding:3px 6px; border:1px solid var(--c-grid); border-radius:3px';
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addCalibreToMachine(machine, inp.value); inp.value = ''; }
+    });
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.textContent = '+ Adicionar';
+    btn.style.cssText = 'font-size:11px; padding:3px 8px; background:var(--c-primary); color:#fff; border:none; border-radius:3px; cursor:pointer';
+    btn.addEventListener('click', () => { addCalibreToMachine(machine, inp.value); inp.value = ''; });
+    addWrap.appendChild(inp);
+    addWrap.appendChild(btn);
+    chipRow.appendChild(addWrap);
+    box.appendChild(chipRow);
+    host.appendChild(box);
+  }
+}
+function addCalibreToMachine(machine, calRaw) {
+  const cal = (calRaw || '').trim().toLowerCase();
+  if (!cal) return;
+  if (!/^\d{2}x\d{3}$/.test(cal)) {
+    alert('Formato inválido. Use o formato 6 dígitos (ex: 45x240).');
+    return;
+  }
+  if (!SETTINGS.calibresPorMaquina) SETTINGS.calibresPorMaquina = {};
+  if (!SETTINGS.calibresPorMaquina[machine]) SETTINGS.calibresPorMaquina[machine] = [];
+  if (SETTINGS.calibresPorMaquina[machine].includes(cal)) {
+    alert('Já existe.');
+    return;
+  }
+  SETTINGS.calibresPorMaquina[machine].push(cal);
+  SETTINGS.calibresPorMaquina[machine].sort();
+  markSettingsDirty();
+  renderCalibresUI();
+  rerender();
+}
+function removeCalibreFromMachine(machine, cal) {
+  if (!SETTINGS.calibresPorMaquina || !SETTINGS.calibresPorMaquina[machine]) return;
+  SETTINGS.calibresPorMaquina[machine] = SETTINGS.calibresPorMaquina[machine].filter(c => c !== cal);
+  markSettingsDirty();
+  renderCalibresUI();
+  rerender();
+}
+
 // Calibres autorizados por máquina — devolve true se o calibre está na lista (ou sem restrição)
 function isCalibreAuthorizedOnMachine(calibre, machine) {
   if (!machine || machine === 'KANBAN') return true;
