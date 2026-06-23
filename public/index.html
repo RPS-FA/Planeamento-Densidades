@@ -748,10 +748,6 @@
     <div class="post-exec">
       <div class="post-exec-title">Pós-execução · preenchimento depois da OP estar feita</div>
       <div class="row">
-        <div class="field"><label>Lote ADE</label><input id="m_loteAde" type="text" class="mono" placeholder="LT02307833"></div>
-        <div class="field"><label>Qtd ADE</label><input id="m_qtdFinalAde" type="number" step="1" placeholder="rolhas"></div>
-      </div>
-      <div class="row">
         <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
         <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time" oninput="recalcAtrasoInModal()"></div>
       </div>
@@ -2630,8 +2626,6 @@ function openModal(op) {
   get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
   onInicioModeChange();
   // Bloco pós-execução (simplificado: Lote ADE, Qtd ADE, datas+horas reais, atraso, colaborador, obs)
-  get('m_loteAde').value = op ? (op.loteAde || '') : '';
-  get('m_qtdFinalAde').value = op ? (op.qtdFinalAde != null ? op.qtdFinalAde : '') : '';
   get('m_dataInicioR').value = op ? (op.dataInicioR || '') : '';
   get('m_hInicioR').value = op ? (op.hInicioR || '') : '';
   get('m_dataFimR').value = op ? (op.dataFimR || '') : '';
@@ -2706,7 +2700,6 @@ function saveOP() {
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
   };
-  const qtdFinalAde = getNum('m_qtdFinalAde');
   const maqVal = editingOP ? editingOP.maquina : 'KANBAN';
   const weekVal = editingOP ? (editingOP.weekKey || '') : '';
   const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'KANBAN');
@@ -2720,8 +2713,8 @@ function saveOP() {
     qtdEntrada: getNum('m_qtdEntrada'),
     obsPi: get('m_obsPi'),
     destino: get('m_destino'),
-    loteAde: get('m_loteAde'),
-    qtdFinalAde,
+    loteAde: editingOP ? (editingOP.loteAde || '') : '',
+    qtdFinalAde: editingOP ? (editingOP.qtdFinalAde || 0) : 0,
     colaborador: get('m_colaborador'),
     maquina: maqVal,
     estado: estadoVal,
