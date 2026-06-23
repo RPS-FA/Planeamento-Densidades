@@ -1633,6 +1633,8 @@ async function loadStateFromServer() {
     migrateMachineNames(DATA);
     migrateSettingsMachineNames(state.settings);
     applyServerSettings(state.settings || {});
+    // Refrescar inputs da tab Configurações com os valores reais (override do server)
+    if (typeof applySettingsToUI === 'function') applySettingsToUI();
     setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
     return true;
   } catch (e) {
@@ -3192,31 +3194,7 @@ applySettingsToUI();
 applyProfileToBody();
 switchTab(pickDefaultTab());
 rerender();
-setConnStatus('loading', 'A carregar...');
 
-(async () => {
-  const ok = await loadStateFromServer();
-  if (ok) rerender();
-})();
-
-function _modalAberto() {
-  const m = document.getElementById('modal');
-  const ms = document.getElementById('modalSwap');
-  return (m && m.classList.contains('show')) || (ms && ms.classList.contains('show'));
-}
-setInterval(async () => {
-  if (_modalAberto()) return;
-  try {
-    const state = await Api.getState();
-    DATA = Array.isArray(state.ops) ? state.ops : [];
-    migrateMachineNames(DATA);
-    applyServerSettings(state.settings || {});
-    rerender();
-    setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
-  } catch (e) {
-    setConnStatus('error', 'Sem ligação');
-  }
-}, 30000);
 
 // ============================================================
 // Inicialização (bootstrap)
@@ -3248,6 +3226,7 @@ setInterval(async () => {
     DATA = Array.isArray(state.ops) ? state.ops : [];
     migrateMachineNames(DATA);
     applyServerSettings(state.settings || {});
+    if (typeof applySettingsToUI === 'function') applySettingsToUI();
     rerender();
     setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
   } catch (e) {
