@@ -2294,11 +2294,11 @@ function calcAtraso(hIniR, hIniP, hFimR, hFimP) {
 function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
-  // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Obs PI, Massas, Qtd, Destino,
+  // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Massas, Obs PI, Qtd, Destino,
   //        Início P, Fim P, Início Real, Fim Real, Atraso, delete
   const cols = [
     {w:18},  {w:24},  {w:100}, {w:115}, {w:90},  {w:115}, {w:175}, {w:55},
-    {w:120}, {w:70},  {w:110}, {w:90},  {w:60},  {w:60},  {w:95},  {w:95},
+    {w:70},  {w:120}, {w:110}, {w:90},  {w:60},  {w:60},  {w:95},  {w:95},
     {w:55},  {w:30}
   ];
   const colgroup = document.createElement('colgroup');
@@ -2310,8 +2310,8 @@ function createWeekTable(sched, wk, machine) {
     <th>Entrega Logística</th><th>Estado</th>
     <th>OP</th><th>File / Cliente</th><th>Produto</th>
     <th>Calibre</th>
-    <th>Obs PI</th>
-    <th>Massas</th><th>Qtd Entrada (rolhas)</th><th>Destino</th>
+    <th>Massas</th>
+    <th>Obs PI</th><th>Qtd Entrada (rolhas)</th><th>Destino</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
     <th>Atraso</th><th></th>
   </tr>`;
@@ -2362,8 +2362,8 @@ function createWeekTable(sched, wk, machine) {
       <td title="${op.fileCliente || ''}">${op.fileCliente || ''}</td>
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
       <td class="ctr">${op.calibre || ''}</td>
-      <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="ctr">${op.massas || ''}</td>
+      <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' rolhas' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
       <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
