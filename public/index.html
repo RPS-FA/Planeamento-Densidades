@@ -2655,14 +2655,14 @@ function addCalibreToMachine(machine, calRaw) {
   }
   SETTINGS.calibresPorMaquina[machine].push(cal);
   SETTINGS.calibresPorMaquina[machine].sort();
-  markSettingsDirty();
+  saveSettings();   // auto-save imediato (como paragens)
   renderCalibresUI();
   rerender();
 }
 function removeCalibreFromMachine(machine, cal) {
   if (!SETTINGS.calibresPorMaquina || !SETTINGS.calibresPorMaquina[machine]) return;
   SETTINGS.calibresPorMaquina[machine] = SETTINGS.calibresPorMaquina[machine].filter(c => c !== cal);
-  markSettingsDirty();
+  saveSettings();   // auto-save imediato
   renderCalibresUI();
   rerender();
 }
