@@ -76,6 +76,19 @@
     border-radius: 8px; font-size: 13px; max-width: 360px;
     box-shadow: 0 4px 14px rgba(0,0,0,0.2);
   }
+  .toast-ok {
+    display: none;
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #166534; color: #fff;
+    padding: 14px 28px; border-radius: 6px; font-size: 14px; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    z-index: 9999; max-width: 80vw;
+    animation: ok-slide-up 0.25s ease-out;
+  }
+  @keyframes ok-slide-up {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
   .tabs {
     background: var(--c-panel); border-bottom: 1px solid var(--c-border);
     display: flex; padding: 0 16px;
@@ -1048,6 +1061,22 @@ function setConnStatus(state, msg) {
   el.title = msg || '';
 }
 
+// Toast de sucesso (verde) para confirmações
+let _toastSuccessTimer = null;
+function showSuccessToast(msg) {
+  let el = document.getElementById('okToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'okToast';
+    el.className = 'toast-ok';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (_toastSuccessTimer) clearTimeout(_toastSuccessTimer);
+  _toastSuccessTimer = setTimeout(() => { el.style.display = 'none'; }, 2800);
+}
+
 // Toast simples para erros de persistência
 let _toastTimer = null;
 function showErrorToast(msg) {
@@ -1447,6 +1476,7 @@ function saveSettingsExplicit() {
   Api.putSettings(SETTINGS).then(() => {
     setConnStatus('ok', '✓ Definições guardadas · ' + new Date().toLocaleTimeString('pt-PT'));
     clearSettingsDirty();
+    showSuccessToast('✓ Definições guardadas com sucesso');
   }).catch(e => {
     setConnStatus('error', 'Sem ligação');
     showErrorToast('Falha ao guardar definições: ' + e.message);
