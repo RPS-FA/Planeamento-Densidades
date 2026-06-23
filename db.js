@@ -197,12 +197,11 @@ async function migrateClearImportedHours() {
 // ------------------------------------------------------------
 async function migrateToUnidades() {
   if (!pool) return;
+  // Defensiva: corre SEMPRE para capacidades — se valor < 1000 (= kilo-rolhas), multiplica por 1000.
+  // Para OPs (qtds) usa flag para não correr duplo.
   const FLAG = '_migration_unidades_v1';
   const f = await pool.query(`SELECT value FROM settings WHERE key = $1`, [FLAG]);
-  if (f.rows.length && f.rows[0].value === true) {
-    console.log('[db] migrateToUnidades: já corrida.');
-    return;
-  }
+  const opsAlreadyDone = f.rows.length && f.rows[0].value === true;
   // 1) Capacidades — kr8h e krH × 1000 (se ainda < 1000, está em kr)
   const capR = await pool.query(`SELECT value FROM settings WHERE key = 'capacidades'`);
   if (capR.rows.length) {
@@ -220,6 +219,9 @@ async function migrateToUnidades() {
       );
       console.log('[db] migrateToUnidades: capacidades ×1000');
     }
+  }
+  if (opsAlreadyDone) {
+    return;
   }
   // 2) OPs — qtdEntrada/qtdFinalAde/qtdEntradaAde/qtdReprocReal/qtdReprocEstimada × 1000
   const opsR = await pool.query(`SELECT id, payload FROM ops`);
