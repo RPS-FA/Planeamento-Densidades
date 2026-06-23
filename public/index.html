@@ -2294,12 +2294,12 @@ function calcAtraso(hIniR, hIniP, hFimR, hFimP) {
 function createWeekTable(sched, wk, machine) {
   const tbl = document.createElement('table');
   tbl.className = 'excel';
-  // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Massas, Qtd, Destino,
-  //        Início P, Fim P, Início Real, Fim Real, Atraso, Obs PI, delete
+  // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Obs PI, Massas, Qtd, Destino,
+  //        Início P, Fim P, Início Real, Fim Real, Atraso, delete
   const cols = [
     {w:18},  {w:24},  {w:100}, {w:115}, {w:90},  {w:115}, {w:175}, {w:55},
-    {w:70},  {w:110}, {w:90},  {w:60},  {w:60},  {w:95},  {w:95},  {w:55},
-    {w:120}, {w:30}
+    {w:120}, {w:70},  {w:110}, {w:90},  {w:60},  {w:60},  {w:95},  {w:95},
+    {w:55},  {w:30}
   ];
   const colgroup = document.createElement('colgroup');
   cols.forEach(c => { const col = document.createElement('col'); col.style.width = c.w + 'px'; colgroup.appendChild(col); });
@@ -2309,10 +2309,11 @@ function createWeekTable(sched, wk, machine) {
     <th></th><th>#</th>
     <th>Entrega Logística</th><th>Estado</th>
     <th>OP</th><th>File / Cliente</th><th>Produto</th>
-    <th>Calibre</th><th>Massas</th><th>Qtd Entrada (rolhas)</th><th>Destino</th>
+    <th>Calibre</th>
+    <th>Obs PI</th>
+    <th>Massas</th><th>Qtd Entrada (rolhas)</th><th>Destino</th>
     <th>Início P</th><th>Fim P</th><th>Início Real</th><th>Fim Real</th>
-    <th>Atraso</th>
-    <th>Obs PI</th><th></th>
+    <th>Atraso</th><th></th>
   </tr>`;
   tbl.appendChild(thead);
   const tbody = document.createElement('tbody');
@@ -2361,6 +2362,7 @@ function createWeekTable(sched, wk, machine) {
       <td title="${op.fileCliente || ''}">${op.fileCliente || ''}</td>
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
       <td class="ctr">${op.calibre || ''}</td>
+      <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="ctr">${op.massas || ''}</td>
       <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' rolhas' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
@@ -2369,7 +2371,6 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr mono" title="${isLastSeg ? (op.dataInicioR||'')+' '+(op.hInicioR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataInicioR, op.hInicioR) : ''}</td>
       <td class="ctr mono" title="${isLastSeg ? (op.dataFimR||'')+' '+(op.hFimR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataFimR, op.hFimR) : ''}</td>
       <td class="ctr ${atrasoClass}" title="${isLastSeg ? 'Diferença automática: Real - Planeado' : ''}">${atrasoStr}</td>
-      <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="col-del" title="Apagar">×</td>
     `;
     const sel = tr.querySelector('.estado-select');
