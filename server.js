@@ -56,6 +56,7 @@ const PRODUCAO_FIELDS = [
   'tempoAtraso',
   'colaborador',
   'obs',
+  'realPorDia',  // reais por dia (para OPs segmentadas)
 ];
 
 function profileOf(req) {

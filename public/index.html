@@ -2397,7 +2397,14 @@ function createWeekTable(sched, wk, machine) {
     const _hFimP_calc = fmtTime(item.end);
     if (isFirstSeg) { op._calcInicioP = _hIniP_calc; }
     if (isLastSeg)  { op._calcFimP    = _hFimP_calc; }
-    const atrasoStr = isLastSeg ? calcAtraso(op.hInicioR, op._calcInicioP || _hIniP_calc, op.hFimR, _hFimP_calc) : '';
+    // Reais do segmento: prioridade realPorDia[dayKey], senão (último segmento) legacy
+    const _segDayKey = fmtDate(item.start);
+    const _segReal = (op.realPorDia && op.realPorDia[_segDayKey]) || (isLastSeg && totalSegs === 1 ? {hIniR: op.hInicioR, hFimR: op.hFimR, dataIniR: op.dataInicioR, dataFimR: op.dataFimR} : {});
+    const _hIniR = _segReal.hIniR || (totalSegs === 1 ? (op.hInicioR || '') : '');
+    const _hFimR = _segReal.hFimR || (totalSegs === 1 ? (op.hFimR || '') : '');
+    const _dataIniR = _segReal.dataIniR || (totalSegs === 1 ? (op.dataInicioR || '') : '');
+    const _dataFimR = _segReal.dataFimR || (totalSegs === 1 ? (op.dataFimR || '') : '');
+    const atrasoStr = calcAtraso(_hIniR, _hIniP_calc, _hFimR, _hFimP_calc);
     const atrasoClass = atrasoStr && atrasoStr.startsWith('-') ? 'atraso-neg' : (atrasoStr ? 'atraso-pos' : '');
     const qtdSeg = (item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0);
     const segLabel = (totalSegs > 1) ? ` <small style="color:var(--c-muted);font-weight:normal">(${segIdx+1}/${totalSegs})</small>` : '';
@@ -2419,9 +2426,9 @@ function createWeekTable(sched, wk, machine) {
       <td title="${op.destino || ''}">${op.destino || ''}</td>
       <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
       <td class="ctr">${_hFimP_calc}</td>
-      <td class="ctr mono" title="${isLastSeg ? (op.dataInicioR||'')+' '+(op.hInicioR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataInicioR, op.hInicioR) : ''}</td>
-      <td class="ctr mono" title="${isLastSeg ? (op.dataFimR||'')+' '+(op.hFimR||'') : ''}">${isLastSeg ? fmtRealStr(op.dataFimR, op.hFimR) : ''}</td>
-      <td class="ctr ${atrasoClass}" title="${isLastSeg ? 'Diferença automática: Real - Planeado' : ''}">${atrasoStr}</td>
+      <td class="ctr mono" title="${_dataIniR+' '+_hIniR}">${fmtRealStr(_dataIniR, _hIniR)}</td>
+      <td class="ctr mono" title="${_dataFimR+' '+_hFimR}">${fmtRealStr(_dataFimR, _hFimR)}</td>
+      <td class="ctr ${atrasoClass}" title="Diferença Real - Planeado (segmento ${segIdx+1}/${totalSegs})">${atrasoStr}</td>
       <td class="col-del" title="Apagar">×</td>
     `;
     const sel = tr.querySelector('.estado-select');
@@ -2438,7 +2445,9 @@ function createWeekTable(sched, wk, machine) {
         }
         return;
       }
-      openModal(op);
+      // Se OP segmentada, passar o dayKey do segmento clicado
+      const segDayKey = (totalSegs > 1) ? fmtDate(item.start) : null;
+      openModal(op, segDayKey);
     });
     setupRowDragHandlers(tr, op);
     tbody.appendChild(tr);
@@ -2592,6 +2601,7 @@ function moveOpToKanban(opMoved) {
 // Modal — editar / criar OP DENS
 // ============================================================
 let editingOP = null;
+let editingSegDayKey = null;  // dayKey do segmento activo (se OP é segmentada)
 // Extrai calibre (ex: "45x26") a partir do código do produto (ex: "N-QV2-NAT-45X260-..").
 // Lê 2 dígitos do diâmetro + os 2 primeiros do comprimento (descartando o último 0).
 function inferCalibreFromProduto(produto) {
@@ -2610,10 +2620,16 @@ function onProdutoChange() {
   inp.title = cal ? 'Calibre detectado a partir do código do produto' : 'Calibre não detectado — verifique o código do produto';
 }
 
-function openModal(op) {
+function openModal(op, segDayKey) {
   editingOP = op;
+  editingSegDayKey = segDayKey || null;
   const isNewOp = !op;
-  document.getElementById('modalTitle').textContent = op ? `Editar OP ${op.op}` : 'Nova OP';
+  let title = op ? `Editar OP ${op.op}` : 'Nova OP';
+  if (op && segDayKey) {
+    const [y, m, d] = segDayKey.split('-');
+    title += ` · parte de ${d}/${m}`;
+  }
+  document.getElementById('modalTitle').textContent = title;
   const get = id => document.getElementById(id);
   get('m_op').value = op ? (op.op || '') : '';
   get('m_fileCliente').value = op ? (op.fileCliente || '') : '';
@@ -2628,10 +2644,26 @@ function openModal(op) {
   get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
   onInicioModeChange();
   // Bloco pós-execução (simplificado: Lote ADE, Qtd ADE, datas+horas reais, atraso, colaborador, obs)
-  get('m_dataInicioR').value = op ? (op.dataInicioR || '') : '';
-  get('m_hInicioR').value = op ? (op.hInicioR || '') : '';
-  get('m_dataFimR').value = op ? (op.dataFimR || '') : '';
-  get('m_hFimR').value = op ? (op.hFimR || '') : '';
+  // Reais: se há segDayKey, usa op.realPorDia[segDayKey]; senão usa legacy
+  let _realIni = '', _realFim = '', _realDataIni = '', _realDataFim = '';
+  if (op) {
+    if (segDayKey && op.realPorDia && op.realPorDia[segDayKey]) {
+      const r = op.realPorDia[segDayKey];
+      _realIni = r.hIniR || ''; _realFim = r.hFimR || '';
+      _realDataIni = r.dataIniR || segDayKey;
+      _realDataFim = r.dataFimR || segDayKey;
+    } else if (segDayKey) {
+      // segmento sem dados ainda — pré-preencher datas com o segDayKey
+      _realDataIni = segDayKey; _realDataFim = segDayKey;
+    } else {
+      _realIni = op.hInicioR || ''; _realFim = op.hFimR || '';
+      _realDataIni = op.dataInicioR || ''; _realDataFim = op.dataFimR || '';
+    }
+  }
+  get('m_dataInicioR').value = _realDataIni;
+  get('m_hInicioR').value = _realIni;
+  get('m_dataFimR').value = _realDataFim;
+  get('m_hFimR').value = _realFim;
   // Tempo Atraso é calculado dos campos reais + horas planeadas (anotadas em op._calcInicioP/_calcFimP)
   get('m_tempoAtraso').value = op ? calcAtraso(op.hInicioR || '', op._calcInicioP || '', op.hFimR || '', op._calcFimP || '') : '';
   get('m_colaborador').value = op ? (op.colaborador || '') : '';
@@ -2650,6 +2682,9 @@ function recalcAtrasoInModal() {
   }
   const hIniR = document.getElementById('m_hInicioR').value;
   const hFimR = document.getElementById('m_hFimR').value;
+  // Para segmento, os _calcInicioP/_calcFimP da OP referem-se à 1ª/última parte.
+  // Aceitável: o atraso visual no modal compara contra esses; o atraso real por segmento
+  // é recalculado no rerender da tabela.
   const hIniP = editingOP._calcInicioP || '';
   const hFimP = editingOP._calcFimP || '';
   document.getElementById('m_tempoAtraso').value = calcAtraso(hIniR, hIniP, hFimR, hFimP);
@@ -2660,7 +2695,7 @@ function onInicioModeChange() {
   if (!sel || !wrap) return;
   wrap.style.display = (sel.value === 'manual') ? '' : 'none';
 }
-function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; }
+function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; editingSegDayKey = null; }
 
 function saveOP() {
   // Validação obrigatória: Massas é obrigatório
@@ -2725,16 +2760,39 @@ function saveOP() {
     // hFimP e duracaoP recalculados pelo scheduling (não são editáveis no modal)
     hFimP: editingOP ? (editingOP.hFimP || '') : '',
     duracaoP: editingOP ? (editingOP.duracaoP || '') : '',
-    dataInicioR: get('m_dataInicioR'),
-    hInicioR: get('m_hInicioR'),
-    dataFimR: get('m_dataFimR'),
-    hFimR: get('m_hFimR'),
-    tempoAtraso: calcAtraso(
-                    document.getElementById('m_hInicioR').value,
-                    editingOP ? (editingOP._calcInicioP || '') : '',
-                    document.getElementById('m_hFimR').value,
-                    editingOP ? (editingOP._calcFimP || '') : ''
-                  ),
+    // Reais: se há segDayKey, gravar em realPorDia; senão no legacy
+    ...(editingSegDayKey
+      ? {
+          realPorDia: Object.assign({}, (editingOP && editingOP.realPorDia) || {}, {
+            [editingSegDayKey]: {
+              dataIniR: get('m_dataInicioR'),
+              hIniR: get('m_hInicioR'),
+              dataFimR: get('m_dataFimR'),
+              hFimR: get('m_hFimR'),
+              tempoAtraso: calcAtraso(get('m_hInicioR'), editingOP._calcInicioP || '', get('m_hFimR'), editingOP._calcFimP || '')
+            }
+          }),
+          // Preservar campos legacy intactos
+          dataInicioR: editingOP ? (editingOP.dataInicioR || '') : '',
+          hInicioR:    editingOP ? (editingOP.hInicioR || '') : '',
+          dataFimR:    editingOP ? (editingOP.dataFimR || '') : '',
+          hFimR:       editingOP ? (editingOP.hFimR || '') : '',
+          tempoAtraso: editingOP ? (editingOP.tempoAtraso || '') : '',
+        }
+      : {
+          realPorDia: (editingOP && editingOP.realPorDia) || {},
+          dataInicioR: get('m_dataInicioR'),
+          hInicioR: get('m_hInicioR'),
+          dataFimR: get('m_dataFimR'),
+          hFimR: get('m_hFimR'),
+          tempoAtraso: calcAtraso(
+            document.getElementById('m_hInicioR').value,
+            editingOP ? (editingOP._calcInicioP || '') : '',
+            document.getElementById('m_hFimR').value,
+            editingOP ? (editingOP._calcFimP || '') : ''
+          ),
+        }
+    ),
     obs: get('m_obs'),
     weekKey: weekVal,
     diaIdx: editingOP ? (editingOP.diaIdx != null ? editingOP.diaIdx : 0) : 0,
