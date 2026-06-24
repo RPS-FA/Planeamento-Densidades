@@ -728,6 +728,39 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
     </div>
 
     <div class="settings-section full">
+      <h3>📈 Previsão de saída · distribuição normal</h3>
+      <p class="desc">Dada a média e o desvio padrão da massa do lote, calcula a percentagem estimada de rolhas dentro dos limites de massa, assumindo distribuição normal.</p>
+      <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 16px; align-items: start;">
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div class="settings-grid-row">
+            <label>Média do lote (g)</label>
+            <input type="number" id="prev-media" step="0.001" value="4.000" oninput="updatePrevisao()">
+          </div>
+          <div class="settings-grid-row">
+            <label>Desvio padrão (g)</label>
+            <input type="number" id="prev-dp" step="0.001" min="0.001" value="0.300" oninput="updatePrevisao()">
+          </div>
+          <div class="settings-grid-row">
+            <label>Limite inferior (g)</label>
+            <input type="number" id="prev-lsi" step="0.001" value="3.400" oninput="updatePrevisao()">
+          </div>
+          <div class="settings-grid-row">
+            <label>Limite superior (g)</label>
+            <input type="number" id="prev-lss" step="0.001" value="4.600" oninput="updatePrevisao()">
+          </div>
+          <div style="margin-top:6px; padding:10px 12px; background:#f0f4ef; border:1px solid #c6d6c4; border-radius:4px;">
+            <div style="font-size:11px; color:var(--c-muted)">Aproveitamento estimado</div>
+            <div style="font-size:22px; font-weight:700; color:#166534;" id="prev-pct">—</div>
+            <div style="font-size:10px; color:var(--c-muted)" id="prev-detail">aguarda valores</div>
+          </div>
+        </div>
+        <div id="prev-svg-host" style="background:#fff; border:1px solid var(--c-grid); border-radius:4px; padding:8px;">
+          <!-- SVG injectado por updatePrevisao() -->
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section full">
       <h3>📅 Paragens · Maq 1 - Linha 10</h3>
       <p class="desc">Feriados e paragens previstas para Maq 1 - Linha 10. As OPs cascateadas saltam estes períodos.<br>Para paragens parciais (ex. almoço, manutenção curta), preencher Hora Início e Hora Fim. Para dia completo, deixar em branco.</p>
       <table class="settings-table" id="cfg-stops-m1">
@@ -2104,6 +2137,120 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
     cursor = new Date(segs[segs.length - 1].end.getTime() + SETUP_MS);
   }
   return result;
+}
+
+
+// ============================================================
+// Previsão de saída (distribuição normal)
+// ============================================================
+function _normalCDF(z) {
+  // Approximation de Zelen & Severo
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989422804014327 * Math.exp(-z * z / 2);
+  const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return z >= 0 ? 1 - p : p;
+}
+function _normalPDF(z) {
+  return 0.3989422804014327 * Math.exp(-z * z / 2);
+}
+function updatePrevisao() {
+  const mediaEl = document.getElementById('prev-media');
+  const dpEl    = document.getElementById('prev-dp');
+  const lsiEl   = document.getElementById('prev-lsi');
+  const lssEl   = document.getElementById('prev-lss');
+  const pctEl   = document.getElementById('prev-pct');
+  const detEl   = document.getElementById('prev-detail');
+  const host    = document.getElementById('prev-svg-host');
+  if (!mediaEl || !dpEl || !lsiEl || !lssEl || !pctEl || !host) return;
+  const mu  = parseFloat(mediaEl.value);
+  const sig = parseFloat(dpEl.value);
+  const lsi = parseFloat(lsiEl.value);
+  const lss = parseFloat(lssEl.value);
+  if (isNaN(mu) || isNaN(sig) || isNaN(lsi) || isNaN(lss) || sig <= 0 || lss <= lsi) {
+    pctEl.textContent = '—';
+    detEl.textContent = 'Valores inválidos (σ>0, LSI<LSS)';
+    host.innerHTML = '';
+    return;
+  }
+  const zL = (lsi - mu) / sig;
+  const zU = (lss - mu) / sig;
+  const prob = _normalCDF(zU) - _normalCDF(zL);
+  const pct = prob * 100;
+  pctEl.textContent = pct.toFixed(2) + ' %';
+  // Estimar rolhas a perder de cada lado (assume 1000 rolhas)
+  const pAbaixo = _normalCDF(zL) * 100;
+  const pAcima  = (1 - _normalCDF(zU)) * 100;
+  detEl.innerHTML = '<span style="color:#b91c1c">↓ ' + pAbaixo.toFixed(2) + '%</span> abaixo · <span style="color:#b91c1c">↑ ' + pAcima.toFixed(2) + '%</span> acima';
+  host.innerHTML = _renderNormalSvg(mu, sig, lsi, lss);
+}
+function _renderNormalSvg(mu, sig, lsi, lss) {
+  const W = 500, H = 200, PAD_L = 40, PAD_R = 20, PAD_T = 15, PAD_B = 35;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+  // Eixo X: μ ± 4σ
+  const xMin = mu - 4 * sig, xMax = mu + 4 * sig;
+  const xRange = xMax - xMin;
+  // Gerar pontos da curva
+  const N = 200;
+  const pts = [];
+  let yMax = 0;
+  for (let i = 0; i <= N; i++) {
+    const x = xMin + (xRange * i / N);
+    const y = _normalPDF((x - mu) / sig) / sig;
+    pts.push({ x, y });
+    if (y > yMax) yMax = y;
+  }
+  const xToSvg = (x) => PAD_L + ((x - xMin) / xRange) * plotW;
+  const yToSvg = (y) => PAD_T + plotH - (y / yMax) * plotH;
+  // Path da curva inteira
+  let pathFull = 'M ' + xToSvg(pts[0].x) + ' ' + (PAD_T + plotH);
+  for (const p of pts) pathFull += ' L ' + xToSvg(p.x).toFixed(1) + ' ' + yToSvg(p.y).toFixed(1);
+  pathFull += ' L ' + xToSvg(pts[pts.length - 1].x) + ' ' + (PAD_T + plotH) + ' Z';
+  // Path da área aprovada (entre LSI e LSS)
+  const ptsApr = pts.filter(p => p.x >= lsi && p.x <= lss);
+  let pathApr = '';
+  if (ptsApr.length > 0) {
+    pathApr = 'M ' + xToSvg(ptsApr[0].x) + ' ' + (PAD_T + plotH);
+    for (const p of ptsApr) pathApr += ' L ' + xToSvg(p.x).toFixed(1) + ' ' + yToSvg(p.y).toFixed(1);
+    pathApr += ' L ' + xToSvg(ptsApr[ptsApr.length - 1].x) + ' ' + (PAD_T + plotH) + ' Z';
+  }
+  // Eixo X — ticks em μ-3σ, μ-2σ, μ-σ, μ, μ+σ, μ+2σ, μ+3σ
+  const ticks = [-3, -2, -1, 0, 1, 2, 3].map(k => ({ x: mu + k * sig, lbl: (mu + k * sig).toFixed(2) }));
+  let ticksHtml = '';
+  for (const t of ticks) {
+    const tx = xToSvg(t.x);
+    ticksHtml += '<line x1="' + tx + '" y1="' + (PAD_T + plotH) + '" x2="' + tx + '" y2="' + (PAD_T + plotH + 4) + '" stroke="#666" stroke-width="1"/>';
+    ticksHtml += '<text x="' + tx + '" y="' + (PAD_T + plotH + 16) + '" font-size="10" text-anchor="middle" fill="#666">' + t.lbl + '</text>';
+  }
+  // Linha LSI (vermelho)
+  const lsiX = xToSvg(lsi);
+  const lssX = xToSvg(lss);
+  return [
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto; font-family:Verdana,Geneva,sans-serif">',
+    // Fundo
+    '<rect x="' + PAD_L + '" y="' + PAD_T + '" width="' + plotW + '" height="' + plotH + '" fill="#fafafa" stroke="#ddd"/>',
+    // Áreas
+    '<path d="' + pathFull + '" fill="#fde2e2" stroke="none"/>',
+    pathApr ? '<path d="' + pathApr + '" fill="#86c47a" stroke="none"/>' : '',
+    // Curva (contorno)
+    '<path d="' + pathFull + '" fill="none" stroke="#1f2d20" stroke-width="1.5"/>',
+    // Linhas LSI e LSS
+    '<line x1="' + lsiX + '" y1="' + PAD_T + '" x2="' + lsiX + '" y2="' + (PAD_T + plotH) + '" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3"/>',
+    '<text x="' + lsiX + '" y="' + (PAD_T - 3) + '" font-size="10" text-anchor="middle" fill="#b91c1c" font-weight="700">LSI ' + lsi.toFixed(2) + '</text>',
+    '<line x1="' + lssX + '" y1="' + PAD_T + '" x2="' + lssX + '" y2="' + (PAD_T + plotH) + '" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3"/>',
+    '<text x="' + lssX + '" y="' + (PAD_T - 3) + '" font-size="10" text-anchor="middle" fill="#b91c1c" font-weight="700">LSS ' + lss.toFixed(2) + '</text>',
+    // Linha μ
+    '<line x1="' + xToSvg(mu) + '" y1="' + PAD_T + '" x2="' + xToSvg(mu) + '" y2="' + (PAD_T + plotH) + '" stroke="#166534" stroke-width="1.2"/>',
+    '<text x="' + xToSvg(mu) + '" y="' + (PAD_T + plotH + 28) + '" font-size="10" text-anchor="middle" fill="#166534" font-weight="700">μ=' + mu.toFixed(3) + '</text>',
+    // Eixo X
+    '<line x1="' + PAD_L + '" y1="' + (PAD_T + plotH) + '" x2="' + (PAD_L + plotW) + '" y2="' + (PAD_T + plotH) + '" stroke="#444" stroke-width="1.2"/>',
+    ticksHtml,
+    // Legenda
+    '<rect x="' + (PAD_L + 10) + '" y="' + (PAD_T + 6) + '" width="10" height="10" fill="#86c47a"/>',
+    '<text x="' + (PAD_L + 24) + '" y="' + (PAD_T + 15) + '" font-size="10" fill="#1f2d20">Aprovado</text>',
+    '<rect x="' + (PAD_L + 80) + '" y="' + (PAD_T + 6) + '" width="10" height="10" fill="#fde2e2"/>',
+    '<text x="' + (PAD_L + 94) + '" y="' + (PAD_T + 15) + '" font-size="10" fill="#1f2d20">Fora</text>',
+    '</svg>'
+  ].join('');
 }
 
 // ============================================================
@@ -3511,6 +3658,7 @@ setConnStatus('loading', 'A carregar...');
 (async () => {
   const ok = await loadStateFromServer();
   if (ok) rerender();
+  if (typeof updatePrevisao === 'function') updatePrevisao();
 })();
 
 function _modalAberto() {
