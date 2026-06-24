@@ -779,7 +779,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
           <div style="font-size:11px; color:var(--c-muted); margin-bottom:6px"><strong>Calibre + humidades</strong></div>
           <div class="settings-grid-row">
             <label>Calibre da rolha</label>
-            <input type="text" id="prev-calibre" placeholder="45x240" maxlength="6" oninput="updatePrevisao()">
+            <input type="text" id="prev-calibre" maxlength="6" oninput="updatePrevisao()">
           </div>
           <div class="settings-grid-row">
             <label>Humidade medida (%)</label>
@@ -2241,8 +2241,8 @@ function _updatePesosLimite() {
   }
   const pesoMed = ctx.pesoFrom(parseFloat(mediaEl.value));
   const pesoDp  = ctx.pesoFrom(parseFloat(dpEl.value));
-  pMed.textContent = pesoMed != null ? pesoMed.toFixed(3) + ' g' : '— g';
-  if (pDp) pDp.textContent = pesoDp != null ? pesoDp.toFixed(3) + ' g' : '— g';
+  pMed.textContent = pesoMed != null ? (Math.ceil(pesoMed * 10) / 10).toFixed(1) + ' g' : '— g';
+  if (pDp) pDp.textContent = pesoDp != null ? (Math.ceil(pesoDp * 10) / 10).toFixed(1) + ' g' : '— g';
   const tt = 'L=' + ctx.L_mm + ' mm · Ø=' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³ · h_med ' + ctx.h_med + '% · h_at ' + ctx.h_at + '%';
   pMed.title = tt; if (pDp) pDp.title = tt;
   if (infoEl) {
