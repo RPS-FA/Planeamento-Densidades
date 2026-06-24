@@ -781,12 +781,12 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
       <div class="post-exec-title">Preenchimento Produção</div>
       <div class="row">
         <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
-        <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time" oninput="recalcAtrasoInModal()"></div>
+        <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time"></div>
       </div>
       <div class="row">
         <div class="field"><label>Data Fim Real</label><input id="m_dataFimR" type="date"></div>
-        <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time" oninput="recalcAtrasoInModal()"></div>
-        <div class="field"><label>Tempo Atraso <span style="font-size:10px;color:var(--c-muted)">(automático)</span></label><input id="m_tempoAtraso" type="text" placeholder="—" readonly style="background:#f4f4f4;color:#374151"></div>
+        <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time"></div>
+        <div class="field"><label>Tempo Atraso <span style="font-size:10px;color:var(--c-muted)">(manual · HH:MM)</span></label><input id="m_tempoAtraso" type="text" placeholder="HH:MM" pattern="[0-9]{1,2}:[0-5][0-9]" title="Formato HH:MM (ex: 00:30)"></div>
       </div>
       <div class="field"><label>Colaborador</label><input id="m_colaborador" type="text"></div>
       <div class="field"><label>Observações</label><textarea id="m_obs" rows="2"></textarea></div>
@@ -2023,7 +2023,23 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
     } else {
       startPoint = cursor;
     }
-    const totalDurMs = durH * HOUR_MS;
+    // Tempo de atraso manual (HH:MM) — somar à duração planeada
+    // Soma legacy op.tempoAtraso + todos os atrasos por segmento (realPorDia[*].tempoAtraso)
+    let atrasoMin = 0;
+    const _parseAtraso = (s) => {
+      if (!s || !/^-?\d{1,2}:\d{2}$/.test(s)) return 0;
+      const sign = s.startsWith('-') ? -1 : 1;
+      const clean = s.replace('-', '');
+      const [h, m] = clean.split(':').map(Number);
+      return sign * (h * 60 + m);
+    };
+    atrasoMin += _parseAtraso(op.tempoAtraso || '');
+    if (op.realPorDia && typeof op.realPorDia === 'object') {
+      for (const k in op.realPorDia) {
+        atrasoMin += _parseAtraso((op.realPorDia[k] || {}).tempoAtraso || '');
+      }
+    }
+    const totalDurMs = (durH * HOUR_MS) + (atrasoMin * 60 * 1000);
     const segs = advanceWithinShiftsSegmented(startPoint, totalDurMs, stopRanges);
     if (segs.length === 0) {
       // edge case (durH<=0): cria 1 item zero
@@ -2460,12 +2476,13 @@ function createWeekTable(sched, wk, machine) {
     if (isLastSeg)  { op._calcFimP    = _hFimP_calc; }
     // Reais do segmento: prioridade realPorDia[dayKey], senão (último segmento) legacy
     const _segDayKey = fmtDate(item.start);
-    const _segReal = (op.realPorDia && op.realPorDia[_segDayKey]) || (isLastSeg && totalSegs === 1 ? {hIniR: op.hInicioR, hFimR: op.hFimR, dataIniR: op.dataInicioR, dataFimR: op.dataFimR} : {});
+    const _segReal = (op.realPorDia && op.realPorDia[_segDayKey]) || (isLastSeg && totalSegs === 1 ? {hIniR: op.hInicioR, hFimR: op.hFimR, dataIniR: op.dataInicioR, dataFimR: op.dataFimR, tempoAtraso: op.tempoAtraso} : {});
     const _hIniR = _segReal.hIniR || (totalSegs === 1 ? (op.hInicioR || '') : '');
     const _hFimR = _segReal.hFimR || (totalSegs === 1 ? (op.hFimR || '') : '');
     const _dataIniR = _segReal.dataIniR || (totalSegs === 1 ? (op.dataInicioR || '') : '');
     const _dataFimR = _segReal.dataFimR || (totalSegs === 1 ? (op.dataFimR || '') : '');
-    const atrasoStr = calcAtraso(_hIniR, _hIniP_calc, _hFimR, _hFimP_calc);
+    // Atraso MANUAL — lê do segmento (realPorDia[dayKey].tempoAtraso) ou legacy
+    const atrasoStr = _segReal.tempoAtraso || (totalSegs === 1 ? (op.tempoAtraso || '') : '');
     const atrasoClass = atrasoStr && atrasoStr.startsWith('-') ? 'atraso-neg' : (atrasoStr ? 'atraso-pos' : '');
     const qtdSeg = (item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0);
     const segLabel = (totalSegs > 1) ? ` <small style="color:var(--c-muted);font-weight:normal">(${segIdx+1}/${totalSegs})</small>` : '';
@@ -2818,8 +2835,16 @@ function openModal(op, segDayKey) {
   get('m_hInicioR').value = _realIni;
   get('m_dataFimR').value = _realDataFim;
   get('m_hFimR').value = _realFim;
-  // Tempo Atraso é calculado dos campos reais + horas planeadas (anotadas em op._calcInicioP/_calcFimP)
-  get('m_tempoAtraso').value = op ? calcAtraso(op.hInicioR || '', op._calcInicioP || '', op.hFimR || '', op._calcFimP || '') : '';
+  // Tempo Atraso é manual — lê do segmento (realPorDia) ou do legacy
+  let _atrasoVal = '';
+  if (op) {
+    if (segDayKey && op.realPorDia && op.realPorDia[segDayKey]) {
+      _atrasoVal = op.realPorDia[segDayKey].tempoAtraso || '';
+    } else {
+      _atrasoVal = op.tempoAtraso || '';
+    }
+  }
+  get('m_tempoAtraso').value = _atrasoVal;
   get('m_colaborador').value = op ? (op.colaborador || '') : '';
   get('m_obs').value = op ? (op.obs || '') : '';
   const saveBtn = document.getElementById('m_btnSave');
@@ -2933,7 +2958,7 @@ function saveOP() {
               hIniR: get('m_hInicioR'),
               dataFimR: get('m_dataFimR'),
               hFimR: get('m_hFimR'),
-              tempoAtraso: calcAtraso(get('m_hInicioR'), editingOP._calcInicioP || '', get('m_hFimR'), editingOP._calcFimP || '')
+              tempoAtraso: get('m_tempoAtraso')
             }
           }),
           // Preservar campos legacy intactos
@@ -2949,12 +2974,7 @@ function saveOP() {
           hInicioR: get('m_hInicioR'),
           dataFimR: get('m_dataFimR'),
           hFimR: get('m_hFimR'),
-          tempoAtraso: calcAtraso(
-            document.getElementById('m_hInicioR').value,
-            editingOP ? (editingOP._calcInicioP || '') : '',
-            document.getElementById('m_hFimR').value,
-            editingOP ? (editingOP._calcFimP || '') : ''
-          ),
+          tempoAtraso: document.getElementById('m_tempoAtraso').value || '',
         }
     ),
     obs: get('m_obs'),
