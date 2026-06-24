@@ -2327,7 +2327,8 @@ function _renderCenariosHumidade() {
     if (h >= 100) continue;
     const factor = (1 - h_med / 100) / (1 - h / 100);
     const mu  = mu_med * factor;
-    const sig = sig_med * factor;
+    // Desvio padrão MANTÉM-SE constante entre cenários de humidade
+    const sig = sig_med;
     const zL = (lsi - mu) / sig;
     const zU = (lss - mu) / sig;
     const pct = (_normalCDF(zU) - _normalCDF(zL)) * 100;
