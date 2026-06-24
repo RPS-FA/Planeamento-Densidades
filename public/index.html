@@ -643,9 +643,6 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
 </div>
 
 <div class="controls">
-  <div style="font-size:11px; color:var(--c-muted)">
-    <a href="#" onclick="switchTab('cfg');return false" style="color:var(--c-primary)">⚙ alterar definições</a>
-  </div>
   <div class="legend">
     <span class="swatch"><span class="dot" style="background:var(--st-pi-por-liberar); border-color:#9aa0a6"></span>Por liberar</span>
     <span class="swatch"><span class="dot" style="background:var(--st-pi-liberado)"></span>Liberado</span>
@@ -1562,10 +1559,12 @@ function saveSettingsExplicit() {
 }
 
 function updateGlobalCapacityStatus() {
+  // Elemento removido — função mantida como no-op para não quebrar chamadas existentes
+  const el = document.getElementById('status-rate');
+  if (!el) return;
   const totalKr8h = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].kr8h || 0 : 0), 0);
   const totalKrH = MACHINES.reduce((s, m) => s + (SETTINGS.capacidades[m] ? SETTINGS.capacidades[m].krH || 0 : 0), 0);
-  document.getElementById('status-rate').textContent =
-    `${totalKr8h.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas/8h · ${totalKrH.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas/h`;
+  el.textContent = `${totalKr8h.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas/8h · ${totalKrH.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas/h`;
 }
 
 function renderStopsTable(machine) {
