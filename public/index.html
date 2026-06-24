@@ -2050,12 +2050,15 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       startPoint = dayDate;
       seenDays.add(dayIdx);
     } else if (!seenDays.has(dayIdx)) {
+      // 1ª OP automática deste dia. Se o cursor já avançou para depois do
+      // início do turno (porque OPs anteriores no sortIdx já consumiram tempo),
+      // cascateia do cursor em vez de "voltar atrás no tempo".
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + dayIdx);
       const startH = getStartHourForDate(dayDate);
       const dayStart = new Date(dayDate);
       dayStart.setHours(startH.h, startH.m, 0, 0);
-      startPoint = dayStart;
+      startPoint = (cursor.getTime() > dayStart.getTime()) ? cursor : dayStart;
       seenDays.add(dayIdx);
     } else {
       startPoint = cursor;
