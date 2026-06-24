@@ -579,6 +579,20 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
   font-family: inherit;
 }
 .day-block-header .dh-turno .dh-scope option { color: #1f2d20; background: #fff; }
+
+/* ===== Linha OP atrasada (vermelho suave) ===== */
+table.excel tbody tr.row-data.row-atrasada td {
+  background: #fee2e2 !important;
+}
+table.excel tbody tr.row-data.row-atrasada:nth-child(even) td {
+  background: #fecaca !important;
+}
+table.excel tbody tr.row-data.row-atrasada:hover td {
+  background: #fca5a5 !important;
+}
+table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
+  background: #ffff00 !important;  /* mantém amarelo do início manual */
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -2517,6 +2531,18 @@ function createWeekTable(sched, wk, machine) {
     const _dataFimR = _segReal.dataFimR || (totalSegs === 1 ? (op.dataFimR || '') : '');
     // Atraso MANUAL — lê do segmento (realPorDia[dayKey].tempoAtraso) ou legacy
     const atrasoStr = _segReal.tempoAtraso || (totalSegs === 1 ? (op.tempoAtraso || '') : '');
+    // Linha atrasada = tem tempoAtraso > 0 OU hInicioR > hInicioP planeado
+    let isAtrasada = false;
+    if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
+      const [hAt, mAt] = atrasoStr.split(':').map(Number);
+      if ((hAt * 60 + mAt) > 0) isAtrasada = true;
+    }
+    if (!isAtrasada && _hIniR && _hIniP_calc && /^\d{2}:\d{2}$/.test(_hIniR) && /^\d{2}:\d{2}$/.test(_hIniP_calc)) {
+      const [rh, rm] = _hIniR.split(':').map(Number);
+      const [ph, pm] = _hIniP_calc.split(':').map(Number);
+      if ((rh * 60 + rm) > (ph * 60 + pm)) isAtrasada = true;
+    }
+    if (isAtrasada) tr.classList.add('row-atrasada');
     const atrasoClass = atrasoStr && atrasoStr.startsWith('-') ? 'atraso-neg' : (atrasoStr ? 'atraso-pos' : '');
     const qtdSeg = (item.qtdSeg != null) ? item.qtdSeg : (op.qtdEntrada || 0);
     const segLabel = (totalSegs > 1) ? ` <small style="color:var(--c-muted);font-weight:normal">(${segIdx+1}/${totalSegs})</small>` : '';
