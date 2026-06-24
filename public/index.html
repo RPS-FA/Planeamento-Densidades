@@ -799,6 +799,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
         <div id="prev-svg-host" style="background:#fff; border:1px solid var(--c-grid); border-radius:4px; padding:8px;">
           <!-- SVG injectado por updatePrevisao() -->
         </div>
+        <div id="prev-cenarios-host" style="margin-top:10px; font-size:11px"></div>
       </div>
     </div>
 
@@ -2289,7 +2290,71 @@ function updatePrevisao() {
   const pAcima  = (1 - _normalCDF(zU)) * 100;
   detEl.innerHTML = '<span style="color:#b91c1c">↓ ' + pAbaixo.toFixed(2) + '%</span> abaixo · <span style="color:#b91c1c">↑ ' + pAcima.toFixed(2) + '%</span> acima';
   host.innerHTML = _renderNormalSvg(mu, sig, lsi, lss);
+  _renderCenariosHumidade();
 }
+// Tabela de cenários: várias humidades, % aprovado, μ ajustada
+function _renderCenariosHumidade() {
+  const host = document.getElementById('prev-cenarios-host');
+  if (!host) return;
+  const mediaEl = document.getElementById('prev-media');
+  const dpEl    = document.getElementById('prev-dp');
+  const lsiEl   = document.getElementById('prev-lsi');
+  const lssEl   = document.getElementById('prev-lss');
+  const humMedEl = document.getElementById('prev-humidade-medida');
+  const calEl    = document.getElementById('prev-calibre');
+  if (!mediaEl || !dpEl || !lsiEl || !lssEl || !humMedEl) { host.innerHTML = ''; return; }
+  const mu_med = parseFloat(mediaEl.value);
+  const sig_med = parseFloat(dpEl.value);
+  const lsi = parseFloat(lsiEl.value);
+  const lss = parseFloat(lssEl.value);
+  const h_med = parseFloat(humMedEl.value);
+  if (isNaN(mu_med) || isNaN(sig_med) || isNaN(lsi) || isNaN(lss) || isNaN(h_med) || sig_med <= 0 || lss <= lsi) {
+    host.innerHTML = '<em style="color:var(--c-muted)">Cenários de humidade — aguarda valores válidos</em>';
+    return;
+  }
+  // Volume opcional para peso
+  let V_cm3 = null;
+  const calStr = (calEl && calEl.value ? calEl.value.trim().toLowerCase() : '');
+  const m = /^(\d{2})x(\d{3})$/.exec(calStr);
+  if (m) {
+    const L_mm = parseInt(m[1], 10);
+    const d_mm = parseInt(m[2], 10) / 10;
+    V_cm3 = Math.PI * Math.pow(d_mm / 20, 2) * (L_mm / 10);
+  }
+  const humidades = [3, 5, 7, 8, 9, 10, 12, 15];
+  let rows = '';
+  for (const h of humidades) {
+    if (h >= 100) continue;
+    const factor = (1 - h_med / 100) / (1 - h / 100);
+    const mu  = mu_med * factor;
+    const sig = sig_med * factor;
+    const zL = (lsi - mu) / sig;
+    const zU = (lss - mu) / sig;
+    const pct = (_normalCDF(zU) - _normalCDF(zL)) * 100;
+    const pesoMed = V_cm3 ? mu * V_cm3 / 1000 : null;
+    const isMed = (h === h_med);
+    const corPct = pct >= 90 ? '#166534' : pct >= 70 ? '#7a5300' : '#b91c1c';
+    rows += '<tr' + (isMed ? ' style="background:#fff3a3"' : '') + '>' +
+      '<td style="text-align:center; font-weight:' + (isMed ? '700' : '500') + '">' + h.toFixed(1) + ' %' + (isMed ? ' ★' : '') + '</td>' +
+      '<td style="text-align:right">' + mu.toFixed(1) + '</td>' +
+      '<td style="text-align:right">' + sig.toFixed(2) + '</td>' +
+      '<td style="text-align:right">' + (pesoMed != null ? (Math.ceil(pesoMed * 10) / 10).toFixed(1) + ' g' : '—') + '</td>' +
+      '<td style="text-align:right; color:' + corPct + '; font-weight:700">' + pct.toFixed(2) + ' %</td>' +
+      '</tr>';
+  }
+  host.innerHTML =
+    '<div style="font-weight:600; margin-bottom:4px">Cenários de humidade · % aprovado</div>' +
+    '<table style="width:100%; border-collapse:collapse; font-size:11px; border:1px solid var(--c-grid)">' +
+    '<thead><tr style="background:var(--c-subheader)">' +
+    '<th style="padding:4px 6px; text-align:center">Humidade</th>' +
+    '<th style="padding:4px 6px; text-align:right">μ (kg/m³)</th>' +
+    '<th style="padding:4px 6px; text-align:right">σ (kg/m³)</th>' +
+    '<th style="padding:4px 6px; text-align:right">Peso médio</th>' +
+    '<th style="padding:4px 6px; text-align:right">% aprovado</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div style="margin-top:4px; font-size:10px; color:var(--c-muted)">★ = humidade medida (referência). LSI/LSS fixos em densidade.</div>';
+}
+
 function _renderNormalSvg(mu, sig, lsi, lss) {
   const W = 500, H = 200, PAD_L = 40, PAD_R = 20, PAD_T = 15, PAD_B = 35;
   const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
