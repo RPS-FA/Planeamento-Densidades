@@ -24,6 +24,7 @@
     --st-pi-entregue-log:  #00B0F0;
     --st-csp2-por-liberar: #FF9966;
     --st-csp2-liberada:    #FFFF00;
+    --st-em-processo:      #FFA500;   /* Em processo (laranja) */
     --st-kanban:           #D9D9D9;
   }
   * { box-sizing: border-box; }
@@ -416,7 +417,7 @@
   table.excel tr.row-data[data-estado="Entregue LOG"]     td:first-child { border-left-color: var(--st-pi-entregue-log) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI por liberar"] td:first-child { border-left-color: var(--st-csp2-por-liberar) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI liberada"]    td:first-child { border-left-color: var(--st-csp2-liberada) !important; }
-  table.excel tr.row-data[data-estado="KANBAN"]              td:first-child { border-left-color: var(--st-kanban) !important; }
+  table.excel tr.row-data[data-estado="Em processo"]         td:first-child { border-left-color: var(--st-em-processo) !important; }
   table.excel tr.row-data.dragging { opacity: 0.4; }
   table.excel tr.row-data.drop-above td { border-top: 3px solid var(--c-primary); }
   table.excel tr.row-data.drop-below td { border-bottom: 3px solid var(--c-primary); }
@@ -446,7 +447,7 @@
   .estado-select[data-est="Entregue LOG"]     { background: var(--st-pi-entregue-log);  color: #0a3a55; }
   .estado-select[data-est="CSP2-AI por liberar"] { background: var(--st-csp2-por-liberar); color: #4a1e00; }
   .estado-select[data-est="CSP2-AI liberada"]    { background: var(--st-csp2-liberada);    color: #5a4a00; }
-  .estado-select[data-est="KANBAN"]              { background: var(--st-kanban);           color: #333; }
+  .estado-select[data-est="Em processo"]      { background: var(--st-em-processo);      color: #1f2d20; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .ctr { text-align: center; }
   .mono { font-family: Consolas, monospace; font-size: 10px; }
@@ -652,7 +653,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
     <span class="swatch"><span class="dot" style="background:var(--st-pi-entregue-log)"></span>Entregue LOG</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-por-liberar)"></span>CSP2-AI por liberar</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-liberada)"></span>CSP2-AI liberada</span>
-    <span class="swatch"><span class="dot" style="background:var(--st-kanban)"></span>KANBAN</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-em-processo)"></span>Em processo</span>
   </div>
 </div>
 
@@ -815,11 +816,12 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
       <div class="field"><label>Estado</label>
         <select id="m_estado">
           <option>Por liberar</option>
+          <option>Em processo</option>
           <option>Liberado</option>
           <option>Entregue LOG</option>
           <option>CSP2-AI por liberar</option>
           <option>CSP2-AI liberada</option>
-          <option>KANBAN</option>
+
         </select>
       </div>
     </div>
@@ -1053,7 +1055,7 @@ const MONTHLY_TABS = [
 ];
 const MONTHLY_YEAR = 2026;
 const MACHINES = ['Maq 1 - Linha 10', 'Maq 3 - Linha 9'];
-const DENS_ESTADOS = ['Por liberar', 'Liberado', 'Entregue LOG', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'KANBAN'];
+const DENS_ESTADOS = ['Por liberar', 'Em processo', 'Liberado', 'Entregue LOG', 'CSP2-AI por liberar', 'CSP2-AI liberada'];
 // Pesquisa partilhada entre tabs mensais (uma string global)
 const SEARCH = { value: '' };
 // Tab activo
@@ -1762,6 +1764,7 @@ async function loadStateFromServer() {
     applyServerSettings(state.settings || {});
     // Refrescar inputs da tab Configurações com os valores reais (override do server)
     if (typeof applySettingsToUI === 'function') applySettingsToUI();
+    _migrateEstadosKanbanInData();
     setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
     return true;
   } catch (e) {
@@ -2964,7 +2967,7 @@ function moveOpToKanban(opMoved) {
   const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   opMoved.maquina = 'KANBAN';
   opMoved.weekKey = '';
-  opMoved.estado = 'KANBAN';
+  opMoved.estado = 'Por liberar';
   peers.push(opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
@@ -3013,7 +3016,7 @@ function openModal(op, segDayKey) {
   get('m_massas').value = op ? (op.massas || '') : '';
   get('m_qtdEntrada').value = op ? (op.qtdEntrada != null ? op.qtdEntrada : '') : '';
   get('m_destino').value = op ? (op.destino || '') : '';
-  get('m_estado').value = op ? op.estado : 'KANBAN';
+  get('m_estado').value = op ? op.estado : 'Por liberar';
   get('m_obsPi').value = op ? (op.obsPi || '') : '';
   get('m_inicioMode').value = op ? (op.inicioMode || 'auto') : 'auto';
   get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
@@ -3132,7 +3135,7 @@ function saveOP() {
   };
   const maqVal = editingOP ? editingOP.maquina : 'KANBAN';
   const weekVal = editingOP ? (editingOP.weekKey || '') : '';
-  const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'KANBAN');
+  const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'Por liberar');
   const data = {
     op: get('m_op'),
     tipo: 'DENS',
@@ -3195,7 +3198,7 @@ function saveOP() {
     // porque o servidor devolve 404 para PUTs sobre IDs que ainda não existem.
     const peers = DATA.filter(o => o.maquina === data.maquina && o.weekKey === data.weekKey);
     data.sortIdx = peers.length;
-    if (!data.maquina) { data.maquina = 'KANBAN'; data.weekKey = ''; data.estado = 'KANBAN'; }
+    if (!data.maquina) { data.maquina = 'KANBAN'; data.weekKey = ''; data.estado = 'Por liberar'; }
     Api.postOp(data).then(r => {
       if (r && r.op) DATA.push(r.op);
       setConnStatus('ok', '✓ OP criada · ' + new Date().toLocaleTimeString('pt-PT'));
@@ -3332,7 +3335,7 @@ function changeEstado(id, newEstado) {
   if (!op) return;
   pushUndo('Estado OP ' + (op.op || op.id) + ' → ' + newEstado);
   op.estado = newEstado;
-  if (newEstado === 'KANBAN' && op.maquina !== 'KANBAN') {
+  if (false) {  // estado KANBAN removido — fluxo via drag-drop para a sub-zona KANBAN
     op.maquina = 'KANBAN';
     op.weekKey = '';
     const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== id);
@@ -3681,6 +3684,20 @@ setInterval(async () => {
   }
 }, 30000);
 
+
+// Migração: estado 'KANBAN' removido — substituir por 'Por liberar' em OPs existentes.
+function _migrateEstadosKanbanInData() {
+  let n = 0;
+  for (const o of DATA) {
+    if (o.estado === 'KANBAN' && o.maquina !== 'KANBAN') {
+      o.estado = 'Por liberar'; n++;
+    } else if (o.estado === 'KANBAN' && o.maquina === 'KANBAN') {
+      // OP no kanban side: deixa o estado em 'Por liberar' (já não há estado KANBAN)
+      o.estado = 'Por liberar'; n++;
+    }
+  }
+  if (n > 0) console.log('[migração] estado KANBAN → Por liberar em', n, 'OPs (cliente)');
+}
 // Modal de edição de OP: só fecha pelo botão "Fechar".
 document.getElementById('modalSwap').addEventListener('click', e => { if (e.target.id === 'modalSwap') closeSwapModal(); });
 document.addEventListener('keydown', e => {
