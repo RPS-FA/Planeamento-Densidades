@@ -752,7 +752,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
 
     <div class="settings-section full">
       <h3>📈 Previsão de saída · distribuição normal</h3>
-      <p class="desc">Dada a média e o DP da densidade do lote (medidos a uma certa humidade), calcula a percentagem estimada de rolhas dentro dos limites de <strong>peso</strong>, ajustando para a humidade actual do lote.</p>
+      <p class="desc">Dada a média e o DP da densidade do lote, calcula a percentagem estimada dentro dos limites de densidade. Os pesos correspondentes (à humidade actual) aparecem ao lado.</p>
       <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 16px; align-items: start;">
         <div style="display:flex; flex-direction:column; gap:10px;">
           <div class="settings-grid-row prev-row">
@@ -766,14 +766,14 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
             <span class="prev-peso" id="prev-peso-dp">— g</span>
           </div>
           <div class="settings-grid-row prev-row">
-            <label>Limite inferior PESO (g)</label>
-            <input type="number" id="prev-lsi" step="0.001" value="3.500" oninput="updatePrevisao()">
-            <span></span>
+            <label>Limite inferior (kg/m³)</label>
+            <input type="number" id="prev-lsi" step="0.1" value="140" oninput="updatePrevisao()">
+            <span class="prev-peso" id="prev-peso-lsi">— g</span>
           </div>
           <div class="settings-grid-row prev-row">
-            <label>Limite superior PESO (g)</label>
-            <input type="number" id="prev-lss" step="0.001" value="4.500" oninput="updatePrevisao()">
-            <span></span>
+            <label>Limite superior (kg/m³)</label>
+            <input type="number" id="prev-lss" step="0.1" value="200" oninput="updatePrevisao()">
+            <span class="prev-peso" id="prev-peso-lss">— g</span>
           </div>
           <hr style="border:none; border-top:1px solid var(--c-grid); margin:10px 0">
           <div style="font-size:11px; color:var(--c-muted); margin-bottom:6px"><strong>Calibre + humidades</strong></div>
@@ -2229,22 +2229,32 @@ function _updatePesosLimite() {
   const ctx = _previsaoContext();
   const pMed = document.getElementById('prev-peso-media');
   const pDp  = document.getElementById('prev-peso-dp');
+  const pLsi = document.getElementById('prev-peso-lsi');
+  const pLss = document.getElementById('prev-peso-lss');
   const infoEl = document.getElementById('prev-calc-info');
-  if (!pMed) return;
   const mediaEl = document.getElementById('prev-media');
   const dpEl    = document.getElementById('prev-dp');
+  const lsiEl   = document.getElementById('prev-lsi');
+  const lssEl   = document.getElementById('prev-lss');
+  if (!pMed) return;
   if (!ctx) {
     pMed.textContent = '— g';
-    if (pDp) pDp.textContent = '— g';
-    if (infoEl) infoEl.textContent = 'Preencha o calibre (45x240) e humidades para calcular pesos';
+    if (pDp)  pDp.textContent  = '— g';
+    if (pLsi) pLsi.textContent = '— g';
+    if (pLss) pLss.textContent = '— g';
+    if (infoEl) infoEl.textContent = 'Preencha o calibre (ex: 45x240) e humidades para calcular pesos';
     return;
   }
-  const pesoMed = ctx.pesoFrom(parseFloat(mediaEl.value));
-  const pesoDp  = ctx.pesoFrom(parseFloat(dpEl.value));
-  pMed.textContent = pesoMed != null ? (Math.ceil(pesoMed * 10) / 10).toFixed(1) + ' g' : '— g';
-  if (pDp) pDp.textContent = pesoDp != null ? (Math.ceil(pesoDp * 10) / 10).toFixed(1) + ' g' : '— g';
+  const fmt = (v) => v != null ? (Math.ceil(v * 10) / 10).toFixed(1) + ' g' : '— g';
+  pMed.textContent = fmt(ctx.pesoFrom(parseFloat(mediaEl.value)));
+  if (pDp)  pDp.textContent  = fmt(ctx.pesoFrom(parseFloat(dpEl.value)));
+  if (pLsi) pLsi.textContent = fmt(ctx.pesoFrom(parseFloat(lsiEl.value)));
+  if (pLss) pLss.textContent = fmt(ctx.pesoFrom(parseFloat(lssEl.value)));
   const tt = 'L=' + ctx.L_mm + ' mm · Ø=' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³ · h_med ' + ctx.h_med + '% · h_at ' + ctx.h_at + '%';
-  pMed.title = tt; if (pDp) pDp.title = tt;
+  pMed.title = tt;
+  if (pDp)  pDp.title  = tt;
+  if (pLsi) pLsi.title = tt;
+  if (pLss) pLss.title = tt;
   if (infoEl) {
     infoEl.innerHTML = '<strong>L ' + ctx.L_mm + ' mm · Ø ' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³</strong> · factor h<sub>med</sub>→h<sub>at</sub> = ' + ctx.factor.toFixed(4);
   }
@@ -2253,42 +2263,32 @@ function _updatePesosLimite() {
 function updatePrevisao() {
   const mediaEl = document.getElementById('prev-media');
   const dpEl    = document.getElementById('prev-dp');
-  const lsiEl   = document.getElementById('prev-lsi');  // PESO (g)
-  const lssEl   = document.getElementById('prev-lss');  // PESO (g)
+  const lsiEl   = document.getElementById('prev-lsi');  // DENSIDADE kg/m³
+  const lssEl   = document.getElementById('prev-lss');
   const pctEl   = document.getElementById('prev-pct');
   const detEl   = document.getElementById('prev-detail');
   const host    = document.getElementById('prev-svg-host');
   if (!mediaEl || !dpEl || !lsiEl || !lssEl || !pctEl || !host) return;
   _updatePesosLimite();
-  const mu_d  = parseFloat(mediaEl.value);   // densidade kg/m³
-  const sig_d = parseFloat(dpEl.value);
-  const lsi_p = parseFloat(lsiEl.value);     // PESO g
-  const lss_p = parseFloat(lssEl.value);     // PESO g
-  const ctx = _previsaoContext();
-  if (isNaN(mu_d) || isNaN(sig_d) || isNaN(lsi_p) || isNaN(lss_p) || sig_d <= 0 || lss_p <= lsi_p || !ctx) {
+  const mu  = parseFloat(mediaEl.value);
+  const sig = parseFloat(dpEl.value);
+  const lsi = parseFloat(lsiEl.value);
+  const lss = parseFloat(lssEl.value);
+  if (isNaN(mu) || isNaN(sig) || isNaN(lsi) || isNaN(lss) || sig <= 0 || lss <= lsi) {
     pctEl.textContent = '—';
-    detEl.textContent = ctx ? 'Valores inválidos (σ>0, LSI<LSS)' : 'Preencha calibre e humidades';
+    detEl.textContent = 'Valores inválidos (σ>0, LSI<LSS)';
     host.innerHTML = '';
     return;
   }
-  // Converter média e DP de densidade → peso (g) com factor de humidade
-  const mu  = ctx.pesoFrom(mu_d);
-  const sig = ctx.pesoFrom(sig_d);
-  if (!mu || !sig || sig <= 0) {
-    pctEl.textContent = '—';
-    detEl.textContent = 'Conversão para peso falhou';
-    host.innerHTML = '';
-    return;
-  }
-  const zL = (lsi_p - mu) / sig;
-  const zU = (lss_p - mu) / sig;
+  const zL = (lsi - mu) / sig;
+  const zU = (lss - mu) / sig;
   const prob = _normalCDF(zU) - _normalCDF(zL);
   const pct = prob * 100;
   pctEl.textContent = pct.toFixed(2) + ' %';
   const pAbaixo = _normalCDF(zL) * 100;
   const pAcima  = (1 - _normalCDF(zU)) * 100;
-  detEl.innerHTML = '<span style="color:#b91c1c">↓ ' + pAbaixo.toFixed(2) + '%</span> abaixo · <span style="color:#b91c1c">↑ ' + pAcima.toFixed(2) + '%</span> acima · h<sub>at</sub>=' + ctx.h_at + '%';
-  host.innerHTML = _renderNormalSvg(mu, sig, lsi_p, lss_p);
+  detEl.innerHTML = '<span style="color:#b91c1c">↓ ' + pAbaixo.toFixed(2) + '%</span> abaixo · <span style="color:#b91c1c">↑ ' + pAcima.toFixed(2) + '%</span> acima';
+  host.innerHTML = _renderNormalSvg(mu, sig, lsi, lss);
 }
 function _renderNormalSvg(mu, sig, lsi, lss) {
   const W = 500, H = 200, PAD_L = 40, PAD_R = 20, PAD_T = 15, PAD_B = 35;
