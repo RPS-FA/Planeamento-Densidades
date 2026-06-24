@@ -565,6 +565,20 @@ table.excel tbody tr.row-data td.inicio-manual {
 table.excel tbody tr.row-data:hover td.inicio-manual {
   background: #fff44d !important;
 }
+
+/* ===== Scope das refeições (a que máquinas se aplica) ===== */
+.day-block-header .dh-turno .dh-scope {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.day-block-header .dh-turno .dh-scope option { color: #1f2d20; background: #fff; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1299,6 +1313,8 @@ function getTurnoForDate(date) {
       ini: ovr.ini || '', fim: ovr.fim || '',
       almocoIni: ovr.almocoIni || '', almocoFim: ovr.almocoFim || '',
       jantarIni: ovr.jantarIni || '', jantarFim: ovr.jantarFim || '',
+      almocoScope: ovr.almocoScope || 'all',
+      jantarScope: ovr.jantarScope || 'all',
     };
   }
   const dow = (date.getDay() + 6) % 7;
@@ -1307,23 +1323,26 @@ function getTurnoForDate(date) {
     ini: def.ini || '', fim: def.fim || '',
     almocoIni: def.almocoIni || '', almocoFim: def.almocoFim || '',
     jantarIni: def.jantarIni || '', jantarFim: def.jantarFim || '',
+    almocoScope: 'all', jantarScope: 'all',
   };
 }
 
 // Devolve array de stop ranges (Date) para refeições deste dia (almoço + jantar)
-function getMealBreaksForDate(date) {
+// Se machine for indicada, devolve apenas as refeições cujo scope é 'all' ou igual a machine.
+function getMealBreaksForDate(date, machine) {
   const t = getTurnoForDate(date);
   const out = [];
-  function _push(iniStr, fimStr, label) {
+  function _push(iniStr, fimStr, label, scope) {
     if (!iniStr || !fimStr || !/^\d{2}:\d{2}$/.test(iniStr) || !/^\d{2}:\d{2}$/.test(fimStr)) return;
+    if (machine && scope && scope !== 'all' && scope !== machine) return;
     const [iH, iM] = iniStr.split(':').map(Number);
     const [fH, fM] = fimStr.split(':').map(Number);
     const start = new Date(date); start.setHours(iH, iM, 0, 0);
     const end   = new Date(date); end.setHours(fH, fM, 0, 0);
     if (end > start) out.push({ start, end, label });
   }
-  _push(t.almocoIni, t.almocoFim, 'Almoço');
-  _push(t.jantarIni, t.jantarFim, 'Jantar');
+  _push(t.almocoIni, t.almocoFim, 'Almoço', t.almocoScope || 'all');
+  _push(t.jantarIni, t.jantarFim, 'Jantar', t.jantarScope || 'all');
   return out;
 }
 
@@ -1807,9 +1826,13 @@ function applyDayTurno(dayKey) {
   const ini = _v('ini'), fim = _v('fim');
   const almocoIni = _v('almocoIni'), almocoFim = _v('almocoFim');
   const jantarIni = _v('jantarIni'), jantarFim = _v('jantarFim');
+  // Scopes — ler dos selects
+  const _vs = (f) => (span.querySelector('select[data-field="' + f + '"]') || {}).value || 'all';
+  const almocoScope = _vs('almocoScope');
+  const jantarScope = _vs('jantarScope');
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   if (!SETTINGS.turnosPorDia[dayKey]) SETTINGS.turnosPorDia[dayKey] = { ini: '', fim: '' };
-  Object.assign(SETTINGS.turnosPorDia[dayKey], { ini, fim, almocoIni, almocoFim, jantarIni, jantarFim });
+  Object.assign(SETTINGS.turnosPorDia[dayKey], { ini, fim, almocoIni, almocoFim, jantarIni, jantarFim, almocoScope, jantarScope });
   const t = SETTINGS.turnosPorDia[dayKey];
   // Limpar se tudo vazio
   if (!t.ini && !t.fim && !t.almocoIni && !t.almocoFim && !t.jantarIni && !t.jantarFim && !t.fechado) {
@@ -1991,7 +2014,7 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
   let stopRanges = getStops(machine).map(getStopRange).filter(s => s.end > cursor && s.start < lookEnd);
   // Acrescentar refeições (almoço + jantar) de cada dia no período
   for (let d = new Date(weekStart); d < lookEnd; d.setDate(d.getDate() + 1)) {
-    const meals = getMealBreaksForDate(d);
+    const meals = getMealBreaksForDate(d, machine);
     for (const m of meals) {
       if (m.end > cursor && m.start < lookEnd) stopRanges.push(m);
     }
@@ -2231,17 +2254,21 @@ function renderDayBlock(dayKey, byMachine) {
   const isClosed = isDayClosed(dayKey);
   if (isClosed) block.classList.add('day-closed');
 
-  // Capacidade do dia (rolhas) = soma de (krH × duração líquida do turno) por cada máquina
-  // Duração líquida = turno - almoço - jantar
+  // Capacidade do dia (rolhas) = soma por máquina; cada máquina desconta apenas as refeições que lhe afectam
   const turnoH = turnoHoras(turno.ini, turno.fim);
   const almH   = turnoHoras(turno.almocoIni, turno.almocoFim);
   const janH   = turnoHoras(turno.jantarIni, turno.jantarFim);
-  const turnoLiquidoH = Math.max(0, turnoH - almH - janH);
   let capDiaKr = 0;
+  let turnoLiquidoH = turnoH; // para o tooltip da duração (assume todas)
   for (const m of MACHINES) {
     const krH = (SETTINGS.capacidades[m] && SETTINGS.capacidades[m].krH) || 0;
-    capDiaKr += krH * turnoLiquidoH;
+    const almAfecta = (turno.almocoScope === 'all' || !turno.almocoScope) || turno.almocoScope === m;
+    const janAfecta = (turno.jantarScope === 'all' || !turno.jantarScope) || turno.jantarScope === m;
+    const liqM = Math.max(0, turnoH - (almAfecta ? almH : 0) - (janAfecta ? janH : 0));
+    capDiaKr += krH * liqM;
   }
+  // turnoLiquidoH para o tooltip do header — assume cenário "Todas"
+  turnoLiquidoH = Math.max(0, turnoH - almH - janH);
   capDiaKr = Math.round(capDiaKr * 10) / 10;
   const livreKr = Math.max(0, capDiaKr - totalKr);
   const excessoKr = totalKr > capDiaKr ? (totalKr - capDiaKr) : 0;
@@ -2274,11 +2301,21 @@ function renderDayBlock(dayKey, byMachine) {
         <input type="time" class="dh-time" data-day="${dayKey}" data-field="almocoIni" value="${turno.almocoIni || ''}" title="Início do almoço" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
         <span class="dh-sep">–</span>
         <input type="time" class="dh-time" data-day="${dayKey}" data-field="almocoFim" value="${turno.almocoFim || ''}" title="Fim do almoço" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
+        <select class="dh-scope" data-day="${dayKey}" data-field="almocoScope" title="A que máquinas se aplica" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
+          <option value="all"${turno.almocoScope === 'Maq 1 - Linha 10' || turno.almocoScope === 'Maq 3 - Linha 9' ? '' : ' selected'}>Todas</option>
+          <option value="Maq 1 - Linha 10"${turno.almocoScope === 'Maq 1 - Linha 10' ? ' selected' : ''}>Maq 1</option>
+          <option value="Maq 3 - Linha 9"${turno.almocoScope === 'Maq 3 - Linha 9' ? ' selected' : ''}>Maq 3</option>
+        </select>
       </span>
       <span class="dh-grp"><span class="dh-lbl" title="Jantar">🍽</span>
         <input type="time" class="dh-time" data-day="${dayKey}" data-field="jantarIni" value="${turno.jantarIni || ''}" title="Início do jantar" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
         <span class="dh-sep">–</span>
         <input type="time" class="dh-time" data-day="${dayKey}" data-field="jantarFim" value="${turno.jantarFim || ''}" title="Fim do jantar" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
+        <select class="dh-scope" data-day="${dayKey}" data-field="jantarScope" title="A que máquinas se aplica" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
+          <option value="all"${turno.jantarScope === 'Maq 1 - Linha 10' || turno.jantarScope === 'Maq 3 - Linha 9' ? '' : ' selected'}>Todas</option>
+          <option value="Maq 1 - Linha 10"${turno.jantarScope === 'Maq 1 - Linha 10' ? ' selected' : ''}>Maq 1</option>
+          <option value="Maq 3 - Linha 9"${turno.jantarScope === 'Maq 3 - Linha 9' ? ' selected' : ''}>Maq 3</option>
+        </select>
       </span>
       <span class="dh-dur" title="Duração líquida (turno - almoço - jantar)">(${hoursToTimeStr(turnoLiquidoH)})</span>
       <button class="dh-ok-btn" data-day="${dayKey}" title="Aplicar turno e refeições" onclick="applyDayTurno('${dayKey}'); event.stopPropagation();" ${isClosed ? 'disabled' : ''}>OK</button>
