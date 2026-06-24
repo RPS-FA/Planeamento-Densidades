@@ -2251,13 +2251,13 @@ function _updatePesosLimite() {
   if (pDp)  pDp.textContent  = fmt(ctx.pesoFrom(parseFloat(dpEl.value)));
   if (pLsi) pLsi.textContent = fmt(ctx.pesoFrom(parseFloat(lsiEl.value)));
   if (pLss) pLss.textContent = fmt(ctx.pesoFrom(parseFloat(lssEl.value)));
-  const tt = 'L=' + ctx.L_mm + ' mm · Ø=' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³ · h_med ' + ctx.h_med + '% · h_at ' + ctx.h_at + '%';
+  const tt = 'L=' + ctx.L_mm + ' mm · Ø=' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³ · h_med ' + ctx.h_med + '%';
   pMed.title = tt;
   if (pDp)  pDp.title  = tt;
   if (pLsi) pLsi.title = tt;
   if (pLss) pLss.title = tt;
   if (infoEl) {
-    infoEl.innerHTML = '<strong>L ' + ctx.L_mm + ' mm · Ø ' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³</strong> · factor h<sub>med</sub>→h<sub>at</sub> = ' + ctx.factor.toFixed(4);
+    infoEl.innerHTML = '<strong>L ' + ctx.L_mm + ' mm · Ø ' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³</strong> · Humidade medida = ' + ctx.h_med + '%';
   }
 }
 
@@ -2356,72 +2356,99 @@ function _renderCenariosHumidade() {
     '<div style="margin-top:4px; font-size:10px; color:var(--c-muted)">★ = humidade medida (referência). LSI/LSS fixos em densidade.</div>';
 }
 
+// Helper: probabilidade dentro de [lsi, lss] para distribuição N(mu, sig)
+function _probDentro(mu, sig, lsi, lss) {
+  if (sig <= 0) return 0;
+  return _normalCDF((lss - mu) / sig) - _normalCDF((lsi - mu) / sig);
+}
+
 function _renderNormalSvg(mu, sig, lsi, lss) {
-  const W = 500, H = 200, PAD_L = 40, PAD_R = 20, PAD_T = 15, PAD_B = 35;
-  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
-  // Eixo X: μ ± 4σ
-  const xMin = mu - 4 * sig, xMax = mu + 4 * sig;
-  const xRange = xMax - xMin;
-  // Gerar pontos da curva
-  const N = 200;
-  const pts = [];
-  let yMax = 0;
-  for (let i = 0; i <= N; i++) {
-    const x = xMin + (xRange * i / N);
-    const y = _normalPDF((x - mu) / sig) / sig;
-    pts.push({ x, y });
-    if (y > yMax) yMax = y;
+  const ctx = _previsaoContext();
+  const h_med = ctx ? ctx.h_med : null;
+  const scenarios = [];
+  function _addScenario(label, h_target, color) {
+    if (h_med == null || isNaN(h_med)) {
+      scenarios.push({ label, mu, sig, color });
+      return;
+    }
+    const factor = (1 - h_med / 100) / (1 - h_target / 100);
+    scenarios.push({ label, mu: mu * factor, sig: sig, color, h: h_target });
   }
+  if (h_med != null && !isNaN(h_med)) {
+    _addScenario('h ' + (h_med - 2) + '%', h_med - 2, '#b91c1c');
+    _addScenario('h ' + h_med + '% (medida)', h_med, '#166534');
+    _addScenario('h ' + (h_med + 2) + '%', h_med + 2, '#1d4ed8');
+  } else {
+    scenarios.push({ label: 'base', mu, sig, color: '#166534' });
+  }
+  const W = 560, H = 230, PAD_L = 40, PAD_R = 20, PAD_T = 30, PAD_B = 35;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+  // Eixo X cobre todos os cenários
+  let xMin = Infinity, xMax = -Infinity;
+  for (const s of scenarios) {
+    xMin = Math.min(xMin, s.mu - 4 * s.sig);
+    xMax = Math.max(xMax, s.mu + 4 * s.sig);
+  }
+  xMin = Math.min(xMin, lsi - 0.5 * sig); xMax = Math.max(xMax, lss + 0.5 * sig);
+  const xRange = xMax - xMin;
+  const N = 200;
+  let yMax = 0;
+  const allPts = scenarios.map(s => {
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const x = xMin + (xRange * i / N);
+      const y = _normalPDF((x - s.mu) / s.sig) / s.sig;
+      pts.push({ x, y });
+      if (y > yMax) yMax = y;
+    }
+    return pts;
+  });
   const xToSvg = (x) => PAD_L + ((x - xMin) / xRange) * plotW;
   const yToSvg = (y) => PAD_T + plotH - (y / yMax) * plotH;
-  // Path da curva inteira
-  let pathFull = 'M ' + xToSvg(pts[0].x) + ' ' + (PAD_T + plotH);
-  for (const p of pts) pathFull += ' L ' + xToSvg(p.x).toFixed(1) + ' ' + yToSvg(p.y).toFixed(1);
-  pathFull += ' L ' + xToSvg(pts[pts.length - 1].x) + ' ' + (PAD_T + plotH) + ' Z';
-  // Path da área aprovada (entre LSI e LSS)
-  const ptsApr = pts.filter(p => p.x >= lsi && p.x <= lss);
-  let pathApr = '';
-  if (ptsApr.length > 0) {
-    pathApr = 'M ' + xToSvg(ptsApr[0].x) + ' ' + (PAD_T + plotH);
-    for (const p of ptsApr) pathApr += ' L ' + xToSvg(p.x).toFixed(1) + ' ' + yToSvg(p.y).toFixed(1);
-    pathApr += ' L ' + xToSvg(ptsApr[ptsApr.length - 1].x) + ' ' + (PAD_T + plotH) + ' Z';
-  }
-  // Eixo X — ticks em μ-3σ, μ-2σ, μ-σ, μ, μ+σ, μ+2σ, μ+3σ
-  const ticks = [-3, -2, -1, 0, 1, 2, 3].map(k => ({ x: mu + k * sig, lbl: (mu + k * sig).toFixed(2) }));
+  // Ticks
   let ticksHtml = '';
-  for (const t of ticks) {
-    const tx = xToSvg(t.x);
-    ticksHtml += '<line x1="' + tx + '" y1="' + (PAD_T + plotH) + '" x2="' + tx + '" y2="' + (PAD_T + plotH + 4) + '" stroke="#666" stroke-width="1"/>';
-    ticksHtml += '<text x="' + tx + '" y="' + (PAD_T + plotH + 16) + '" font-size="10" text-anchor="middle" fill="#666">' + t.lbl + '</text>';
+  for (let k = 0; k <= 6; k++) {
+    const tx = xMin + xRange * k / 6;
+    const tpx = xToSvg(tx);
+    ticksHtml += '<line x1="' + tpx + '" y1="' + (PAD_T + plotH) + '" x2="' + tpx + '" y2="' + (PAD_T + plotH + 4) + '" stroke="#666" stroke-width="1"/>';
+    ticksHtml += '<text x="' + tpx + '" y="' + (PAD_T + plotH + 16) + '" font-size="10" text-anchor="middle" fill="#666">' + tx.toFixed(1) + '</text>';
   }
-  // Linha LSI (vermelho)
-  const lsiX = xToSvg(lsi);
-  const lssX = xToSvg(lss);
+  const lsiX = xToSvg(lsi), lssX = xToSvg(lss);
+  let curvesHtml = '';
+  let legendHtml = '';
+  scenarios.forEach((s, si) => {
+    let pathCurve = 'M ' + xToSvg(allPts[si][0].x).toFixed(1) + ' ' + yToSvg(allPts[si][0].y).toFixed(1);
+    for (let i = 1; i < allPts[si].length; i++) {
+      pathCurve += ' L ' + xToSvg(allPts[si][i].x).toFixed(1) + ' ' + yToSvg(allPts[si][i].y).toFixed(1);
+    }
+    const ptsApr = allPts[si].filter(p => p.x >= lsi && p.x <= lss);
+    let pathApr = '';
+    if (ptsApr.length > 0) {
+      pathApr = 'M ' + xToSvg(ptsApr[0].x).toFixed(1) + ' ' + (PAD_T + plotH);
+      for (const p of ptsApr) pathApr += ' L ' + xToSvg(p.x).toFixed(1) + ' ' + yToSvg(p.y).toFixed(1);
+      pathApr += ' L ' + xToSvg(ptsApr[ptsApr.length - 1].x).toFixed(1) + ' ' + (PAD_T + plotH) + ' Z';
+    }
+    curvesHtml += pathApr ? '<path d="' + pathApr + '" fill="' + s.color + '" fill-opacity="0.18" stroke="none"/>' : '';
+    curvesHtml += '<path d="' + pathCurve + '" fill="none" stroke="' + s.color + '" stroke-width="1.6"/>';
+    const muX = xToSvg(s.mu);
+    curvesHtml += '<line x1="' + muX + '" y1="' + (PAD_T + plotH - 6) + '" x2="' + muX + '" y2="' + (PAD_T + plotH) + '" stroke="' + s.color + '" stroke-width="1.4"/>';
+    const pct = _probDentro(s.mu, s.sig, lsi, lss) * 100;
+    legendHtml += '<g transform="translate(' + (PAD_L + 6 + si * 180) + ', ' + (PAD_T - 18) + ')">' +
+                  '<rect x="0" y="0" width="14" height="3" fill="' + s.color + '"/>' +
+                  '<text x="20" y="6" font-size="10" fill="#1f2d20" font-weight="600">' + s.label + ' · <tspan fill="' + s.color + '">' + pct.toFixed(2) + '%</tspan></text>' +
+                  '</g>';
+  });
   return [
     '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto; font-family:Verdana,Geneva,sans-serif">',
-    // Fundo
     '<rect x="' + PAD_L + '" y="' + PAD_T + '" width="' + plotW + '" height="' + plotH + '" fill="#fafafa" stroke="#ddd"/>',
-    // Áreas
-    '<path d="' + pathFull + '" fill="#fde2e2" stroke="none"/>',
-    pathApr ? '<path d="' + pathApr + '" fill="#86c47a" stroke="none"/>' : '',
-    // Curva (contorno)
-    '<path d="' + pathFull + '" fill="none" stroke="#1f2d20" stroke-width="1.5"/>',
-    // Linhas LSI e LSS
-    '<line x1="' + lsiX + '" y1="' + PAD_T + '" x2="' + lsiX + '" y2="' + (PAD_T + plotH) + '" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3"/>',
-    '<text x="' + lsiX + '" y="' + (PAD_T - 3) + '" font-size="10" text-anchor="middle" fill="#b91c1c" font-weight="700">LSI ' + lsi.toFixed(2) + '</text>',
-    '<line x1="' + lssX + '" y1="' + PAD_T + '" x2="' + lssX + '" y2="' + (PAD_T + plotH) + '" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3"/>',
-    '<text x="' + lssX + '" y="' + (PAD_T - 3) + '" font-size="10" text-anchor="middle" fill="#b91c1c" font-weight="700">LSS ' + lss.toFixed(2) + '</text>',
-    // Linha μ
-    '<line x1="' + xToSvg(mu) + '" y1="' + PAD_T + '" x2="' + xToSvg(mu) + '" y2="' + (PAD_T + plotH) + '" stroke="#166534" stroke-width="1.2"/>',
-    '<text x="' + xToSvg(mu) + '" y="' + (PAD_T + plotH + 28) + '" font-size="10" text-anchor="middle" fill="#166534" font-weight="700">μ=' + mu.toFixed(3) + '</text>',
-    // Eixo X
+    curvesHtml,
+    '<line x1="' + lsiX + '" y1="' + PAD_T + '" x2="' + lsiX + '" y2="' + (PAD_T + plotH) + '" stroke="#b91c1c" stroke-width="1.2" stroke-dasharray="3,3"/>',
+    '<text x="' + lsiX + '" y="' + (PAD_T + plotH + 28) + '" font-size="10" text-anchor="middle" fill="#b91c1c" font-weight="700">LSI ' + lsi.toFixed(1) + '</text>',
+    '<line x1="' + lssX + '" y1="' + PAD_T + '" x2="' + lssX + '" y2="' + (PAD_T + plotH) + '" stroke="#b91c1c" stroke-width="1.2" stroke-dasharray="3,3"/>',
+    '<text x="' + lssX + '" y="' + (PAD_T + plotH + 28) + '" font-size="10" text-anchor="middle" fill="#b91c1c" font-weight="700">LSS ' + lss.toFixed(1) + '</text>',
     '<line x1="' + PAD_L + '" y1="' + (PAD_T + plotH) + '" x2="' + (PAD_L + plotW) + '" y2="' + (PAD_T + plotH) + '" stroke="#444" stroke-width="1.2"/>',
     ticksHtml,
-    // Legenda
-    '<rect x="' + (PAD_L + 10) + '" y="' + (PAD_T + 6) + '" width="10" height="10" fill="#86c47a"/>',
-    '<text x="' + (PAD_L + 24) + '" y="' + (PAD_T + 15) + '" font-size="10" fill="#1f2d20">Aprovado</text>',
-    '<rect x="' + (PAD_L + 80) + '" y="' + (PAD_T + 6) + '" width="10" height="10" fill="#fde2e2"/>',
-    '<text x="' + (PAD_L + 94) + '" y="' + (PAD_T + 15) + '" font-size="10" fill="#1f2d20">Fora</text>',
+    legendHtml,
     '</svg>'
   ].join('');
 }
