@@ -554,6 +554,18 @@
   font-weight: 700;
   font-size: 11px;
 }
+
+/* ===== Início manual destacado a amarelo ===== */
+table.excel td.inicio-manual,
+table.excel tbody tr.row-data td.inicio-manual {
+  background: #fff3a3 !important;
+  border: 1.5px solid #000 !important;
+  font-weight: 700;
+  color: #1f2d20;
+}
+table.excel tbody tr.row-data:hover td.inicio-manual {
+  background: #fde68a !important;
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -2474,7 +2486,7 @@ function createWeekTable(sched, wk, machine) {
       <td title="${op.obsPi || ''}">${op.obsPi || ''}</td>
       <td class="num" title="${totalSegs > 1 ? 'Parte '+(segIdx+1)+'/'+totalSegs+' de '+(op.qtdEntrada||0)+' rolhas' : ''}">${qtdLabel}</td>
       <td title="${op.destino || ''}">${op.destino || ''}</td>
-      <td class="ctr" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}${op.inicioMode === 'manual' && isFirstSeg ? ' 🔒' : ''}</td>
+      <td class="ctr ${op.inicioMode === 'manual' && isFirstSeg ? 'inicio-manual' : ''}" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}</td>
       <td class="ctr">${_hFimP_calc}</td>
       <td class="ctr mono" title="${_dataIniR+' '+_hIniR}">${fmtRealStr(_dataIniR, _hIniR)}</td>
       <td class="ctr mono" title="${_dataFimR+' '+_hFimR}">${fmtRealStr(_dataFimR, _hFimR)}</td>
