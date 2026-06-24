@@ -2259,12 +2259,9 @@ function renderDayBlock(dayKey, byMachine) {
     : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas</strong>`;
   const dispStr = isClosed
     ? `<span class="dh-disp closed">🔒 Sem produção</span>`
-    : `<span class="dh-disp occ-${occLevel}">
-        <span class="dh-disp-bar"><i style="width:${Math.min(100, pctDia).toFixed(0)}%"></i></span>
-        Capacidade: <strong>${totalKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} / ${capDiaKr.toLocaleString('pt-PT', { maximumFractionDigits: 0 })} rolhas</strong>
-        · ${continuaStr}
-        · ${pctDia.toFixed(0)}%
-      </span>`;
+    : (opsContinuam > 0
+        ? `<span class="dh-disp">${continuaStr}</span>`
+        : '');
   header.innerHTML = `
     <span class="dh-date">📅 ${diaNome} <strong>${dataStr}</strong></span>
     <span class="dh-turno" data-day="${dayKey}">
