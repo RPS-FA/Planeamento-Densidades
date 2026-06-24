@@ -753,6 +753,26 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
             <label>Limite superior (g)</label>
             <input type="number" id="prev-lss" step="0.001" value="4.600" oninput="updatePrevisao()">
           </div>
+          <hr style="border:none; border-top:1px solid var(--c-grid); margin:10px 0">
+          <div style="font-size:11px; color:var(--c-muted); margin-bottom:6px"><strong>Estimar limites por calibre</strong></div>
+          <div class="settings-grid-row">
+            <label>Calibre</label>
+            <input type="text" id="prev-calibre" placeholder="45x240" maxlength="6" oninput="updateMassasCalc()">
+          </div>
+          <div class="settings-grid-row">
+            <label>Humidade (%)</label>
+            <input type="number" id="prev-humidade" step="0.5" value="8" oninput="updateMassasCalc()">
+          </div>
+          <div class="settings-grid-row">
+            <label>Densidade base (g/cm³)</label>
+            <input type="number" id="prev-densidade" step="0.001" value="0.180" oninput="updateMassasCalc()">
+          </div>
+          <div class="settings-grid-row">
+            <label>Tolerância (±%)</label>
+            <input type="number" id="prev-tolerancia" step="0.5" value="10" oninput="updateMassasCalc()">
+          </div>
+          <div id="prev-calc-info" style="font-size:11px; color:var(--c-muted); margin:6px 0; padding:6px 8px; background:#fff; border:1px dashed var(--c-grid); border-radius:3px">aguarda calibre</div>
+          <button type="button" id="btn-aplicar-massas" onclick="aplicarMassasCalculadas()" style="font-size:11px; padding:5px 10px; background:var(--c-primary); color:#fff; border:none; border-radius:3px; cursor:pointer; margin-bottom:8px" disabled>↥ Aplicar nos limites</button>
           <div style="margin-top:6px; padding:10px 12px; background:#f0f4ef; border:1px solid #c6d6c4; border-radius:4px;">
             <div style="font-size:11px; color:var(--c-muted)">Aproveitamento estimado</div>
             <div style="font-size:22px; font-weight:700; color:#166534;" id="prev-pct">—</div>
@@ -2150,6 +2170,60 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
   return result;
 }
 
+
+
+// ============================================================
+// Estimativa de massas a partir do calibre + humidade + densidade
+// ============================================================
+let _massaCalc = null;
+function updateMassasCalc() {
+  const calEl = document.getElementById('prev-calibre');
+  const humEl = document.getElementById('prev-humidade');
+  const denEl = document.getElementById('prev-densidade');
+  const tolEl = document.getElementById('prev-tolerancia');
+  const infoEl = document.getElementById('prev-calc-info');
+  const btnEl  = document.getElementById('btn-aplicar-massas');
+  if (!calEl || !humEl || !denEl || !tolEl || !infoEl || !btnEl) return;
+  const calStr = (calEl.value || '').trim().toLowerCase();
+  const m = /^(\d{2})x(\d{3})$/.exec(calStr);
+  if (!m) {
+    infoEl.textContent = 'Calibre inválido (use formato 45x240)';
+    btnEl.disabled = true;
+    _massaCalc = null;
+    return;
+  }
+  const d_mm = parseInt(m[1], 10);
+  const L_mm = parseInt(m[2], 10) / 10;  // 240 → 24.0 mm
+  const d_cm = d_mm / 10;
+  const L_cm = L_mm / 10;
+  const V = Math.PI * Math.pow(d_cm / 2, 2) * L_cm; // cm³
+  const hum = parseFloat(humEl.value);
+  const den = parseFloat(denEl.value);
+  const tol = parseFloat(tolEl.value);
+  if (isNaN(hum) || isNaN(den) || isNaN(tol) || den <= 0) {
+    infoEl.textContent = 'Valores inválidos (densidade>0, humidade e tolerância numéricos)';
+    btnEl.disabled = true;
+    _massaCalc = null;
+    return;
+  }
+  const massa = V * den * (1 + hum / 100);
+  const lsi = massa * (1 - tol / 100);
+  const lss = massa * (1 + tol / 100);
+  _massaCalc = { calibre: calStr, V, massa, lsi, lss, d_mm, L_mm };
+  infoEl.innerHTML =
+    '<strong>' + d_mm + '×' + L_mm.toFixed(1) + ' mm</strong> · Vol ' + V.toFixed(2) + ' cm³ · ' +
+    'Massa esperada <strong>' + massa.toFixed(3) + ' g</strong><br>' +
+    'LSI ' + lsi.toFixed(3) + ' g · LSS ' + lss.toFixed(3) + ' g';
+  btnEl.disabled = false;
+}
+function aplicarMassasCalculadas() {
+  if (!_massaCalc) return;
+  document.getElementById('prev-media').value = _massaCalc.massa.toFixed(3);
+  document.getElementById('prev-lsi').value   = _massaCalc.lsi.toFixed(3);
+  document.getElementById('prev-lss').value   = _massaCalc.lss.toFixed(3);
+  updatePrevisao();
+  setConnStatus('ok', '✓ Limites aplicados a partir do calibre ' + _massaCalc.calibre);
+}
 
 // ============================================================
 // Previsão de saída (distribuição normal)
