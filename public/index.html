@@ -25,8 +25,8 @@
     --st-csp2-por-liberar: #FF9966;
     --st-csp2-liberada:    #FFFF00;
     --st-em-processo:      #FFA500;   /* Em processo (laranja) */
-    --st-terminada:        #0A6B0B;   /* Terminada (verde escuro) */
-    --st-concluida-plan:   #8B5CF6;   /* Concluída planeamento (roxo) */
+    --st-terminada:        #EC4899;   /* Terminada (rosa) */
+    --st-concluida-plan:   #86C47A;   /* Concluída Planeamento (verde claro) */
     --st-kanban:           #D9D9D9;
   }
   * { box-sizing: border-box; }
@@ -414,14 +414,14 @@
   table.excel tr.day-separator.dia-fds:hover td { background: linear-gradient(90deg, #fef9e7 0%, #fbeaa3 100%) !important; }
   table.excel tr.day-separator.dia-fds td .dia-num { background: #b58a2c; }
   table.excel tr.row-data td:first-child { border-left: 5px solid var(--c-grid) !important; }
-  table.excel tr.row-data[data-estado="Por liberar"]      td:first-child { border-left-color: #b0b7c0 !important; }
-  table.excel tr.row-data[data-estado="Liberado"]         td:first-child { border-left-color: var(--st-pi-liberado) !important; }
-  table.excel tr.row-data[data-estado="Entregue LOG"]     td:first-child { border-left-color: var(--st-pi-entregue-log) !important; }
+  table.excel tr.row-data[data-estado="Aberto"]      td:first-child { border-left-color: #b0b7c0 !important; }
+  table.excel tr.row-data[data-estado="Liberada"]         td:first-child { border-left-color: var(--st-pi-liberado) !important; }
+  table.excel tr.row-data[data-estado="Entregue"]     td:first-child { border-left-color: var(--st-pi-entregue-log) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI por liberar"] td:first-child { border-left-color: var(--st-csp2-por-liberar) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI liberada"]    td:first-child { border-left-color: var(--st-csp2-liberada) !important; }
-  table.excel tr.row-data[data-estado="Em processo"]         td:first-child { border-left-color: var(--st-em-processo) !important; }
+  table.excel tr.row-data[data-estado="Em Processo"]         td:first-child { border-left-color: var(--st-em-processo) !important; }
   table.excel tr.row-data[data-estado="Terminada"]           td:first-child { border-left-color: var(--st-terminada) !important; }
-  table.excel tr.row-data[data-estado="Concluída planeamento"] td:first-child { border-left-color: var(--st-concluida-plan) !important; }
+  table.excel tr.row-data[data-estado="Concluída Planeamento"] td:first-child { border-left-color: var(--st-concluida-plan) !important; }
   table.excel tr.row-data.dragging { opacity: 0.4; }
   table.excel tr.row-data.drop-above td { border-top: 3px solid var(--c-primary); }
   table.excel tr.row-data.drop-below td { border-bottom: 3px solid var(--c-primary); }
@@ -446,14 +446,14 @@
     cursor: pointer; text-align: center;
     -webkit-appearance: menulist-button; appearance: menulist-button;
   }
-  .estado-select[data-est="Por liberar"]      { background: var(--st-pi-por-liberar);   color: #1f2937; border-color: #9aa0a6; }
-  .estado-select[data-est="Liberado"]         { background: var(--st-pi-liberado);      color: #fff; }
-  .estado-select[data-est="Entregue LOG"]     { background: var(--st-pi-entregue-log);  color: #0a3a55; }
+  .estado-select[data-est="Aberto"]      { background: var(--st-pi-por-liberar);   color: #1f2937; border-color: #9aa0a6; }
+  .estado-select[data-est="Liberada"]         { background: var(--st-pi-liberado);      color: #fff; }
+  .estado-select[data-est="Entregue"]     { background: var(--st-pi-entregue-log);  color: #0a3a55; }
   .estado-select[data-est="CSP2-AI por liberar"] { background: var(--st-csp2-por-liberar); color: #4a1e00; }
   .estado-select[data-est="CSP2-AI liberada"]    { background: var(--st-csp2-liberada);    color: #5a4a00; }
-  .estado-select[data-est="Em processo"]      { background: var(--st-em-processo);      color: #1f2d20; }
+  .estado-select[data-est="Em Processo"]      { background: var(--st-em-processo);      color: #1f2d20; }
   .estado-select[data-est="Terminada"]        { background: var(--st-terminada);        color: #fff; }
-  .estado-select[data-est="Concluída planeamento"] { background: var(--st-concluida-plan); color: #fff; }
+  .estado-select[data-est="Concluída Planeamento"] { background: var(--st-concluida-plan); color: #fff; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .ctr { text-align: center; }
   .mono { font-family: Consolas, monospace; font-size: 10px; }
@@ -650,14 +650,14 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
 
 <div class="controls">
   <div class="legend">
-    <span class="swatch"><span class="dot" style="background:var(--st-pi-por-liberar); border-color:#9aa0a6"></span>Por liberar</span>
-    <span class="swatch"><span class="dot" style="background:var(--st-pi-liberado)"></span>Liberado</span>
-    <span class="swatch"><span class="dot" style="background:var(--st-pi-entregue-log)"></span>Entregue LOG</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-por-liberar); border-color:#9aa0a6"></span>Aberto</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-liberado)"></span>Liberada</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-entregue-log)"></span>Entregue</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-por-liberar)"></span>CSP2-AI por liberar</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-liberada)"></span>CSP2-AI liberada</span>
-    <span class="swatch"><span class="dot" style="background:var(--st-em-processo)"></span>Em processo</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-em-processo)"></span>Em Processo</span>
     <span class="swatch"><span class="dot" style="background:var(--st-terminada)"></span>Terminada</span>
-    <span class="swatch"><span class="dot" style="background:var(--st-concluida-plan)"></span>Concluída planeamento</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-concluida-plan)"></span>Concluída Planeamento</span>
   </div>
 </div>
 
@@ -819,14 +819,14 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
       </div>
       <div class="field"><label>Estado</label>
         <select id="m_estado">
-          <option>Por liberar</option>
-          <option>Em processo</option>
-          <option>Liberado</option>
-          <option>Entregue LOG</option>
+          <option>Aberto</option>
+          <option>Em Processo</option>
+          <option>Liberada</option>
+          <option>Entregue</option>
           <option>CSP2-AI por liberar</option>
           <option>CSP2-AI liberada</option>
           <option>Terminada</option>
-          <option>Concluída planeamento</option>
+          <option>Concluída Planeamento</option>
 
         </select>
       </div>
@@ -1061,7 +1061,7 @@ const MONTHLY_TABS = [
 ];
 const MONTHLY_YEAR = 2026;
 const MACHINES = ['Maq 1 - Linha 10', 'Maq 3 - Linha 9'];
-const DENS_ESTADOS = ['Por liberar', 'Em processo', 'Liberado', 'Entregue LOG', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'Terminada', 'Concluída planeamento'];
+const DENS_ESTADOS = ['Aberto', 'Em Processo', 'Liberada', 'Entregue', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'Terminada', 'Concluída Planeamento'];
 // Pesquisa partilhada entre tabs mensais (uma string global)
 const SEARCH = { value: '' };
 // Tab activo
@@ -2666,7 +2666,7 @@ function createWeekTable(sched, wk, machine) {
     const frozen = isFrozenDate(item.start);
     if (frozen) tr.draggable = false;
     let lateClass = '';
-    if (op.hFimP && op.estado !== 'Entregue LOG' && op.estado !== 'CSP2-AI liberada') {
+    if (op.hFimP && op.estado !== 'Entregue' && op.estado !== 'CSP2-AI liberada') {
       const horaLim = SETTINGS.horaLimiteLog || '09:00';
       const finishH = timeStrToHours(op.hFimP);
       const limH = timeStrToHours(horaLim);
@@ -2857,7 +2857,7 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   if (opMoved.maquina !== targetMachine || opMoved.weekKey !== targetWeek) {
     opMoved.maquina = targetMachine;
     opMoved.weekKey = targetWeek;
-    if (opMoved.estado === 'KANBAN') opMoved.estado = 'Por liberar';
+    if (opMoved.estado === 'KANBAN') opMoved.estado = 'Aberto';
   }
   peers.splice(insertIdx, 0, opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
@@ -2964,7 +2964,7 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
   opMoved.maquina = machine;
   opMoved.weekKey = weekKey;
   if (typeof diaIdx === 'number') opMoved.diaIdx = diaIdx;
-  if (opMoved.estado === 'KANBAN') opMoved.estado = 'Por liberar';
+  if (opMoved.estado === 'KANBAN') opMoved.estado = 'Aberto';
   peers.push(opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
@@ -2975,7 +2975,7 @@ function moveOpToKanban(opMoved) {
   const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   opMoved.maquina = 'KANBAN';
   opMoved.weekKey = '';
-  opMoved.estado = 'Por liberar';
+  opMoved.estado = 'Aberto';
   peers.push(opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
@@ -3024,7 +3024,7 @@ function openModal(op, segDayKey) {
   get('m_massas').value = op ? (op.massas || '') : '';
   get('m_qtdEntrada').value = op ? (op.qtdEntrada != null ? op.qtdEntrada : '') : '';
   get('m_destino').value = op ? (op.destino || '') : '';
-  get('m_estado').value = op ? op.estado : 'Por liberar';
+  get('m_estado').value = op ? op.estado : 'Aberto';
   get('m_obsPi').value = op ? (op.obsPi || '') : '';
   get('m_inicioMode').value = op ? (op.inicioMode || 'auto') : 'auto';
   get('m_hInicioP').value = op ? (op.hInicioP || '') : '';
@@ -3143,7 +3143,7 @@ function saveOP() {
   };
   const maqVal = editingOP ? editingOP.maquina : 'KANBAN';
   const weekVal = editingOP ? (editingOP.weekKey || '') : '';
-  const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'Por liberar');
+  const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'Aberto');
   const data = {
     op: get('m_op'),
     tipo: 'DENS',
@@ -3206,7 +3206,7 @@ function saveOP() {
     // porque o servidor devolve 404 para PUTs sobre IDs que ainda não existem.
     const peers = DATA.filter(o => o.maquina === data.maquina && o.weekKey === data.weekKey);
     data.sortIdx = peers.length;
-    if (!data.maquina) { data.maquina = 'KANBAN'; data.weekKey = ''; data.estado = 'Por liberar'; }
+    if (!data.maquina) { data.maquina = 'KANBAN'; data.weekKey = ''; data.estado = 'Aberto'; }
     Api.postOp(data).then(r => {
       if (r && r.op) DATA.push(r.op);
       setConnStatus('ok', '✓ OP criada · ' + new Date().toLocaleTimeString('pt-PT'));
@@ -3695,16 +3695,19 @@ setInterval(async () => {
 
 // Migração: estado 'KANBAN' removido — substituir por 'Por liberar' em OPs existentes.
 function _migrateEstadosKanbanInData() {
+  const map = {
+    'KANBAN': 'Aberto',
+    'Por liberar': 'Aberto',
+    'Liberado': 'Liberada',
+    'Entregue LOG': 'Entregue',
+    'Em processo': 'Em Processo',
+    'Concluída planeamento': 'Concluída Planeamento',
+  };
   let n = 0;
   for (const o of DATA) {
-    if (o.estado === 'KANBAN' && o.maquina !== 'KANBAN') {
-      o.estado = 'Por liberar'; n++;
-    } else if (o.estado === 'KANBAN' && o.maquina === 'KANBAN') {
-      // OP no kanban side: deixa o estado em 'Por liberar' (já não há estado KANBAN)
-      o.estado = 'Por liberar'; n++;
-    }
+    if (map[o.estado]) { o.estado = map[o.estado]; n++; }
   }
-  if (n > 0) console.log('[migração] estado KANBAN → Por liberar em', n, 'OPs (cliente)');
+  if (n > 0) console.log('[migração estados] renomeado em', n, 'OPs (cliente)');
 }
 // Modal de edição de OP: só fecha pelo botão "Fechar".
 document.getElementById('modalSwap').addEventListener('click', e => { if (e.target.id === 'modalSwap') closeSwapModal(); });
