@@ -25,6 +25,8 @@
     --st-csp2-por-liberar: #FF9966;
     --st-csp2-liberada:    #FFFF00;
     --st-em-processo:      #FFA500;   /* Em processo (laranja) */
+    --st-terminada:        #0A6B0B;   /* Terminada (verde escuro) */
+    --st-concluida-plan:   #8B5CF6;   /* Concluída planeamento (roxo) */
     --st-kanban:           #D9D9D9;
   }
   * { box-sizing: border-box; }
@@ -418,6 +420,8 @@
   table.excel tr.row-data[data-estado="CSP2-AI por liberar"] td:first-child { border-left-color: var(--st-csp2-por-liberar) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI liberada"]    td:first-child { border-left-color: var(--st-csp2-liberada) !important; }
   table.excel tr.row-data[data-estado="Em processo"]         td:first-child { border-left-color: var(--st-em-processo) !important; }
+  table.excel tr.row-data[data-estado="Terminada"]           td:first-child { border-left-color: var(--st-terminada) !important; }
+  table.excel tr.row-data[data-estado="Concluída planeamento"] td:first-child { border-left-color: var(--st-concluida-plan) !important; }
   table.excel tr.row-data.dragging { opacity: 0.4; }
   table.excel tr.row-data.drop-above td { border-top: 3px solid var(--c-primary); }
   table.excel tr.row-data.drop-below td { border-bottom: 3px solid var(--c-primary); }
@@ -448,6 +452,8 @@
   .estado-select[data-est="CSP2-AI por liberar"] { background: var(--st-csp2-por-liberar); color: #4a1e00; }
   .estado-select[data-est="CSP2-AI liberada"]    { background: var(--st-csp2-liberada);    color: #5a4a00; }
   .estado-select[data-est="Em processo"]      { background: var(--st-em-processo);      color: #1f2d20; }
+  .estado-select[data-est="Terminada"]        { background: var(--st-terminada);        color: #fff; }
+  .estado-select[data-est="Concluída planeamento"] { background: var(--st-concluida-plan); color: #fff; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .ctr { text-align: center; }
   .mono { font-family: Consolas, monospace; font-size: 10px; }
@@ -650,6 +656,8 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-por-liberar)"></span>CSP2-AI por liberar</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-liberada)"></span>CSP2-AI liberada</span>
     <span class="swatch"><span class="dot" style="background:var(--st-em-processo)"></span>Em processo</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-terminada)"></span>Terminada</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-concluida-plan)"></span>Concluída planeamento</span>
   </div>
 </div>
 
@@ -817,6 +825,8 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
           <option>Entregue LOG</option>
           <option>CSP2-AI por liberar</option>
           <option>CSP2-AI liberada</option>
+          <option>Terminada</option>
+          <option>Concluída planeamento</option>
 
         </select>
       </div>
@@ -1051,7 +1061,7 @@ const MONTHLY_TABS = [
 ];
 const MONTHLY_YEAR = 2026;
 const MACHINES = ['Maq 1 - Linha 10', 'Maq 3 - Linha 9'];
-const DENS_ESTADOS = ['Por liberar', 'Em processo', 'Liberado', 'Entregue LOG', 'CSP2-AI por liberar', 'CSP2-AI liberada'];
+const DENS_ESTADOS = ['Por liberar', 'Em processo', 'Liberado', 'Entregue LOG', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'Terminada', 'Concluída planeamento'];
 // Pesquisa partilhada entre tabs mensais (uma string global)
 const SEARCH = { value: '' };
 // Tab activo
