@@ -416,7 +416,7 @@
   table.excel tr.row-data td:first-child { border-left: 5px solid var(--c-grid) !important; }
   table.excel tr.row-data[data-estado="Aberto"]      td:first-child { border-left-color: #b0b7c0 !important; }
   table.excel tr.row-data[data-estado="Liberada"]         td:first-child { border-left-color: var(--st-pi-liberado) !important; }
-  table.excel tr.row-data[data-estado="Entregue"]     td:first-child { border-left-color: var(--st-pi-entregue-log) !important; }
+  table.excel tr.row-data[data-estado="Entregue Logística"]     td:first-child { border-left-color: var(--st-pi-entregue-log) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI por liberar"] td:first-child { border-left-color: var(--st-csp2-por-liberar) !important; }
   table.excel tr.row-data[data-estado="CSP2-AI liberada"]    td:first-child { border-left-color: var(--st-csp2-liberada) !important; }
   table.excel tr.row-data[data-estado="Em Processo"]         td:first-child { border-left-color: var(--st-em-processo) !important; }
@@ -448,7 +448,7 @@
   }
   .estado-select[data-est="Aberto"]      { background: var(--st-pi-por-liberar);   color: #1f2937; border-color: #9aa0a6; }
   .estado-select[data-est="Liberada"]         { background: var(--st-pi-liberado);      color: #fff; }
-  .estado-select[data-est="Entregue"]     { background: var(--st-pi-entregue-log);  color: #0a3a55; }
+  .estado-select[data-est="Entregue Logística"]     { background: var(--st-pi-entregue-log);  color: #0a3a55; }
   .estado-select[data-est="CSP2-AI por liberar"] { background: var(--st-csp2-por-liberar); color: #4a1e00; }
   .estado-select[data-est="CSP2-AI liberada"]    { background: var(--st-csp2-liberada);    color: #5a4a00; }
   .estado-select[data-est="Em Processo"]      { background: var(--st-em-processo);      color: #1f2d20; }
@@ -670,7 +670,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
   <div class="legend">
     <span class="swatch"><span class="dot" style="background:var(--st-pi-por-liberar); border-color:#9aa0a6"></span>Aberto</span>
     <span class="swatch"><span class="dot" style="background:var(--st-pi-liberado)"></span>Liberada</span>
-    <span class="swatch"><span class="dot" style="background:var(--st-pi-entregue-log)"></span>Entregue</span>
+    <span class="swatch"><span class="dot" style="background:var(--st-pi-entregue-log)"></span>Entregue Logística</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-por-liberar)"></span>CSP2-AI por liberar</span>
     <span class="swatch"><span class="dot" style="background:var(--st-csp2-liberada)"></span>CSP2-AI liberada</span>
     <span class="swatch"><span class="dot" style="background:var(--st-em-processo)"></span>Em Processo</span>
@@ -856,7 +856,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
           <option>Aberto</option>
           <option>Em Processo</option>
           <option>Liberada</option>
-          <option>Entregue</option>
+          <option>Entregue Logística</option>
           <option>CSP2-AI por liberar</option>
           <option>CSP2-AI liberada</option>
           <option>Terminada</option>
@@ -1091,7 +1091,7 @@ const MONTHLY_TABS = [
 ];
 const MONTHLY_YEAR = 2026;
 const MACHINES = ['Maq 1 - Linha 10', 'Maq 3 - Linha 9'];
-const DENS_ESTADOS = ['Aberto', 'Em Processo', 'Liberada', 'Entregue', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'Terminada', 'Concluída Planeamento'];
+const DENS_ESTADOS = ['Aberto', 'Em Processo', 'Liberada', 'Entregue Logística', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'Terminada', 'Concluída Planeamento'];
 // Pesquisa partilhada entre tabs mensais (uma string global)
 const SEARCH = { value: '' };
 // Tab activo
@@ -2832,7 +2832,7 @@ function createWeekTable(sched, wk, machine) {
     const frozen = isFrozenDate(item.start);
     if (frozen) tr.draggable = false;
     let lateClass = '';
-    if (op.hFimP && op.estado !== 'Entregue' && op.estado !== 'CSP2-AI liberada') {
+    if (op.hFimP && op.estado !== 'Entregue Logística' && op.estado !== 'CSP2-AI liberada') {
       const horaLim = SETTINGS.horaLimiteLog || '09:00';
       const finishH = timeStrToHours(op.hFimP);
       const limH = timeStrToHours(horaLim);
@@ -3863,7 +3863,8 @@ function _migrateEstadosKanbanInData() {
     'KANBAN': 'Aberto',
     'Por liberar': 'Aberto',
     'Liberado': 'Liberada',
-    'Entregue LOG': 'Entregue',
+    'Entregue LOG': 'Entregue Logística',
+    'Entregue': 'Entregue Logística',
     'Em processo': 'Em Processo',
     'Concluída planeamento': 'Concluída Planeamento',
   };
