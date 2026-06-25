@@ -883,11 +883,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
     <div class="post-exec">
       <div class="post-exec-title">Preenchimento Produção</div>
       <div class="row">
-        <div class="field"><label>Data Início Real</label><input id="m_dataInicioR" type="date"></div>
         <div class="field"><label>Hora Início Real</label><input id="m_hInicioR" type="time"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Data Fim Real</label><input id="m_dataFimR" type="date"></div>
         <div class="field"><label>Hora Fim Real</label><input id="m_hFimR" type="time"></div>
         <div class="field"><label>Tempo Atraso <span style="font-size:10px;color:var(--c-muted)">(manual)</span></label><input id="m_tempoAtraso" type="time" title="Formato HH:MM (ex: 00:30)"></div>
       </div>
@@ -1273,7 +1269,7 @@ function changeProfile(p) {
 const PRODUCAO_EDITABLE = [
   'm_estado',
   'm_loteAde', 'm_qtdFinalAde',
-  'm_dataInicioR', 'm_dataFimR',
+
   'm_hInicioR', 'm_hFimR', 'm_tempoAtraso',
   'm_colaborador', 'm_obs',
 ];
@@ -2845,8 +2841,8 @@ function createWeekTable(sched, wk, machine) {
     tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '') + (totalSegs > 1 ? ' segmented' : '') + (!isFirstSeg ? ' seg-cont' : '');
     const _hIniP_calc = fmtTime(item.start);
     const _hFimP_calc = fmtTime(item.end);
-    if (isFirstSeg) { op._calcInicioP = _hIniP_calc; }
-    if (isLastSeg)  { op._calcFimP    = _hFimP_calc; }
+    if (isFirstSeg) { op._calcInicioP = _hIniP_calc; op._calcInicioP_date = fmtDate(item.start); }
+    if (isLastSeg)  { op._calcFimP    = _hFimP_calc;    op._calcFimP_date = fmtDate(item.end); }
     // Reais do segmento: prioridade realPorDia[dayKey], senão (último segmento) legacy
     const _segDayKey = fmtDate(item.start);
     const _segReal = (op.realPorDia && op.realPorDia[_segDayKey]) || (isLastSeg && totalSegs === 1 ? {hIniR: op.hInicioR, hFimR: op.hFimR, dataIniR: op.dataInicioR, dataFimR: op.dataFimR, tempoAtraso: op.tempoAtraso} : {});
@@ -3216,9 +3212,7 @@ function openModal(op, segDayKey) {
       _realDataIni = op.dataInicioR || ''; _realDataFim = op.dataFimR || '';
     }
   }
-  get('m_dataInicioR').value = _realDataIni;
   get('m_hInicioR').value = _realIni;
-  get('m_dataFimR').value = _realDataFim;
   get('m_hFimR').value = _realFim;
   // Tempo Atraso é manual — lê do segmento (realPorDia) ou do legacy
   let _atrasoVal = '';
@@ -3339,9 +3333,9 @@ function saveOP() {
       ? {
           realPorDia: Object.assign({}, (editingOP && editingOP.realPorDia) || {}, {
             [editingSegDayKey]: {
-              dataIniR: get('m_dataInicioR'),
+              dataIniR: editingSegDayKey,
               hIniR: get('m_hInicioR'),
-              dataFimR: get('m_dataFimR'),
+              dataFimR: editingSegDayKey,
               hFimR: get('m_hFimR'),
               tempoAtraso: get('m_tempoAtraso')
             }
@@ -3355,9 +3349,9 @@ function saveOP() {
         }
       : {
           realPorDia: (editingOP && editingOP.realPorDia) || {},
-          dataInicioR: get('m_dataInicioR'),
+          dataInicioR: (editingOP && editingOP._calcInicioP_date) ? editingOP._calcInicioP_date : (editingOP && editingOP.dataInicioR ? editingOP.dataInicioR : fmtDate(new Date())),
           hInicioR: get('m_hInicioR'),
-          dataFimR: get('m_dataFimR'),
+          dataFimR: (editingOP && editingOP._calcFimP_date) ? editingOP._calcFimP_date : (editingOP && editingOP.dataFimR ? editingOP.dataFimR : fmtDate(new Date())),
           hFimR: get('m_hFimR'),
           tempoAtraso: document.getElementById('m_tempoAtraso').value || '',
         }
