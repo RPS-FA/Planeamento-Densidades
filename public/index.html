@@ -758,12 +758,12 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
           <div class="settings-grid-row prev-row">
             <label>Média densidade (kg/m³)</label>
             <input type="number" id="prev-media" step="0.1" value="176" oninput="updatePrevisao()">
-            <span class="prev-peso" id="prev-peso-media">— g</span>
+            <span></span>
           </div>
           <div class="settings-grid-row prev-row">
             <label>Desvio padrão (kg/m³)</label>
             <input type="number" id="prev-dp" step="0.1" min="0.1" value="18" oninput="updatePrevisao()">
-            <span class="prev-peso" id="prev-peso-dp">— g</span>
+            <span></span>
           </div>
           <div class="settings-grid-row prev-row">
             <label>Limite inferior (kg/m³)</label>
@@ -2219,34 +2219,24 @@ function _previsaoContext() {
 
 function _updatePesosLimite() {
   const ctx = _previsaoContext();
-  const pMed = document.getElementById('prev-peso-media');
-  const pDp  = document.getElementById('prev-peso-dp');
   const pLsi = document.getElementById('prev-peso-lsi');
   const pLss = document.getElementById('prev-peso-lss');
   const infoEl = document.getElementById('prev-calc-info');
-  const mediaEl = document.getElementById('prev-media');
-  const dpEl    = document.getElementById('prev-dp');
   const lsiEl   = document.getElementById('prev-lsi');
   const lssEl   = document.getElementById('prev-lss');
-  if (!pMed) return;
+  if (!pLsi || !pLss) return;
   if (!ctx) {
-    pMed.textContent = '— g';
-    if (pDp)  pDp.textContent  = '— g';
-    if (pLsi) pLsi.textContent = '— g';
-    if (pLss) pLss.textContent = '— g';
-    if (infoEl) infoEl.textContent = 'Preencha o calibre (ex: 45x240) e humidades para calcular pesos';
+    pLsi.textContent = '— g';
+    pLss.textContent = '— g';
+    if (infoEl) infoEl.textContent = 'Preencha o calibre (ex: 45x240) para calcular pesos dos limites';
     return;
   }
   const fmt = (v) => v != null ? (Math.ceil(v * 10) / 10).toFixed(1) + ' g' : '— g';
-  pMed.textContent = fmt(ctx.pesoFrom(parseFloat(mediaEl.value)));
-  if (pDp)  pDp.textContent  = fmt(ctx.pesoFrom(parseFloat(dpEl.value)));
-  if (pLsi) pLsi.textContent = fmt(ctx.pesoFrom(parseFloat(lsiEl.value)));
-  if (pLss) pLss.textContent = fmt(ctx.pesoFrom(parseFloat(lssEl.value)));
+  pLsi.textContent = fmt(ctx.pesoFrom(parseFloat(lsiEl.value)));
+  pLss.textContent = fmt(ctx.pesoFrom(parseFloat(lssEl.value)));
   const tt = 'L=' + ctx.L_mm + ' mm · Ø=' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³ · h_med ' + ctx.h_med + '%';
-  pMed.title = tt;
-  if (pDp)  pDp.title  = tt;
-  if (pLsi) pLsi.title = tt;
-  if (pLss) pLss.title = tt;
+  pLsi.title = tt;
+  pLss.title = tt;
   if (infoEl) {
     infoEl.innerHTML = '<strong>L ' + ctx.L_mm + ' mm · Ø ' + ctx.d_mm.toFixed(1) + ' mm · Vol ' + ctx.V_cm3.toFixed(2) + ' cm³</strong> · Humidade medida = ' + ctx.h_med + '%';
   }
