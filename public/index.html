@@ -2711,22 +2711,27 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const wkFrozen = isFrozenWeek(wkKey);
   zone.dataset.frozen = wkFrozen ? '1' : '';
 
-  // Capacidade da MÁQUINA nesse DIA = krH × duração do turno do dia
+  // Capacidade da MÁQUINA nesse DIA = krH × duração líquida (turno - almoço - jantar) específicos da máquina
   const [_y, _m, _d] = dayKey.split('-').map(Number);
   const refDate = new Date(_y, _m - 1, _d);
-  const turnoDia = getTurnoForDate(refDate);
-  const horasTurno = turnoHoras(turnoDia.ini, turnoDia.fim);
+  const turnoMaq = getTurnoForDate(refDate, machine);
+  const horasTurnoBruto = turnoHoras(turnoMaq.ini, turnoMaq.fim);
+  const horasAlmoco = turnoHoras(turnoMaq.almocoIni, turnoMaq.almocoFim);
+  const horasJantar = turnoHoras(turnoMaq.jantarIni, turnoMaq.jantarFim);
+  const horasTurno = Math.max(0, horasTurnoBruto - horasAlmoco - horasJantar);
   const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-  const capDiaMaq = Math.round(krH * horasTurno * 10) / 10;
-  const totalKr = items.reduce((a, b) => a + (b.op.qtdEntrada || 0), 0);
+  const capDiaMaq = Math.round(krH * horasTurno);
+  const totalKr = items.reduce((a, b) => a + ((b.qtdSeg != null) ? b.qtdSeg : (b.op.qtdEntrada || 0)), 0);
   const pct = capDiaMaq > 0 ? Math.min(999, (totalKr / capDiaMaq) * 100) : 0;
   const livreMaq = Math.max(0, capDiaMaq - totalKr);
-  const excessoMaq = totalKr > capDiaMaq ? (totalKr - capDiaMaq) : 0;
   const occMaq = pct <= 80 ? 'low' : pct <= 100 ? 'mid' : 'high';
 
   const head = document.createElement('div');
   head.className = 'dms-header occ-' + occMaq + (items.length === 0 ? ' empty' : '');
-  const metaTxt = `<span class="dms-meta">${items.length} OP${items.length === 1 ? '' : 's'}</span>`;
+  const dispLabel = capDiaMaq > 0
+    ? `${items.length} OP${items.length === 1 ? '' : 's'} · Disponível: <strong>${Math.round(livreMaq).toLocaleString('pt-PT')}</strong> rolhas`
+    : `${items.length} OP${items.length === 1 ? '' : 's'}`;
+  const metaTxt = `<span class="dms-meta">${dispLabel}</span>`;
   // Inputs de turno + almoço + jantar específicos da máquina
   const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
   const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:6px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px; flex-wrap:wrap">
