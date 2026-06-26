@@ -936,11 +936,11 @@ function fmtDate(d) { if (!d || isNaN(d)) return ''; return `${d.getFullYear()}-
 function fmtTime(d) { if (!d || isNaN(d)) return ''; return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 // Formata "YYYY-MM-DD" + "HH:MM" como "DD/MM HH:MM" (compacto para colunas Início/Fim Real).
 function fmtRealStr(dateStr, timeStr) {
-  if (!dateStr && !timeStr) return '';
-  if (!dateStr) return timeStr || '';
+  // Mostra apenas a HORA real — a data está implícita pelo dia da sub-zona.
+  if (timeStr) return timeStr;
+  if (!dateStr) return '';
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
-  const dPart = m ? `${m[3]}/${m[2]}` : dateStr;
-  return timeStr ? `${dPart} ${timeStr}` : dPart;
+  return m ? `${m[3]}/${m[2]}` : dateStr;
 }
 // Aceita 'YYYY-MM-DD' OU 'YYYY-MM-DDTHH:MM'
 function parseDateMaybeTime(s) {
