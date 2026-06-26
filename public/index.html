@@ -618,6 +618,17 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
   text-align: center;
   font-weight: 600;
 }
+
+/* ===== Turnos por máquina (override) ===== */
+.day-machine-subzone .dms-turno.dirty .dms-ok-btn {
+  background: #d4a017 !important;
+  color: #1f2d20 !important;
+  border-color: #c2410c !important;
+  font-weight: 700;
+}
+.day-machine-subzone .dms-turno input[type="time"] {
+  width: 65px;
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1326,6 +1337,7 @@ const DEFAULT_TURNO_BY_DOW = {
 const DEFAULT_SETTINGS = {
   // Turnos por DATA específica (chave = "YYYY-MM-DD"). Override do default (DEFAULT_TURNO_BY_DOW).
   turnosPorDia: {},
+  turnosPorMaquina: {},  // override por máquina: turnosPorMaquina[machine][dayKey] = {ini, fim, ...}
   setupMin: 10,             // setup entre OPs (fecho + arranque)
   abastecMin: 60,           // abastecimento Logística
   horaLimiteLog: '09:00',   // hora limite Logística
@@ -1379,6 +1391,7 @@ function ensureSettingsShape() {
     }
   }
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
+  if (!SETTINGS.turnosPorMaquina) SETTINGS.turnosPorMaquina = {};
   delete SETTINGS.turnos;
 }
 
@@ -1389,8 +1402,21 @@ function turnoHoras(ini, fim) {
 }
 
 // Devolve {ini, fim, almocoIni, almocoFim, jantarIni, jantarFim} para uma DATA.
-function getTurnoForDate(date) {
+function getTurnoForDate(date, machine) {
   const key = fmtDate(date);
+  if (machine && SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][key]) {
+    const mov = SETTINGS.turnosPorMaquina[machine][key];
+    if (mov.fechado) return { ini: '', fim: '', almocoIni:'', almocoFim:'', jantarIni:'', jantarFim:'', fechado: true };
+    if (mov.ini || mov.fim || mov.almocoIni || mov.jantarIni) {
+      return {
+        ini: mov.ini || '', fim: mov.fim || '',
+        almocoIni: mov.almocoIni || '', almocoFim: mov.almocoFim || '',
+        jantarIni: mov.jantarIni || '', jantarFim: mov.jantarFim || '',
+        almocoScope: 'all', jantarScope: 'all',
+        _machineOverride: true,
+      };
+    }
+  }
   const ovr = SETTINGS.turnosPorDia && SETTINGS.turnosPorDia[key];
   if (ovr && ovr.fechado) return { ini: '', fim: '', almocoIni:'', almocoFim:'', jantarIni:'', jantarFim:'' };
   if (ovr && (ovr.ini || ovr.fim || ovr.almocoIni || ovr.jantarIni)) {
@@ -1415,7 +1441,7 @@ function getTurnoForDate(date) {
 // Devolve array de stop ranges (Date) para refeições deste dia (almoço + jantar)
 // Se machine for indicada, devolve apenas as refeições cujo scope é 'all' ou igual a machine.
 function getMealBreaksForDate(date, machine) {
-  const t = getTurnoForDate(date);
+  const t = getTurnoForDate(date, machine);
   const out = [];
   function _push(iniStr, fimStr, label, scope) {
     if (!iniStr || !fimStr || !/^\d{2}:\d{2}$/.test(iniStr) || !/^\d{2}:\d{2}$/.test(fimStr)) return;
@@ -1905,6 +1931,34 @@ function markDayTurnoDirty(dayKey) {
   span.classList.add('dirty');
 }
 
+
+// Aplica turno específico para uma máquina/dia (override do turno global)
+function applyMachineTurno(dayKey, machine) {
+  pushUndo('Turno máquina ' + machine + ' ' + dayKey);
+  const span = document.querySelector('.dms-turno[data-day="' + dayKey + '"][data-machine="' + machine + '"]');
+  if (!span) return;
+  const _v = (f) => (span.querySelector('input[data-field="' + f + '"]') || {}).value || '';
+  const ini = _v('ini'), fim = _v('fim');
+  const almocoIni = _v('almocoIni'), almocoFim = _v('almocoFim');
+  const jantarIni = _v('jantarIni'), jantarFim = _v('jantarFim');
+  if (!SETTINGS.turnosPorMaquina) SETTINGS.turnosPorMaquina = {};
+  if (!SETTINGS.turnosPorMaquina[machine]) SETTINGS.turnosPorMaquina[machine] = {};
+  const entry = { ini, fim, almocoIni, almocoFim, jantarIni, jantarFim };
+  // Limpar se tudo vazio
+  if (!ini && !fim && !almocoIni && !almocoFim && !jantarIni && !jantarFim) {
+    delete SETTINGS.turnosPorMaquina[machine][dayKey];
+  } else {
+    SETTINGS.turnosPorMaquina[machine][dayKey] = entry;
+  }
+  span.classList.remove('dirty');
+  saveSettings();
+  rerender();
+}
+function markMachineTurnoDirty(dayKey, machine) {
+  const span = document.querySelector('.dms-turno[data-day="' + dayKey + '"][data-machine="' + machine + '"]');
+  if (span) span.classList.add('dirty');
+}
+
 function applyDayTurno(dayKey) {
   // Produção pode editar turnos (responsável pela operação)
   pushUndo('Alterar turno ' + dayKey);
@@ -1931,8 +1985,8 @@ function applyDayTurno(dayKey) {
   rerender();
 }
 
-function getStartHourForDate(date) {
-  const t = getTurnoForDate(date);
+function getStartHourForDate(date, machine) {
+  const t = getTurnoForDate(date, machine);
   if (t.ini) {
     const [h, m] = t.ini.split(':').map(Number);
     return { h, m };
@@ -1940,8 +1994,8 @@ function getStartHourForDate(date) {
   return { h: 7, m: 0 };
 }
 
-function getEndHourForDate(date) {
-  const t = getTurnoForDate(date);
+function getEndHourForDate(date, machine) {
+  const t = getTurnoForDate(date, machine);
   if (!t.fim) return null;
   const [h, m] = t.fim.split(':').map(Number);
   return { h, m };
@@ -1971,9 +2025,9 @@ function getStopRange(stop) {
 }
 
 // Devolve {start, end} (Date) do turno do dia da `date`, ou null se sem turno (fechado/sem produção).
-function getShiftRangeForDate(date) {
+function getShiftRangeForDate(date, machine) {
   if (isDayClosed(fmtDate(date))) return null;
-  const t = getTurnoForDate(date);
+  const t = getTurnoForDate(date, machine);
   if (!t.ini || !t.fim) return null;
   const [iH, iM] = t.ini.split(':').map(Number);
   const [fH, fM] = t.fim.split(':').map(Number);
@@ -1995,7 +2049,7 @@ function nextDayMidnight(date) {
 // Cada segmento está confinado a um único turno/dia. Paragens dentro do mesmo dia
 // são saltadas mas NÃO partem o segmento (continua-se depois da paragem).
 // Quando o turno acaba ou o dia é fechado, fecha-se o segmento e abre-se outro no dia seguinte.
-function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges) {
+function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges, machine) {
   const sortedStops = stopRanges.slice().sort((a, b) => a.start - b.start);
   function inStop(c) { for (const s of sortedStops) if (c >= s.start && c < s.end) return s; return null; }
   function nextStopAfter(c) { for (const s of sortedStops) if (s.start > c) return s; return null; }
@@ -2006,7 +2060,7 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges) {
   const MAX_ITER = 600;
   let iter = 0;
   while (remaining > 0 && iter++ < MAX_ITER) {
-    const shift = getShiftRangeForDate(cursor);
+    const shift = getShiftRangeForDate(cursor, machine);
     if (!shift) {
       if (segStart) { segments.push({ start: segStart, end: new Date(cursor.getTime()) }); segStart = null; }
       cursor = nextDayMidnight(cursor);
@@ -2048,7 +2102,7 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges) {
 //   - turno (ini-fim) de cada dia (se exceder fim, transborda para próximo dia)
 //   - paragens da máquina (stopRanges)
 //   - dias fechados (saltados)
-function advanceWithinShifts(startCursor, durMs, stopRanges) {
+function advanceWithinShifts(startCursor, durMs, stopRanges, machine) {
   const sortedStops = stopRanges.slice().sort((a, b) => a.start - b.start);
   function inStop(c) {
     for (const s of sortedStops) if (c >= s.start && c < s.end) return s;
@@ -2064,7 +2118,7 @@ function advanceWithinShifts(startCursor, durMs, stopRanges) {
   const MAX_ITER = 400;
   let iter = 0;
   while (remaining > 0 && iter++ < MAX_ITER) {
-    const shift = getShiftRangeForDate(cursor);
+    const shift = getShiftRangeForDate(cursor, machine);
     if (!shift) { cursor = nextDayMidnight(cursor); continue; }
     if (cursor < shift.start) cursor = new Date(shift.start);
     if (cursor >= shift.end) { cursor = nextDayMidnight(cursor); continue; }
@@ -2086,8 +2140,8 @@ function advanceWithinShifts(startCursor, durMs, stopRanges) {
   return { start: actualStart || new Date(startCursor), end: new Date(cursor) };
 }
 
-function advanceSkippingStops(startCursor, durMs, stopRanges) {
-  return advanceWithinShifts(startCursor, durMs, stopRanges);
+function advanceSkippingStops(startCursor, durMs, stopRanges, machine) {
+  return advanceWithinShifts(startCursor, durMs, stopRanges, machine);
 }
 
 function calcScheduleForWeek(machine, weekKey, weekStart) {
@@ -2129,7 +2183,7 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       // cascateia do cursor em vez de "voltar atrás no tempo".
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + dayIdx);
-      const startH = getStartHourForDate(dayDate);
+      const startH = getStartHourForDate(dayDate, machine);
       const dayStart = new Date(dayDate);
       dayStart.setHours(startH.h, startH.m, 0, 0);
       startPoint = (cursor.getTime() > dayStart.getTime()) ? cursor : dayStart;
@@ -2154,7 +2208,7 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       }
     }
     const totalDurMs = (durH * HOUR_MS) + (atrasoMin * 60 * 1000);
-    const segs = advanceWithinShiftsSegmented(startPoint, totalDurMs, stopRanges);
+    const segs = advanceWithinShiftsSegmented(startPoint, totalDurMs, stopRanges, machine);
     if (segs.length === 0) {
       // edge case (durH<=0): cria 1 item zero
       result.push({ op, start: startPoint, end: startPoint, durH: 0, segIdx: 0, totalSegs: 1, qtdSeg: op.qtdEntrada || 0 });
@@ -2713,8 +2767,18 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const head = document.createElement('div');
   head.className = 'dms-header occ-' + occMaq + (items.length === 0 ? ' empty' : '');
   const metaTxt = `<span class="dms-meta">${items.length} OP${items.length === 1 ? '' : 's'}</span>`;
+  // Inputs de turno específicos da máquina (override do turno do dia)
+  const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
+  const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:4px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px">
+    <span style="font-size:10px; opacity:0.85" title="Turno específico desta máquina (override)">⏱</span>
+    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px">
+    <span>–</span>
+    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px">
+    <button class="dms-ok-btn" onclick="applyMachineTurno('${dayKey}', '${machine}'); event.stopPropagation();" style="font-size:10px; padding:1px 6px; background:rgba(0,0,0,0.06); border:1px solid var(--c-grid); border-radius:2px; cursor:pointer">OK</button>
+  </span>`;
   head.innerHTML = `
     <span>🏭 ${machine}</span>
+    ${turnoInputs}
     ${metaTxt}
   `;
   zone.appendChild(head);
