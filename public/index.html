@@ -1966,18 +1966,11 @@ function applyDayTurno(dayKey) {
   if (!span) return;
   const _v = (f) => (span.querySelector('input[data-field="' + f + '"]') || {}).value || '';
   const ini = _v('ini'), fim = _v('fim');
-  const almocoIni = _v('almocoIni'), almocoFim = _v('almocoFim');
-  const jantarIni = _v('jantarIni'), jantarFim = _v('jantarFim');
-  // Scopes — ler dos selects
-  const _vs = (f) => (span.querySelector('select[data-field="' + f + '"]') || {}).value || 'all';
-  const almocoScope = _vs('almocoScope');
-  const jantarScope = _vs('jantarScope');
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   if (!SETTINGS.turnosPorDia[dayKey]) SETTINGS.turnosPorDia[dayKey] = { ini: '', fim: '' };
-  Object.assign(SETTINGS.turnosPorDia[dayKey], { ini, fim, almocoIni, almocoFim, jantarIni, jantarFim, almocoScope, jantarScope });
+  Object.assign(SETTINGS.turnosPorDia[dayKey], { ini, fim });
   const t = SETTINGS.turnosPorDia[dayKey];
-  // Limpar se tudo vazio
-  if (!t.ini && !t.fim && !t.almocoIni && !t.almocoFim && !t.jantarIni && !t.jantarFim && !t.fechado) {
+  if (!t.ini && !t.fim && !t.fechado) {
     delete SETTINGS.turnosPorDia[dayKey];
   }
   span.classList.remove('dirty');
@@ -2692,28 +2685,8 @@ function renderDayBlock(dayKey, byMachine) {
         <span class="dh-sep">–</span>
         <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
       </span>
-      <span class="dh-grp"><span class="dh-lbl" title="Almoço">🍴</span>
-        <input type="time" class="dh-time" data-day="${dayKey}" data-field="almocoIni" value="${turno.almocoIni || ''}" title="Início do almoço" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-        <span class="dh-sep">–</span>
-        <input type="time" class="dh-time" data-day="${dayKey}" data-field="almocoFim" value="${turno.almocoFim || ''}" title="Fim do almoço" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-        <select class="dh-scope" data-day="${dayKey}" data-field="almocoScope" title="A que máquinas se aplica" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-          <option value="all"${turno.almocoScope === 'Maq 1 - Linha 10' || turno.almocoScope === 'Maq 3 - Linha 9' ? '' : ' selected'}>Todas</option>
-          <option value="Maq 1 - Linha 10"${turno.almocoScope === 'Maq 1 - Linha 10' ? ' selected' : ''}>Maq 1</option>
-          <option value="Maq 3 - Linha 9"${turno.almocoScope === 'Maq 3 - Linha 9' ? ' selected' : ''}>Maq 3</option>
-        </select>
-      </span>
-      <span class="dh-grp"><span class="dh-lbl" title="Jantar">🍽</span>
-        <input type="time" class="dh-time" data-day="${dayKey}" data-field="jantarIni" value="${turno.jantarIni || ''}" title="Início do jantar" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-        <span class="dh-sep">–</span>
-        <input type="time" class="dh-time" data-day="${dayKey}" data-field="jantarFim" value="${turno.jantarFim || ''}" title="Fim do jantar" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-        <select class="dh-scope" data-day="${dayKey}" data-field="jantarScope" title="A que máquinas se aplica" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-          <option value="all"${turno.jantarScope === 'Maq 1 - Linha 10' || turno.jantarScope === 'Maq 3 - Linha 9' ? '' : ' selected'}>Todas</option>
-          <option value="Maq 1 - Linha 10"${turno.jantarScope === 'Maq 1 - Linha 10' ? ' selected' : ''}>Maq 1</option>
-          <option value="Maq 3 - Linha 9"${turno.jantarScope === 'Maq 3 - Linha 9' ? ' selected' : ''}>Maq 3</option>
-        </select>
-      </span>
-      <span class="dh-dur" title="Duração líquida (turno - almoço - jantar)">(${hoursToTimeStr(turnoLiquidoH)})</span>
-      <button class="dh-ok-btn" data-day="${dayKey}" title="Aplicar turno e refeições" onclick="applyDayTurno('${dayKey}'); event.stopPropagation();" ${isClosed ? 'disabled' : ''}>OK</button>
+      <span class="dh-dur" title="Duração do turno">(${hoursToTimeStr(turnoHoras(turno.ini, turno.fim))})</span>
+      <button class="dh-ok-btn" data-day="${dayKey}" title="Aplicar turno do dia (default p/ todas as máquinas sem override)" onclick="applyDayTurno('${dayKey}'); event.stopPropagation();" ${isClosed ? 'disabled' : ''}>OK</button>
     </span>
     ${closedBtn}
     ${dispStr}
@@ -2767,13 +2740,21 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const head = document.createElement('div');
   head.className = 'dms-header occ-' + occMaq + (items.length === 0 ? ' empty' : '');
   const metaTxt = `<span class="dms-meta">${items.length} OP${items.length === 1 ? '' : 's'}</span>`;
-  // Inputs de turno específicos da máquina (override do turno do dia)
+  // Inputs de turno + almoço + jantar específicos da máquina
   const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
-  const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:4px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px">
-    <span style="font-size:10px; opacity:0.85" title="Turno específico desta máquina (override)">⏱</span>
-    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px">
+  const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:6px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px; flex-wrap:wrap">
+    <span style="opacity:0.85" title="Turno específico desta máquina">⏱</span>
+    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início turno">
     <span>–</span>
-    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px">
+    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim turno">
+    <span style="opacity:0.85; margin-left:4px" title="Almoço">🍴</span>
+    <input type="time" data-field="almocoIni" value="${tMaq.almocoIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início almoço">
+    <span>–</span>
+    <input type="time" data-field="almocoFim" value="${tMaq.almocoFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim almoço">
+    <span style="opacity:0.85; margin-left:4px" title="Jantar">🍽</span>
+    <input type="time" data-field="jantarIni" value="${tMaq.jantarIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início jantar">
+    <span>–</span>
+    <input type="time" data-field="jantarFim" value="${tMaq.jantarFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim jantar">
     <button class="dms-ok-btn" onclick="applyMachineTurno('${dayKey}', '${machine}'); event.stopPropagation();" style="font-size:10px; padding:1px 6px; background:rgba(0,0,0,0.06); border:1px solid var(--c-grid); border-radius:2px; cursor:pointer">OK</button>
   </span>`;
   head.innerHTML = `
