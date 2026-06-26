@@ -1306,14 +1306,15 @@ function applyProfileToModal(modalKind) {
 // ============================================================
 // Definições (DENSIDADES)
 // ============================================================
-// Turno por defeito por dia da semana (0=Seg, 6=Dom).
+// Turno por defeito por dia da semana (0=Seg, 6=Dom). 08:00–17:00 Seg-Sex.
+// Almoço/jantar default vazios (introduzidos manualmente por máquina).
 const DEFAULT_TURNO_BY_DOW = {
-  0: { ini: '07:00', fim: '15:00' },
-  1: { ini: '07:00', fim: '15:00' },
-  2: { ini: '07:00', fim: '15:00' },
-  3: { ini: '07:00', fim: '15:00' },
-  4: { ini: '07:00', fim: '15:00' },
-  5: { ini: '07:00', fim: '10:00' },
+  0: { ini: '08:00', fim: '17:00' },
+  1: { ini: '08:00', fim: '17:00' },
+  2: { ini: '08:00', fim: '17:00' },
+  3: { ini: '08:00', fim: '17:00' },
+  4: { ini: '08:00', fim: '17:00' },
+  5: { ini: '',      fim: ''      },
   6: { ini: '',      fim: ''      },
 };
 
