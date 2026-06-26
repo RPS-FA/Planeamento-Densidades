@@ -2137,8 +2137,10 @@ function advanceSkippingStops(startCursor, durMs, stopRanges, machine) {
 }
 
 function calcScheduleForWeek(machine, weekKey, weekStart) {
+  // Ordenar por (diaIdx, sortIdx): OPs dum dia anterior são processadas antes,
+  // independentemente do sortIdx — assim cada OP fica no seu próprio diaIdx.
   const ops = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey)
-                  .sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+                  .sort((a, b) => ((a.diaIdx ?? 0) - (b.diaIdx ?? 0)) || ((a.sortIdx ?? 0) - (b.sortIdx ?? 0)));
   // Cursor inicial: hora de início do turno da Segunda (data real)
   const startH = getStartHourForDate(weekStart);
   let cursor = new Date(weekStart);
