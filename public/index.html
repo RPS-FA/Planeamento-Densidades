@@ -2154,8 +2154,9 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
     }
   }
   const SETUP_MS = (SETTINGS.setupMin || 10) * 60 * 1000;
-  // Regra: 1ª OP de cada dia = início do turno desse dia; restantes = fim da anterior + setup
-  const seenDays = new Set();
+  // Regra forte: cada OP arranca em max(cursor, dayStart do seu diaIdx).
+  // Nunca arranca ANTES do dia escolhido — mesmo que haja capacidade num dia anterior.
+  // Se houver outras OPs com mesmo diaIdx, cascateiam (cursor já avançou) dentro desse dia.
   const result = [];
   for (const op of ops) {
     // Duração: derivada de qtdEntrada / krH (auto-puro)
@@ -2168,20 +2169,14 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
       dayDate.setDate(weekStart.getDate() + dayIdx);
       dayDate.setHours(hh, mm, 0, 0);
       startPoint = dayDate;
-      seenDays.add(dayIdx);
-    } else if (!seenDays.has(dayIdx)) {
-      // 1ª OP automática deste dia. Se o cursor já avançou para depois do
-      // início do turno (porque OPs anteriores no sortIdx já consumiram tempo),
-      // cascateia do cursor em vez de "voltar atrás no tempo".
+    } else {
+      // Automático: arranca em max(cursor, dayStart) — respeita o diaIdx como mínimo
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + dayIdx);
       const startH = getStartHourForDate(dayDate, machine);
       const dayStart = new Date(dayDate);
       dayStart.setHours(startH.h, startH.m, 0, 0);
       startPoint = (cursor.getTime() > dayStart.getTime()) ? cursor : dayStart;
-      seenDays.add(dayIdx);
-    } else {
-      startPoint = cursor;
     }
     // Tempo de atraso manual (HH:MM) — somar à duração planeada
     // Soma legacy op.tempoAtraso + todos os atrasos por segmento (realPorDia[*].tempoAtraso)
