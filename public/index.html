@@ -1837,6 +1837,7 @@ async function loadStateFromServer() {
 // via toast se algo falhar. Para escritas dirigidas a uma OP específica, usar
 // saveOneOp(op) directamente para evitar PUTs em massa.
 let _saveDataPending = false;
+let _diaIdxFixing = false;  // anti-loop para auto-fix de diaIdx no renderMonth
 function saveData() {
   // Heurística: chamado após mutações em DATA. Re-persiste tudo via API.
   // Para não inundar a rede em sequências rápidas, agrupa por 50ms.
@@ -2534,6 +2535,28 @@ function renderMonth(tabKey) {
     }
     if (searchTerm) monthSched = monthSched.filter(s => matchesSearch(s.op, searchTerm));
     schedByMachine[machine] = monthSched;
+  }
+
+  // 1.5) Auto-fix diaIdx: se o scheduler colocou uma OP num dia diferente do diaIdx (porque o dia
+  //      original estava ocupado), actualizar op.diaIdx para o dia real (1ª parte).
+  if (!isReadOnly() && !_diaIdxFixing) {
+    const fixedOps = [];
+    for (const machine of MACHINES) {
+      for (const item of schedByMachine[machine]) {
+        if ((item.segIdx || 0) !== 0) continue;
+        if (!item.start || isNaN(item.start)) continue;
+        const realDayIdx = (item.start.getDay() + 6) % 7;
+        if (item.op.diaIdx !== realDayIdx) {
+          item.op.diaIdx = realDayIdx;
+          fixedOps.push(item.op.id);
+        }
+      }
+    }
+    if (fixedOps.length > 0) {
+      console.log('[auto-fix] diaIdx actualizado em', fixedOps.length, 'OPs:', fixedOps);
+      _diaIdxFixing = true;
+      try { saveData(); } finally { setTimeout(() => { _diaIdxFixing = false; }, 1500); }
+    }
   }
 
   // 2) Agrupar OPs do mês actual por dia (chave ISO yyyy-mm-dd)
