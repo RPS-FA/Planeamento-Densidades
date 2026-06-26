@@ -1528,10 +1528,13 @@ async function doUndo() {
 }
 
 // saveSettings — envia para o backend (fire-and-forget; erros via toast)
-// Em produção, o servidor só aceita 'turnosPorDia' — enviamos apenas isso.
+// Em produção, o servidor só aceita 'turnosPorDia' e 'turnosPorMaquina'.
 function saveSettings() {
   const payload = isProducao()
-    ? { turnosPorDia: SETTINGS.turnosPorDia || {} }
+    ? {
+        turnosPorDia: SETTINGS.turnosPorDia || {},
+        turnosPorMaquina: SETTINGS.turnosPorMaquina || {},
+      }
     : SETTINGS;
   Api.putSettings(payload).then(() => {
     setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));

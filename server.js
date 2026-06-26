@@ -177,7 +177,7 @@ app.get('/api/settings', async (req, res) => {
 });
 
 // PUT /api/settings — Planeador edita tudo; Produção edita só 'turnosPorDia'
-const PRODUCAO_SETTING_KEYS = ['turnosPorDia'];
+const PRODUCAO_SETTING_KEYS = ['turnosPorDia', 'turnosPorMaquina'];
 app.put('/api/settings', async (req, res) => {
   if (!requireDb(res)) return;
   try {
