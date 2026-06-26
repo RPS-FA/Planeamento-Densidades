@@ -3062,6 +3062,8 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
     opMoved.weekKey = targetWeek;
     if (opMoved.estado === 'KANBAN') opMoved.estado = 'Aberto';
   }
+  // Acertar o diaIdx para o mesmo do target (estavam visualmente na mesma sub-zona de dia)
+  if (opTarget.diaIdx != null) opMoved.diaIdx = opTarget.diaIdx;
   peers.splice(insertIdx, 0, opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
   saveData(); rerender();
