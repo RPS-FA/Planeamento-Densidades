@@ -731,28 +731,6 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
     </div>
 
 
-    <div class="settings-section">
-      <h3>📊 % ADE por intervalo de massa</h3>
-      <p class="desc">Percentagem de aproveitamento ADE estimada por gama de massas e cliente especial.</p>
-      <table class="settings-table">
-        <thead><tr><th style="width:60%">Critério</th><th>% ADE</th><th>± Tol.</th></tr></thead>
-        <tbody id="cfg-ade">
-          <tr><td>Massa ≤ 1</td>
-              <td><input type="number" data-key="massa_le1" data-field="pct" min="0" max="100" step="1" value="50" onchange="onSettingsChange()"></td>
-              <td><input type="number" data-key="massa_le1" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
-          <tr><td>Massa &gt; 1</td>
-              <td><input type="number" data-key="massa_gt1" data-field="pct" min="0" max="100" step="1" value="65" onchange="onSettingsChange()"></td>
-              <td><input type="number" data-key="massa_gt1" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
-          <tr><td>Cliente RESALTE</td>
-              <td><input type="number" data-key="cliente_resalte" data-field="pct" min="0" max="100" step="1" value="50" onchange="onSettingsChange()"></td>
-              <td><input type="number" data-key="cliente_resalte" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
-          <tr><td>Cliente TERLANO</td>
-              <td><input type="number" data-key="cliente_terlano" data-field="pct" min="0" max="100" step="1" value="30" onchange="onSettingsChange()"></td>
-              <td><input type="number" data-key="cliente_terlano" data-field="tol" min="0" max="20" step="1" value="5" onchange="onSettingsChange()"></td></tr>
-        </tbody>
-      </table>
-    </div>
-
     <div class="settings-section full">
       <h3>📐 Calibres autorizados por máquina</h3>
       <p class="desc">Para cada máquina, lista de calibres autorizados. Use [+ Adicionar] para incluir novo calibre (ex: 45x240) e × para remover. Lista vazia = sem restrição.</p>
