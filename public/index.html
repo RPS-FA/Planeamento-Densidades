@@ -2137,19 +2137,33 @@ function advanceSkippingStops(startCursor, durMs, stopRanges, machine) {
 }
 
 function calcScheduleForWeek(machine, weekKey, weekStart) {
-  // Ordenar por (diaIdx, sortIdx): OPs dum dia anterior são processadas antes,
-  // independentemente do sortIdx — assim cada OP fica no seu próprio diaIdx.
-  const ops = DATA.filter(o => o.maquina === machine && o.weekKey === weekKey)
-                  .sort((a, b) => ((a.diaIdx ?? 0) - (b.diaIdx ?? 0)) || ((a.sortIdx ?? 0) - (b.sortIdx ?? 0)));
-  // Cursor inicial: hora de início do turno da Segunda (data real)
-  const startH = getStartHourForDate(weekStart);
-  let cursor = new Date(weekStart);
+  return _calcScheduleCore(machine, [{ key: weekKey, monday: weekStart }]);
+}
+
+// Scheduler unificado: processa um range de semanas com cursor contínuo.
+function calcScheduleForMachineRange(machine, weeks) {
+  return _calcScheduleCore(machine, weeks);
+}
+
+function _calcScheduleCore(machine, weeks) {
+  // Ordenar OPs por (weekKey cronológico, diaIdx, sortIdx)
+  const weekKeys = weeks.map(w => w.key);
+  const ops = DATA.filter(o => o.maquina === machine && weekKeys.includes(o.weekKey))
+                  .sort((a, b) => {
+                    if (a.weekKey !== b.weekKey) return a.weekKey.localeCompare(b.weekKey);
+                    return ((a.diaIdx ?? 0) - (b.diaIdx ?? 0)) || ((a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+                  });
+  const weekByKey = {};
+  for (const w of weeks) weekByKey[w.key] = w;
+  const firstMonday = weeks[0].monday;
+  const startH = getStartHourForDate(firstMonday, machine);
+  let cursor = new Date(firstMonday);
   cursor.setHours(startH.h, startH.m, 0, 0);
   const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-  const lookEnd = new Date(weekStart.getTime() + 28 * DAY_MS);
+  const lastMonday = weeks[weeks.length - 1].monday;
+  const lookEnd = new Date(lastMonday.getTime() + 28 * DAY_MS);
   let stopRanges = getStops(machine).map(getStopRange).filter(s => s.end > cursor && s.start < lookEnd);
-  // Acrescentar refeições (almoço + jantar) de cada dia no período
-  for (let d = new Date(weekStart); d < lookEnd; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(firstMonday); d < lookEnd; d.setDate(d.getDate() + 1)) {
     const meals = getMealBreaksForDate(d, machine);
     for (const m of meals) {
       if (m.end > cursor && m.start < lookEnd) stopRanges.push(m);
@@ -2165,19 +2179,20 @@ function calcScheduleForWeek(machine, weekKey, weekStart) {
     let durH = krH > 0 && op.qtdEntrada > 0 ? (op.qtdEntrada / krH) : 0;
     const dayIdx = op.diaIdx || 0;
     let startPoint;
+    // weekStart desta OP (semana específica)
+    const opWeekStart = weekByKey[op.weekKey] ? weekByKey[op.weekKey].monday : firstMonday;
     if (op.inicioMode === 'manual' && op.hInicioP && /^\d{2}:\d{2}$/.test(op.hInicioP)) {
       const [hh, mm] = op.hInicioP.split(':').map(Number);
-      const dayDate = new Date(weekStart);
-      dayDate.setDate(weekStart.getDate() + dayIdx);
+      const dayDate = new Date(opWeekStart);
+      dayDate.setDate(opWeekStart.getDate() + dayIdx);
       dayDate.setHours(hh, mm, 0, 0);
       startPoint = dayDate;
     } else {
-      // Automático: arranca em max(cursor, dayStart) — respeita o diaIdx como mínimo
-      const dayDate = new Date(weekStart);
-      dayDate.setDate(weekStart.getDate() + dayIdx);
-      const startH = getStartHourForDate(dayDate, machine);
+      const dayDate = new Date(opWeekStart);
+      dayDate.setDate(opWeekStart.getDate() + dayIdx);
+      const startH2 = getStartHourForDate(dayDate, machine);
       const dayStart = new Date(dayDate);
-      dayStart.setHours(startH.h, startH.m, 0, 0);
+      dayStart.setHours(startH2.h, startH2.m, 0, 0);
       startPoint = (cursor.getTime() > dayStart.getTime()) ? cursor : dayStart;
     }
     // Tempo de atraso manual (HH:MM) — somar à duração planeada
@@ -2523,16 +2538,19 @@ function renderMonth(tabKey) {
   const weeks = getWeeksInMonth(year, month);
   const searchTerm = SEARCH.value || '';
 
-  // 1) Schedule por máquina (mês inteiro), filtrado por search
+  // 1) Schedule por máquina — scheduler unificado com cursor contínuo entre semanas
+  // Inclui a semana anterior à primeira do mês para apanhar overflows
+  const weeksExt = (() => {
+    const firstMon = weeks[0].monday;
+    const prev = new Date(firstMon); prev.setDate(prev.getDate() - 7);
+    return [{ key: weekKey(prev), monday: prev }, ...weeks];
+  })();
   const schedByMachine = {};
+  const wkByKey = {};
+  for (const wk of weeksExt) wkByKey[wk.key] = wk;
   for (const machine of MACHINES) {
-    let monthSched = [];
-    for (const wk of weeks) {
-      const wkSched = calcScheduleForWeek(machine, wk.key, wk.monday);
-      // Anota referência de semana em cada item (necessário para drag-drop e capacidade semanal)
-      for (const it of wkSched) { it._wk = wk; }
-      monthSched.push(...wkSched);
-    }
+    let monthSched = calcScheduleForMachineRange(machine, weeksExt);
+    for (const it of monthSched) { it._wk = wkByKey[it.op.weekKey] || null; }
     if (searchTerm) monthSched = monthSched.filter(s => matchesSearch(s.op, searchTerm));
     schedByMachine[machine] = monthSched;
   }
