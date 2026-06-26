@@ -2540,27 +2540,10 @@ function renderMonth(tabKey) {
     schedByMachine[machine] = monthSched;
   }
 
-  // 1.5) Auto-fix diaIdx: se o scheduler colocou uma OP num dia diferente do diaIdx (porque o dia
-  //      original estava ocupado), actualizar op.diaIdx para o dia real (1ª parte).
-  if (!isReadOnly() && !_diaIdxFixing) {
-    const fixedOps = [];
-    for (const machine of MACHINES) {
-      for (const item of schedByMachine[machine]) {
-        if ((item.segIdx || 0) !== 0) continue;
-        if (!item.start || isNaN(item.start)) continue;
-        const realDayIdx = (item.start.getDay() + 6) % 7;
-        if (item.op.diaIdx !== realDayIdx) {
-          item.op.diaIdx = realDayIdx;
-          fixedOps.push(item.op.id);
-        }
-      }
-    }
-    if (fixedOps.length > 0) {
-      console.log('[auto-fix] diaIdx actualizado em', fixedOps.length, 'OPs:', fixedOps);
-      _diaIdxFixing = true;
-      try { saveData(); } finally { setTimeout(() => { _diaIdxFixing = false; }, 1500); }
-    }
-  }
+  // 1.5) Auto-fix diaIdx DESACTIVADO — estava a anular movimentações intencionais (drag-drop).
+  //      O diaIdx fica como foi definido pelo último moveOpToWeek/moveOpRelativeTo, e o scheduler
+  //      apenas usa-o como "preferência inicial". Se a posição final do scheduler difere, é normal
+  //      (cascata por OPs anteriores) — mas o utilizador continua a ver o diaIdx que escolheu.
 
   // 2) Agrupar OPs do mês actual por dia (chave ISO yyyy-mm-dd)
   const byDay = {}; // { '2026-06-01': { 'Maq 1 - Linha 10': [...], 'Maq 3 - Linha 9': [...] }, ... }
