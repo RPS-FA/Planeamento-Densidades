@@ -2657,15 +2657,7 @@ function renderDayBlock(dayKey, byMachine) {
         : '');
   header.innerHTML = `
     <span class="dh-date">📅 ${diaNome} <strong>${dataStr}</strong></span>
-    <span class="dh-turno" data-day="${dayKey}">
-      <span class="dh-grp"><span class="dh-lbl">Turno:</span>
-        <input type="time" class="dh-time" data-day="${dayKey}" data-field="ini" value="${turno.ini}" title="Início do turno" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-        <span class="dh-sep">–</span>
-        <input type="time" class="dh-time" data-day="${dayKey}" data-field="fim" value="${turno.fim}" title="Fim do turno" oninput="markDayTurnoDirty('${dayKey}')" onclick="event.stopPropagation()" ${isClosed ? 'disabled' : ''}>
-      </span>
-      <span class="dh-dur" title="Duração do turno">(${hoursToTimeStr(turnoHoras(turno.ini, turno.fim))})</span>
-      <button class="dh-ok-btn" data-day="${dayKey}" title="Aplicar turno do dia (default p/ todas as máquinas sem override)" onclick="applyDayTurno('${dayKey}'); event.stopPropagation();" ${isClosed ? 'disabled' : ''}>OK</button>
-    </span>
+
     ${closedBtn}
     ${dispStr}
     <span class="dh-meta">${totalOpsDia} OPs</span>
@@ -2721,7 +2713,7 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   // Inputs de turno + almoço + jantar específicos da máquina
   const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
   const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:6px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px; flex-wrap:wrap">
-    <span style="opacity:0.85" title="Turno específico desta máquina">⏱</span>
+    <span style="font-weight:600; opacity:0.95">TURNO:</span>
     <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início turno">
     <span>–</span>
     <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim turno">
