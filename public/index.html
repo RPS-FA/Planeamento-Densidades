@@ -42,10 +42,11 @@
   }
   header h1 { font-size: 16px; margin: 0; flex: 1; font-weight: 600; }
   .row-data, .kanban-row { cursor: pointer; }
-  /* Pesquisa: não filtra, faz highlight verde claro */
-  tr.row-search-match > td { background: #d1f0c2 !important; }
-  tr.row-search-match > td:first-child { border-left: 3px solid #2e7d32; }
-  .kanban-row.search-match { background: #d1f0c2; border-left: 3px solid #2e7d32; }
+  /* Pesquisa: não filtra, faz highlight verde fluorescente */
+  tr.row-search-match > td { background: #39ff14 !important; color: #000; }
+  tr.row-search-match > td:first-child { border-left: 3px solid #006400; }
+  .kanban-row.search-match { background: #39ff14; border-left: 3px solid #006400; color: #000; }
+  .kanban-row.search-match .k-op { color: #006400; }
   .toolbar { display: flex; gap: 6px; }
   .btn {
     background: #fff; color: var(--c-primary); border: 1px solid #fff;
@@ -4025,7 +4026,21 @@ function nextMonth() {
   const idx = MONTHLY_TABS.findIndex(t => t.key === ACTIVE_TAB);
   if (idx >= 0 && idx < MONTHLY_TABS.length - 1) switchTab(MONTHLY_TABS[idx + 1].key);
 }
-function goToCurrentMonth() { switchTab(pickDefaultTab()); }
+function goToCurrentMonth() {
+  // Muda para o mês actual e faz scroll até ao dia de hoje
+  switchTab(pickDefaultTab());
+  const todayKey = fmtDate(new Date());
+  setTimeout(() => {
+    const el = document.querySelector(`.day-block[data-day-key="${todayKey}"]`);
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Pequeno flash visual
+      el.style.transition = 'box-shadow 0.5s';
+      el.style.boxShadow = '0 0 0 3px #39ff14';
+      setTimeout(() => { el.style.boxShadow = ''; }, 1500);
+    }
+  }, 80);
+}
 
 function updateMonthLabel() {
   const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
