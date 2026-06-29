@@ -2196,7 +2196,9 @@ function _calcScheduleCore(machine, weeks) {
       startPoint = (cursor.getTime() > dayStart.getTime()) ? cursor : dayStart;
     }
     // Tempo de atraso manual (HH:MM) — somar à duração planeada
-    // Soma legacy op.tempoAtraso + todos os atrasos por segmento (realPorDia[*].tempoAtraso)
+    // Regra: se a OP tem realPorDia com chaves, usa-se SÓ os atrasos por dia
+    // (evita dupla contagem com o legacy op.tempoAtraso que pode estar
+    // replicado entre os dois sítios).
     let atrasoMin = 0;
     const _parseAtraso = (s) => {
       if (!s || !/^-?\d{1,2}:\d{2}$/.test(s)) return 0;
@@ -2205,11 +2207,14 @@ function _calcScheduleCore(machine, weeks) {
       const [h, m] = clean.split(':').map(Number);
       return sign * (h * 60 + m);
     };
-    atrasoMin += _parseAtraso(op.tempoAtraso || '');
-    if (op.realPorDia && typeof op.realPorDia === 'object') {
-      for (const k in op.realPorDia) {
-        atrasoMin += _parseAtraso((op.realPorDia[k] || {}).tempoAtraso || '');
+    const _rpd = op.realPorDia;
+    const _hasRpd = _rpd && typeof _rpd === 'object' && Object.keys(_rpd).length > 0;
+    if (_hasRpd) {
+      for (const k in _rpd) {
+        atrasoMin += _parseAtraso((_rpd[k] || {}).tempoAtraso || '');
       }
+    } else {
+      atrasoMin += _parseAtraso(op.tempoAtraso || '');
     }
     const totalDurMs = (durH * HOUR_MS) + (atrasoMin * 60 * 1000);
     const segs = advanceWithinShiftsSegmented(startPoint, totalDurMs, stopRanges, machine);
