@@ -3742,26 +3742,26 @@ function exportExcel() {
     showErrorToast('Biblioteca Excel ainda não carregou — aguarde uns segundos e tente outra vez.');
     return;
   }
-  const tabDef = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
-  if (!tabDef) {
-    showErrorToast('Selecione primeiro um mês para exportar.');
+  // Exporta TODO o planeamento — todas as máquinas, todas as semanas
+  // presentes em DATA (sem filtrar por mês activo).
+  const weekKeysSet = new Set();
+  for (const o of DATA) { if (o && o.weekKey) weekKeysSet.add(o.weekKey); }
+  if (weekKeysSet.size === 0) {
+    showErrorToast('Não há OPs para exportar.');
     return;
   }
-  const year = MONTHLY_YEAR;
-  const month = tabDef.month;
-  const weeks = getWeeksInMonth(year, month);
+  // Construir lista ordenada cronologicamente
+  const allWeeks = Array.from(weekKeysSet)
+    .sort()
+    .map(k => ({ key: k, monday: isoWeekToMonday(k) }));
 
-  // Recolher segmentos de todas as máquinas, no mês activo
+  // Para cada máquina, calcular schedule contínuo sobre todas as semanas
   const allItems = [];
   for (const machine of MACHINES) {
-    for (const wk of weeks) {
-      const wkSched = calcScheduleForWeek(machine, wk.key, wk.monday);
-      for (const item of wkSched) {
-        if (!item.start || isNaN(item.start)) continue;
-        if (item.start.getFullYear() === year && item.start.getMonth() === month) {
-          allItems.push({ item, machine });
-        }
-      }
+    const sched = calcScheduleForMachineRange(machine, allWeeks);
+    for (const item of sched) {
+      if (!item.start || isNaN(item.start)) continue;
+      allItems.push({ item, machine });
     }
   }
   // Ordenar por máquina, depois por data/hora de início
@@ -3769,6 +3769,10 @@ function exportExcel() {
     if (a.machine !== b.machine) return a.machine.localeCompare(b.machine);
     return a.item.start - b.item.start;
   });
+  if (allItems.length === 0) {
+    showErrorToast('Não há linhas planeadas para exportar.');
+    return;
+  }
 
   const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (rolhas)','Qtd Total OP (rolhas)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
   const rows = [headers];
@@ -3826,12 +3830,15 @@ function exportExcel() {
   });
 
   const wb = XLSX.utils.book_new();
-  const monthName = tabDef.label || ('Mes' + (month + 1));
-  XLSX.utils.book_append_sheet(wb, ws, monthName.substring(0, 31));
+  XLSX.utils.book_append_sheet(wb, ws, 'Planeamento Completo');
 
-  const filename = `Planeamento_DENSIDADES_${monthName.replace(/\s+/g,'_')}_${year}.xlsx`;
+  // Range de datas para o nome do ficheiro
+  const firstD = allItems[0].item.start;
+  const lastD = allItems[allItems.length - 1].item.start;
+  const _fd = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const filename = `Planeamento_DENSIDADES_${_fd(firstD)}_${_fd(lastD)}.xlsx`;
   XLSX.writeFile(wb, filename);
-  setConnStatus('ok', '✓ Excel exportado: ' + filename);
+  setConnStatus('ok', '✓ Excel exportado: ' + filename + ' (' + (allItems.length) + ' linhas)');
 }
 
 function exportJSON() {
