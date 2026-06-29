@@ -65,6 +65,9 @@
   body.profile-producao #swapOpsBtn { display: none !important; }
   body.profile-producao #m_btnSplit { display: none !important; }
   body.profile-producao .row-handle { display: none; }
+  /* Em Produção: esconder KANBAN lateral e usar o ecrã todo para o planeamento */
+  body.profile-producao #panel-mview { grid-template-columns: 1fr !important; }
+  body.profile-producao #panel-mview > .panel:first-child { display: none !important; }
   .conn-chip {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 11px; padding: 3px 8px; border-radius: 10px;
