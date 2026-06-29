@@ -1528,16 +1528,27 @@ async function doUndo() {
 }
 
 // saveSettings — envia para o backend (fire-and-forget; erros via toast)
-// Em produção, o servidor só aceita 'turnosPorDia' e 'turnosPorMaquina'.
+// Em produção: turnosPorDia + turnosPorMaquina + stops (paragens).
+// Toast debounced — evita flood em mudanças rápidas em sequência.
+let _saveToastTimer = null;
+function _scheduleSaveToast(msg) {
+  if (_saveToastTimer) clearTimeout(_saveToastTimer);
+  _saveToastTimer = setTimeout(() => {
+    _saveToastTimer = null;
+    if (typeof showSuccessToast === 'function') showSuccessToast(msg);
+  }, 350);
+}
 function saveSettings() {
   const payload = isProducao()
     ? {
         turnosPorDia: SETTINGS.turnosPorDia || {},
         turnosPorMaquina: SETTINGS.turnosPorMaquina || {},
+        stops: SETTINGS.stops || {},
       }
     : SETTINGS;
   Api.putSettings(payload).then(() => {
     setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
+    _scheduleSaveToast('✓ Gravado');
   }).catch(e => {
     setConnStatus('error', 'Sem ligação');
     showErrorToast('Falha ao guardar definições: ' + e.message);

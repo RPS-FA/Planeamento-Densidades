@@ -176,8 +176,8 @@ app.get('/api/settings', async (req, res) => {
   } catch (e) { sendError(res, e, 'GET /api/settings falhou'); }
 });
 
-// PUT /api/settings — Planeador edita tudo; Produção edita só 'turnosPorDia'
-const PRODUCAO_SETTING_KEYS = ['turnosPorDia', 'turnosPorMaquina'];
+// PUT /api/settings — Planeador edita tudo; Produção edita turnos + paragens
+const PRODUCAO_SETTING_KEYS = ['turnosPorDia', 'turnosPorMaquina', 'stops'];
 app.put('/api/settings', async (req, res) => {
   if (!requireDb(res)) return;
   try {
