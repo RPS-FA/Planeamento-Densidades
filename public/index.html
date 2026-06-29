@@ -1861,6 +1861,25 @@ function saveData() {
   }, 50);
 }
 
+// Helper para apagar OP — chama DELETE explícito no servidor.
+// saveData() só faz PUT das OPs ainda em DATA: sem este DELETE,
+// a OP "apagada" reaparece no próximo GET porque continua na BD.
+async function deleteOpAndPersist(id, label) {
+  if (typeof id !== 'number') return;
+  pushUndo(label || ('Apagar OP id ' + id));
+  DATA = DATA.filter(o => o.id !== id);
+  rerender();
+  try {
+    await Api.deleteOp(id);
+    setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
+  } catch (e) {
+    setConnStatus('error', 'Falha ao apagar');
+    showErrorToast('Erro ao apagar OP: ' + e.message);
+    // Re-fetch para repor estado consistente
+    try { const st = await Api.getState(); if (st && st.ops) { DATA = st.ops; rerender(); } } catch (_) {}
+  }
+}
+
 // Helper para escritas dirigidas a uma única OP (mais eficiente)
 async function saveOneOp(op) {
   if (!op || typeof op.id !== 'number') return;
@@ -2965,8 +2984,7 @@ function createWeekTable(sched, wk, machine) {
       if (e.target.classList.contains('col-del')) {
         if (isReadOnly()) return;
         if (confirm(`Apagar OP ${op.op}?`)) {
-          DATA = DATA.filter(o => o.id !== op.id);
-          saveData(); rerender();
+          deleteOpAndPersist(op.id, 'Apagar OP ' + (op.op || op.id));
         }
         return;
       }
@@ -3559,9 +3577,9 @@ function saveOP() {
 function deleteOP() {
   if (!editingOP) return;
   if (!confirm(`Apagar OP ${editingOP.op}?`)) return;
-  pushUndo('Apagar OP ' + (editingOP.op || editingOP.id));
-  DATA = DATA.filter(o => o.id !== editingOP.id);
-  saveData(); closeModal(); rerender();
+  const id = editingOP.id, label = 'Apagar OP ' + (editingOP.op || editingOP.id);
+  closeModal();
+  deleteOpAndPersist(id, label);
 }
 
 function addOP() { openModal(null); }
