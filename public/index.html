@@ -1746,14 +1746,38 @@ function formatHitsPill(term) {
     ['Maq 3 - Linha 9', DATA.filter(o => o.maquina === 'Maq 3 - Linha 9' && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
     ['KANBAN',   DATA.filter(o => o.maquina === 'KANBAN' && matchesSearch(o, t)).length],
   ];
-  const hidden = DATA.filter(o => o.maquina !== 'KANBAN' && o.weekKey && matchesSearch(o, t)
-    && !activeKeys.has(o.weekKey)).length;
+  // Detalhe dos meses onde há matches fora do activo (para o utilizador saber onde navegar)
+  const otherMonths = {};
+  for (const o of DATA) {
+    if (o.maquina === 'KANBAN' || !o.weekKey) continue;
+    if (activeKeys.has(o.weekKey)) continue;
+    if (!matchesSearch(o, t)) continue;
+    const m = /^(\d{4})-W(\d{2})$/.exec(o.weekKey);
+    if (!m) continue;
+    const yy = parseInt(m[1], 10), ww = parseInt(m[2], 10);
+    const jan4 = new Date(yy, 0, 4);
+    const dayOfJan4 = (jan4.getDay() || 7) - 1;
+    const monday = new Date(jan4); monday.setDate(jan4.getDate() - dayOfJan4 + (ww - 1) * 7);
+    const dateMid = new Date(monday); dateMid.setDate(monday.getDate() + 3); // quinta da semana
+    const monthKey = `${dateMid.getFullYear()}-${String(dateMid.getMonth()+1).padStart(2,'0')}`;
+    otherMonths[monthKey] = (otherMonths[monthKey] || 0) + 1;
+  }
+  const hidden = Object.values(otherMonths).reduce((s, n) => s + n, 0);
   const total = counts.reduce((s, [, n]) => s + n, 0);
   if (total === 0 && hidden === 0) return '0 resultados';
-  if (total === 0 && hidden > 0) return `0 no mês visível · ${hidden} noutros meses`;
   const positives = counts.filter(([, n]) => n > 0).map(([label, n]) => `${n} em ${label}`);
-  const suffix = hidden > 0 ? ` · +${hidden} noutros meses` : '';
-  return `${total} resultado${total === 1 ? '' : 's'} (${positives.join(', ')})${suffix}`;
+  // Listar meses onde há hits ocultos (formato pt-PT abreviado)
+  const monthLabels = Object.keys(otherMonths).sort().map(k => {
+    const [yy, mm] = k.split('-').map(Number);
+    const d = new Date(yy, mm - 1, 1);
+    return `${d.toLocaleString('pt-PT', { month: 'short' })}/${String(yy).slice(-2)} (${otherMonths[k]})`;
+  });
+  let suffix = '';
+  if (hidden > 0) {
+    suffix = ` · ⚠ ${hidden} noutros meses: ${monthLabels.join(', ')}`;
+  }
+  if (total === 0 && hidden > 0) return `0 no mês visível${suffix}`;
+  return `${total} no mês visível${positives.length ? ' (' + positives.join(', ') + ')' : ''}${suffix}`;
 }
 
 function onSearch(tab, value) {
