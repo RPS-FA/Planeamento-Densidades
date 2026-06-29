@@ -4039,8 +4039,19 @@ function _modalAberto() {
   const ms = document.getElementById('modalSwap');
   return (m && m.classList.contains('show')) || (ms && ms.classList.contains('show'));
 }
+// Verifica se o utilizador está activamente a editar um input/textarea/select.
+// Usado para suspender o auto-refresh — senão o re-render apaga o que está a ser digitado.
+function _utilizadorAEditar() {
+  const el = document.activeElement;
+  if (!el || el === document.body) return false;
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
 setInterval(async () => {
   if (_modalAberto()) return;
+  if (_utilizadorAEditar()) return;  // não destruir o que está a ser digitado
   try {
     const state = await Api.getState();
     DATA = Array.isArray(state.ops) ? state.ops : [];
