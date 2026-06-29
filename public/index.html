@@ -42,6 +42,10 @@
   }
   header h1 { font-size: 16px; margin: 0; flex: 1; font-weight: 600; }
   .row-data, .kanban-row { cursor: pointer; }
+  /* Pesquisa: não filtra, faz highlight verde claro */
+  tr.row-search-match > td { background: #d1f0c2 !important; }
+  tr.row-search-match > td:first-child { border-left: 3px solid #2e7d32; }
+  .kanban-row.search-match { background: #d1f0c2; border-left: 3px solid #2e7d32; }
   .toolbar { display: flex; gap: 6px; }
   .btn {
     background: #fff; color: var(--c-primary); border: 1px solid #fff;
@@ -2530,25 +2534,26 @@ function _renderNormalSvg(mu, sig, lsi, lss) {
 // Render — KANBAN lateral (um por painel mensal — todos partilham o mesmo conteúdo)
 // ============================================================
 function renderKanbanAll() {
-  // KANBAN único (painel mview).
+  // KANBAN único (painel mview). Procura faz highlight, não filtro.
   const term = SEARCH.value || '';
   const allOps = DATA.filter(o => o.maquina === 'KANBAN').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
-  const ops = term ? allOps.filter(o => matchesSearch(o, term)) : allOps;
-  renderKanbanInto('col-kanban-mview', 'count-kanban-mview', ops, allOps, term);
+  renderKanbanInto('col-kanban-mview', 'count-kanban-mview', allOps, term);
 }
-function renderKanbanInto(containerId, countId, ops, allOps, term) {
+function renderKanbanInto(containerId, countId, ops, term) {
   const c = document.getElementById(containerId);
   if (!c) return;
   c.innerHTML = '';
+  const matches = term ? ops.filter(o => matchesSearch(o, term)).length : 0;
   const countEl = document.getElementById(countId);
-  if (countEl) countEl.textContent = term ? `${ops.length}/${allOps.length}` : ops.length;
+  if (countEl) countEl.textContent = term ? `${matches}/${ops.length}` : ops.length;
   if (ops.length === 0) {
-    c.innerHTML = term ? `<div class="empty">Sem resultados em KANBAN para "${term}"</div>` : '<div class="empty">Sem OPs por planear</div>';
+    c.innerHTML = '<div class="empty">Sem OPs por planear</div>';
     return;
   }
   for (const op of ops) {
     const row = document.createElement('div');
     row.className = 'kanban-row';
+    if (term && matchesSearch(op, term)) row.classList.add('search-match');
     row.draggable = !isReadOnly();
     row.dataset.id = op.id;
     row.innerHTML = `
@@ -2587,9 +2592,9 @@ function renderMonth(tabKey) {
   const wkByKey = {};
   for (const wk of weeksExt) wkByKey[wk.key] = wk;
   for (const machine of MACHINES) {
-    let monthSched = calcScheduleForMachineRange(machine, weeksExt);
+    const monthSched = calcScheduleForMachineRange(machine, weeksExt);
     for (const it of monthSched) { it._wk = wkByKey[it.op.weekKey] || null; }
-    if (searchTerm) monthSched = monthSched.filter(s => matchesSearch(s.op, searchTerm));
+    // Procura faz HIGHLIGHT, não filtro — todas as linhas continuam visíveis
     schedByMachine[machine] = monthSched;
   }
 
@@ -2611,23 +2616,17 @@ function renderMonth(tabKey) {
     }
   }
 
-  // 3) Construir lista completa de dias úteis (Seg-Sáb) do mês activo, mesmo vazios
-  // — quando há pesquisa activa, mostrar apenas dias com hits para não poluir a vista
+  // 3) Construir lista completa de dias úteis (Seg-Sáb) do mês activo, mesmo vazios.
+  // Procura faz HIGHLIGHT, não filtro — vista do mês mantém-se intacta.
   const allDays = [];
-  if (!searchTerm) {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d);
-      const dow = date.getDay(); // 0=Domingo, 1=Seg, ..., 6=Sáb
-      // Excluir Domingo, a menos que tenha OPs (raro)
-      const k = fmtDate(date);
-      if (dow === 0 && !byDay[k]) continue;
-      allDays.push(k);
-      if (!byDay[k]) byDay[k] = {};
-    }
-  } else {
-    // Com pesquisa: mostrar apenas dias com resultados
-    allDays.push(...Object.keys(byDay).sort());
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dow = date.getDay(); // 0=Domingo, 1=Seg, ..., 6=Sáb
+    const k = fmtDate(date);
+    if (dow === 0 && !byDay[k]) continue;
+    allDays.push(k);
+    if (!byDay[k]) byDay[k] = {};
   }
 
   let totalOps = 0;
@@ -2644,7 +2643,7 @@ function renderMonth(tabKey) {
   if (allDays.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-week';
-    empty.textContent = searchTerm ? `Sem resultados para "${searchTerm}" neste mês` : 'Sem dias úteis neste mês';
+    empty.textContent = 'Sem dias úteis neste mês';
     container.appendChild(empty);
   }
 
@@ -2937,7 +2936,9 @@ function createWeekTable(sched, wk, machine) {
       const limH = timeStrToHours(horaLim);
       if (finishH > limH + 8) lateClass = 'at-risk';
     }
-    tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '') + (totalSegs > 1 ? ' segmented' : '') + (!isFirstSeg ? ' seg-cont' : '');
+    const _searchTerm = (typeof SEARCH !== 'undefined' && SEARCH.value) ? SEARCH.value : '';
+    const _isMatch = _searchTerm && matchesSearch(op, _searchTerm);
+    tr.className = 'row-data' + (lateClass ? ' ' + lateClass : '') + (frozen ? ' frozen-op' : '') + (totalSegs > 1 ? ' segmented' : '') + (!isFirstSeg ? ' seg-cont' : '') + (_isMatch ? ' row-search-match' : '');
     const _hIniP_calc = fmtTime(item.start);
     const _hFimP_calc = fmtTime(item.end);
     if (isFirstSeg) { op._calcInicioP = _hIniP_calc; op._calcInicioP_date = fmtDate(item.start); }
