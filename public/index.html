@@ -2111,18 +2111,20 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges, machine) {
   let cursor = new Date(startCursor.getTime());
   let remaining = durMs;
   let segStart = null;
+  let segProdMs = 0;  // tempo PRODUTIVO acumulado no segmento (exclui paragens intermédias)
+  const _pushSeg = (endDate) => { segments.push({ start: segStart, end: endDate, prodMs: segProdMs }); segStart = null; segProdMs = 0; };
   const MAX_ITER = 600;
   let iter = 0;
   while (remaining > 0 && iter++ < MAX_ITER) {
     const shift = getShiftRangeForDate(cursor, machine);
     if (!shift) {
-      if (segStart) { segments.push({ start: segStart, end: new Date(cursor.getTime()) }); segStart = null; }
+      if (segStart) _pushSeg(new Date(cursor.getTime()));
       cursor = nextDayMidnight(cursor);
       continue;
     }
     if (cursor < shift.start) cursor = new Date(shift.start);
     if (cursor >= shift.end) {
-      if (segStart) { segments.push({ start: segStart, end: new Date(cursor.getTime()) }); segStart = null; }
+      if (segStart) _pushSeg(new Date(cursor.getTime()));
       cursor = nextDayMidnight(cursor);
       continue;
     }
@@ -2135,20 +2137,21 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges, machine) {
     const available = limit - cursor;
     if (remaining <= available) {
       const end = new Date(cursor.getTime() + remaining);
-      segments.push({ start: segStart, end });
+      segProdMs += remaining;
+      segments.push({ start: segStart, end, prodMs: segProdMs });
       return segments;
     }
     remaining -= available;
+    segProdMs += available;
     cursor = new Date(limit);
     if (cursor.getTime() === shift.end.getTime()) {
       // fim de turno → fecha segmento, próximo dia
-      segments.push({ start: segStart, end: new Date(cursor.getTime()) });
-      segStart = null;
+      _pushSeg(new Date(cursor.getTime()));
       cursor = nextDayMidnight(cursor);
     }
     // se for paragem intermédia, segStart continua e o loop saltará a paragem
   }
-  if (segStart) segments.push({ start: segStart, end: new Date(cursor.getTime()) });
+  if (segStart) _pushSeg(new Date(cursor.getTime()));
   return segments;
 }
 
@@ -2286,10 +2289,14 @@ function _calcScheduleCore(machine, weeks) {
       cursor = new Date(startPoint.getTime() + SETUP_MS);
       continue;
     }
+    // durH_pura = tempo produtivo total esperado (SEM atraso) — usado para distribuir qtdEntrada
+    const durMsPuro = durH * HOUR_MS;
     for (let s = 0; s < segs.length; s++) {
       const seg = segs[s];
-      const segMs = seg.end - seg.start;
-      const fraction = totalDurMs > 0 ? (segMs / totalDurMs) : 1;
+      const segMs = seg.end - seg.start;                  // tempo cronológico (para mostrar)
+      const prodMs = (seg.prodMs != null) ? seg.prodMs : segMs; // tempo produtivo (para qtdSeg)
+      // Fracção sobre o tempo PRODUTIVO puro — soma exacta = qtdEntrada
+      const fraction = durMsPuro > 0 ? (prodMs / durMsPuro) : (1 / segs.length);
       result.push({
         op,
         start: seg.start,
