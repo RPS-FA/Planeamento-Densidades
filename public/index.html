@@ -511,7 +511,9 @@
   }
   .vc-cell-title .vc-mach-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .vc-cell-title .vc-shift-info { font-size: 9px; opacity: 0.9; font-weight: 500; text-transform: none; letter-spacing: 0; white-space: nowrap; }
-  .vc-cell-title .vc-shift-info .vc-tag { background: rgba(255,255,255,0.15); padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
+  .vc-cell-title .vc-shift-info .vc-tag { background: rgba(255,255,255,0.15); padding: 1px 4px; border-radius: 2px; margin-left: 3px; display: inline-flex; align-items: center; gap: 2px; }
+  .vc-cell-title .vc-shift-info .vc-tag input[type="time"] { background: #fff; color: #1f2d20; border: none; border-radius: 2px; font-size: 9px; padding: 0 2px; width: 58px; font-family: inherit; }
+  .vc-cell-title .vc-shift-info .vc-tag input[type="time"]:hover { background: #f2f4ef; }
   .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
   .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
   .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
@@ -2936,17 +2938,17 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
   const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:6px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px; flex-wrap:wrap">
     <span style="font-weight:600; opacity:0.95">TURNO:</span>
-    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início turno">
+    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início turno">
     <span>–</span>
-    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim turno">
+    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim turno">
     <span style="opacity:0.85; margin-left:4px" title="Almoço">🍴</span>
-    <input type="time" data-field="almocoIni" value="${tMaq.almocoIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início almoço">
+    <input type="time" data-field="almocoIni" value="${tMaq.almocoIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início almoço">
     <span>–</span>
-    <input type="time" data-field="almocoFim" value="${tMaq.almocoFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim almoço">
+    <input type="time" data-field="almocoFim" value="${tMaq.almocoFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim almoço">
     <span style="opacity:0.85; margin-left:4px" title="Jantar">🍽</span>
-    <input type="time" data-field="jantarIni" value="${tMaq.jantarIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início jantar">
+    <input type="time" data-field="jantarIni" value="${tMaq.jantarIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início jantar">
     <span>–</span>
-    <input type="time" data-field="jantarFim" value="${tMaq.jantarFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim jantar">
+    <input type="time" data-field="jantarFim" value="${tMaq.jantarFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim jantar">
     <button class="dms-ok-btn" onclick="applyMachineTurno('${dayKey}', '${machine}'); event.stopPropagation();" style="font-size:10px; padding:1px 6px; background:rgba(0,0,0,0.06); border:1px solid var(--c-grid); border-radius:2px; cursor:pointer">OK</button>
   </span>`;
   head.innerHTML = `
@@ -4243,23 +4245,48 @@ function renderCardsView() {
       // weekKey deste dia
       const _wk = weekKey(date);
       cell.dataset.weekKey = _wk;
-      // Título com nome da máquina + barra de turno (turno, almoço, jantar)
-      let shiftInfoHtml = '';
-      if (shift) {
-        shiftInfoHtml += '<span class="vc-tag">🕐 ' + _fmtHmFromMs(shift.start) + '→' + _fmtHmFromMs(shift.end) + '</span>';
-      }
-      // Refeições da máquina para este dia
-      const _meals = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
-      for (const meal of _meals) {
-        const icon = (meal.label && meal.label.toLowerCase().startsWith('jantar')) ? '🌙' : '🍴';
-        shiftInfoHtml += '<span class="vc-tag">' + icon + ' ' + _fmtHmFromMs(meal.start) + '→' + _fmtHmFromMs(meal.end) + '</span>';
-      }
+      // Título com nome da máquina + inputs editáveis de turno/almoço/jantar
+      const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dk]) || {};
+      const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
+      const _turnoIni = tMaq.ini || (shift ? _fmtHmFromMs(shift.start) : '');
+      const _turnoFim = tMaq.fim || (shift ? _fmtHmFromMs(shift.end) : '');
+      const _almIni = tMaq.almocoIni || '';
+      const _almFim = tMaq.almocoFim || '';
+      const _janIni = tMaq.jantarIni || '';
+      const _janFim = tMaq.jantarFim || '';
+      const _ro = isReadOnly() ? ' disabled' : '';
+      const editableShift =
+        '<span class="dms-turno vc-inline-turno" data-day="' + dk + '" data-machine="' + machine + '">' +
+          '<span class="vc-tag" title="Turno">🕐 ' +
+            '<input type="time" data-field="ini" value="' + _turnoIni + '"' + _ro + '>–' +
+            '<input type="time" data-field="fim" value="' + _turnoFim + '"' + _ro + '>' +
+          '</span>' +
+          '<span class="vc-tag" title="Almoço">🍴 ' +
+            '<input type="time" data-field="almocoIni" value="' + _almIni + '"' + _ro + '>–' +
+            '<input type="time" data-field="almocoFim" value="' + _almFim + '"' + _ro + '>' +
+          '</span>' +
+          '<span class="vc-tag" title="Jantar">🌙 ' +
+            '<input type="time" data-field="jantarIni" value="' + _janIni + '"' + _ro + '>–' +
+            '<input type="time" data-field="jantarFim" value="' + _janFim + '"' + _ro + '>' +
+          '</span>' +
+        '</span>';
       cell.innerHTML =
         '<div class="vc-cell-title">' +
           '<span class="vc-mach-name">' + machine + '</span>' +
-          '<span class="vc-shift-info">' + shiftInfoHtml + '</span>' +
+          '<span class="vc-shift-info">' + editableShift + '</span>' +
         '</div>' +
         '<div class="vc-cell-header">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
+      // Handlers dos inputs de turno na Vista Cartões — auto-save no change
+      if (!isReadOnly()) {
+        cell.querySelectorAll('.vc-inline-turno input[type="time"]').forEach(inp => {
+          inp.addEventListener('mousedown', e => e.stopPropagation());
+          inp.addEventListener('click', e => e.stopPropagation());
+          inp.addEventListener('change', e => {
+            e.stopPropagation();
+            applyMachineTurno(dk, machine);
+          });
+        });
+      }
       if (!isReadOnly()) setupZoneDropTarget(cell);
       const items = (byDay[dk] && byDay[dk][machine]) || [];
       let _vcAltIdxLocal = 0;
@@ -4336,7 +4363,7 @@ function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx) {
       '<div><label>Fim Real</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hFimR" value="' + hFimR + '"></div>' +
       '<div><label>Atraso</label><input type="text" placeholder="HH:MM" data-op="' + op.id + '" data-day="' + dk + '" data-field="tempoAtraso" value="' + atrasoStr + '" style="text-align:center"></div>' +
     '</div>' +
-    '<select class="vc-c-estado" data-op="' + op.id + '">' + estadoOpts + '</select>';
+    '<select class="estado-select vc-c-estado" data-est="' + (op.estado || 'Aberto') + '" data-op="' + op.id + '">' + estadoOpts + '</select>';
   card.addEventListener('click', e => {
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'button' || tag === 'option' || tag === 'label') return;
@@ -4365,6 +4392,8 @@ function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx) {
     const target = DATA.find(o => o.id === id);
     if (!target) return;
     target.estado = e.target.value;
+    e.target.setAttribute('data-est', e.target.value);
+    card.setAttribute('data-estado', e.target.value);
     saveOneOp(target).catch(() => {});
     rerender();
   });
