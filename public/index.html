@@ -534,8 +534,10 @@
   .vc-card .vc-c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
   .vc-card .vc-c-op { font-weight: 700; color: var(--c-primary); font-size: 12px; }
   .vc-card .vc-c-qtd { font-size: 11px; color: var(--c-text); font-weight: 600; }
-  .vc-card .vc-c-desc { font-family: Consolas, monospace; font-size: 10px; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .vc-card .vc-c-meta { font-size: 10px; color: var(--c-muted); }
+  .vc-card .vc-c-desc { font-family: Consolas, monospace; font-size: 10px; color: #374151; overflow: hidden; }
+  .vc-card .vc-c-meta { font-size: 10px; color: var(--c-muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .vc-card .vc-c-meta .vc-tag-inline { background: #eef2ea; padding: 1px 5px; border-radius: 2px; font-weight: 500; }
+  .vc-card .vc-c-obspi { font-size: 10px; color: #7a5a00; font-style: italic; background: #fffbe6; padding: 2px 4px; border-radius: 2px; border-left: 2px solid #d4a017; }
   .vc-card .vc-c-plan { font-size: 10px; color: #1a4020; }
   .vc-card .vc-c-real { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 3px; font-size: 10px; }
   .vc-card .vc-c-real label { color: var(--c-muted); font-size: 9px; display: block; }
@@ -4321,7 +4323,13 @@ function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx) {
       '<span class="vc-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + ' rolhas</span>' +
     '</div>' +
     '<div class="vc-c-desc" title="' + (op.produto || '') + '">' + (op.produto || '') + '</div>' +
-    '<div class="vc-c-meta">' + (op.fileCliente || '') + ' · ' + (op.calibre || '') + '</div>' +
+    '<div class="vc-c-meta">' +
+      '<span class="vc-tag-inline">' + (op.fileCliente || '—') + '</span>' +
+      '<span class="vc-tag-inline">' + (op.calibre || '—') + '</span>' +
+      ((op.massas || '').trim() ? '<span class="vc-tag-inline">m: ' + op.massas + '</span>' : '') +
+      '<span class="vc-tag-inline">' + (op.destino || '') + '</span>' +
+    '</div>' +
+    ((op.obsPi || '').trim() ? ('<div class="vc-c-obspi" title="' + op.obsPi + '">📌 ' + op.obsPi + '</div>') : '') +
     '<div class="vc-c-plan">⏱ ' + _fmtHmFromMs(start) + ' → ' + _fmtHmFromMs(end) + ' · ' + segH.toFixed(2) + 'h</div>' +
     '<div class="vc-c-real">' +
       '<div><label>Início Real</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hIniR" value="' + hIniR + '"></div>' +
