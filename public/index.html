@@ -477,8 +477,16 @@
   .tab-panel.settings { display: none; grid-template-columns: 1fr; padding: 16px 24px; overflow-y: auto; }
   .tab-panel.settings.active { display: block; }
   /* Vista Cartões (experimental) */
-  .tab-panel.vcards-panel { display: none; padding: 6px 10px; overflow: hidden; flex-direction: column; }
-  .tab-panel.vcards-panel.active { display: flex; }
+  .tab-panel.vcards-panel { display: none; padding: 8px; overflow: hidden; }
+  .tab-panel.vcards-panel.active { display: grid; grid-template-columns: 240px 1fr; gap: 8px; }
+  body.profile-producao .tab-panel.vcards-panel.active { grid-template-columns: 1fr; }
+  body.profile-producao .tab-panel.vcards-panel .vc-kanban-panel { display: none !important; }
+  .vc-kanban-panel { display: flex; flex-direction: column; overflow: hidden; }
+  .vc-main { display: flex; flex-direction: column; overflow: hidden; }
+  .vc-card.dragging { opacity: 0.4; }
+  .vc-cell.drag-target { outline: 2px dashed var(--c-primary); outline-offset: -3px; }
+  .vc-card-handle { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #9aa0a6; cursor: grab; user-select: none; }
+  body.profile-producao .vc-card-handle { display: none; }
   .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
   .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
   .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
@@ -738,26 +746,32 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
 
 <!-- Vista Cartões (alternativa vertical, experimental) -->
 <div class="tab-panel vcards-panel" id="panel-vcards">
-  <div class="vc-toolbar">
-    <div class="left">
-      <div class="search-box">
-        <input type="text" id="search-vcards" placeholder="Procurar OP, cliente, PO, produto..." oninput="onSearch('vcards', this.value)">
-        <button class="clear-btn" onclick="clearSearch('vcards')" title="Limpar">×</button>
-      </div>
-    </div>
-    <div class="right">
-      <div class="month-nav">
-        <button onclick="prevMonth()" title="Mês anterior">◀</button>
-        <span class="label" id="vc-month-label">—</span>
-        <button onclick="nextMonth()" title="Próximo mês">▶</button>
-        <button onclick="goToCurrentMonth()" style="margin-left:6px" title="Mês actual">Hoje</button>
-      </div>
-      <label style="font-size:11px;margin-left:8px;color:var(--c-muted)">
-        px/h: <input type="number" id="vc-pxh" min="20" max="200" value="60" style="width:56px" onchange="renderCardsView()">
-      </label>
-    </div>
+  <div class="panel vc-kanban-panel">
+    <div class="kanban-header"><span>📋 KANBAN</span><span class="count" id="count-kanban-vcards">0</span></div>
+    <div class="kanban-body" id="col-kanban-vcards" data-machine="KANBAN"></div>
   </div>
-  <div class="vc-scroll" id="vc-scroll"></div>
+  <div class="vc-main">
+    <div class="vc-toolbar">
+      <div class="left">
+        <div class="search-box">
+          <input type="text" id="search-vcards" placeholder="Procurar OP, cliente, PO, produto..." oninput="onSearch('vcards', this.value)">
+          <button class="clear-btn" onclick="clearSearch('vcards')" title="Limpar">×</button>
+        </div>
+      </div>
+      <div class="right">
+        <div class="month-nav">
+          <button onclick="prevMonth()" title="Mês anterior">◀</button>
+          <span class="label" id="vc-month-label">—</span>
+          <button onclick="nextMonth()" title="Próximo mês">▶</button>
+          <button onclick="goToCurrentMonth()" style="margin-left:6px" title="Mês actual">Hoje</button>
+        </div>
+        <label style="font-size:11px;margin-left:8px;color:var(--c-muted)">
+          px/h: <input type="number" id="vc-pxh" min="20" max="200" value="60" style="width:56px" onchange="renderCardsView()">
+        </label>
+      </div>
+    </div>
+    <div class="vc-scroll" id="vc-scroll"></div>
+  </div>
 </div>
 
 <!-- Configurações -->
@@ -2629,10 +2643,13 @@ function _renderNormalSvg(mu, sig, lsi, lss) {
 // Render — KANBAN lateral (um por painel mensal — todos partilham o mesmo conteúdo)
 // ============================================================
 function renderKanbanAll() {
-  // KANBAN único (painel mview). Procura faz highlight, não filtro.
+  // KANBAN partilhado por mview e vcards. Procura faz highlight, não filtro.
   const term = SEARCH.value || '';
   const allOps = DATA.filter(o => o.maquina === 'KANBAN').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   renderKanbanInto('col-kanban-mview', 'count-kanban-mview', allOps, term);
+  if (document.getElementById('col-kanban-vcards')) {
+    renderKanbanInto('col-kanban-vcards', 'count-kanban-vcards', allOps, term);
+  }
 }
 function renderKanbanInto(containerId, countId, ops, term) {
   const c = document.getElementById(containerId);
@@ -3171,7 +3188,7 @@ function setupZoneDropTarget(zone) {
     e.preventDefault();
     zone.classList.remove('drag-target');
     if (!draggedOp) return;
-    if (e.target.closest('tr.row-data')) return;
+    if (e.target.closest('tr.row-data') || e.target.closest('.vc-card')) return;
     // Se a sub-zona pertence a um DIA específico, calcular o diaIdx (0=Seg..6=Dom)
     const dayKey = zone.dataset.dayKey;
     let diaIdx = null;
@@ -4182,7 +4199,7 @@ function renderCardsView() {
     const dk = fmtDate(date);
     if (dow === 0 && !byDay[dk]) continue;
     const diaSem = (dow + 6) % 7;
-    const diaNome = DIAS_PT_SHORT[diaSem] || '';
+    const diaNome = DIAS_PT[diaSem] || '';
     const ehFds = diaSem === 5 || diaSem === 6;
     const isClosed = isDayClosed(dk);
     const row = document.createElement('div');
@@ -4207,7 +4224,13 @@ function renderCardsView() {
       cell.className = 'vc-cell' + (isClosed ? ' closed' : '');
       cell.style.height = cellHeight + 'px';
       cell.style.position = 'relative';
+      cell.dataset.dayKey = dk;
+      cell.dataset.machine = machine;
+      // weekKey deste dia
+      const _wk = weekKey(date);
+      cell.dataset.weekKey = _wk;
       cell.innerHTML = '<div class="vc-cell-header">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
+      if (!isReadOnly()) setupZoneDropTarget(cell);
       const items = (byDay[dk] && byDay[dk][machine]) || [];
       for (const it of items) {
         const card = buildVcCard(it, shift, pxh, searchTerm);
@@ -4232,12 +4255,16 @@ function buildVcCard(it, shift, pxh, searchTerm) {
   const topH = shift ? ((start - shift.start) / 3600000) : 0;
   const card = document.createElement('div');
   card.className = 'vc-card';
-  if ((it.segIdx || 0) > 0) card.classList.add('seg-cont');
+  const isFirstSeg = (it.segIdx || 0) === 0;
+  if (!isFirstSeg) card.classList.add('seg-cont');
   card.style.position = 'absolute';
   card.style.left = '4px';
   card.style.right = '4px';
   card.style.top = Math.max(0, topH * pxh) + 'px';
   card.style.height = Math.max(30, segH * pxh) + 'px';
+  card.draggable = isFirstSeg && !isReadOnly();
+  card.dataset.id = op.id;
+  card.dataset.seg = it.segIdx || 0;
   if (searchTerm && matchesSearch(op, searchTerm)) {
     card.style.background = '#39ff14';
     card.style.borderLeftColor = '#006400';
@@ -4255,6 +4282,7 @@ function buildVcCard(it, shift, pxh, searchTerm) {
   const segLabel = (it.totalSegs > 1) ? (' <small style="color:var(--c-muted);font-weight:normal">(' + ((it.segIdx || 0) + 1) + '/' + it.totalSegs + ')</small>') : '';
   const estadoOpts = DENS_ESTADOS.map(s => '<option ' + (s === op.estado ? 'selected' : '') + '>' + s + '</option>').join('');
   card.innerHTML =
+    (isFirstSeg && !isReadOnly() ? '<span class="vc-card-handle" title="Arrastar">⋮⋮</span>' : '') +
     '<div class="vc-c-head">' +
       '<span class="vc-c-op">' + (op.op || '') + segLabel + '</span>' +
       '<span class="vc-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + ' rolhas</span>' +
@@ -4299,6 +4327,7 @@ function buildVcCard(it, shift, pxh, searchTerm) {
     saveOneOp(target).catch(() => {});
     rerender();
   });
+  if (card.draggable) setupRowDragHandlers(card, op);
   return card;
 }
 function updateMonthLabel() {
