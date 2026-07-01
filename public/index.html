@@ -487,6 +487,31 @@
   .vc-cell.drag-target { outline: 2px dashed var(--c-primary); outline-offset: -3px; }
   .vc-card-handle { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #9aa0a6; cursor: grab; user-select: none; }
   body.profile-producao .vc-card-handle { display: none; }
+  /* Cor por estado — border esquerda do cartão */
+  .vc-card[data-estado="Aberto"]                { border-left-color: #b0b7c0; }
+  .vc-card[data-estado="Liberada"]              { border-left-color: var(--st-pi-liberado); }
+  .vc-card[data-estado="Entregue Logística"]    { border-left-color: var(--st-pi-entregue-log); }
+  .vc-card[data-estado="CSP2-AI por liberar"]   { border-left-color: var(--st-csp2-por-liberar); }
+  .vc-card[data-estado="CSP2-AI liberada"]      { border-left-color: var(--st-csp2-liberada); }
+  .vc-card[data-estado="Em Processo"]           { border-left-color: var(--st-em-processo); }
+  .vc-card[data-estado="Terminada"]             { border-left-color: var(--st-terminada); }
+  .vc-card[data-estado="Concluída Planeamento"] { border-left-color: var(--st-concluida-plan); }
+  /* Zebra suave — alterna backgrounds nos cartões */
+  .vc-card.vc-alt { background: #f2f4ef; }
+  .vc-card.vc-alt:hover { background: #eaf0e0; }
+  /* Título da máquina + barra de turno dentro da célula */
+  .vc-cell-title {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--c-primary); color: #fff;
+    padding: 3px 8px; font-size: 10px; font-weight: 600;
+    border-radius: 3px 3px 0 0;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    position: sticky; top: 0; z-index: 2;
+    margin: -3px -3px 4px -3px;
+  }
+  .vc-cell-title .vc-mach-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vc-cell-title .vc-shift-info { font-size: 9px; opacity: 0.9; font-weight: 500; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .vc-cell-title .vc-shift-info .vc-tag { background: rgba(255,255,255,0.15); padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
   .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
   .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
   .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
@@ -4176,20 +4201,7 @@ function renderCardsView() {
       byDay[dk][machine].push(it);
     }
   }
-  // Cabeçalho
-  const headerRow = document.createElement('div');
-  headerRow.className = 'vc-row';
-  headerRow.style.setProperty('--machines', MACHINES.length);
-  const spacer = document.createElement('div');
-  spacer.className = 'vc-cell machine-header';
-  headerRow.appendChild(spacer);
-  for (const machine of MACHINES) {
-    const mh = document.createElement('div');
-    mh.className = 'vc-cell machine-header';
-    mh.innerHTML = '<div class="vc-machine-title">' + machine + '</div>';
-    headerRow.appendChild(mh);
-  }
-  container.appendChild(headerRow);
+  // (cabeçalho global de máquinas removido — cada célula tem o seu próprio título)
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayKey = fmtDate(new Date());
   const searchTerm = SEARCH.value || '';
@@ -4229,12 +4241,30 @@ function renderCardsView() {
       // weekKey deste dia
       const _wk = weekKey(date);
       cell.dataset.weekKey = _wk;
-      cell.innerHTML = '<div class="vc-cell-header">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
+      // Título com nome da máquina + barra de turno (turno, almoço, jantar)
+      let shiftInfoHtml = '';
+      if (shift) {
+        shiftInfoHtml += '<span class="vc-tag">🕐 ' + _fmtHmFromMs(shift.start) + '→' + _fmtHmFromMs(shift.end) + '</span>';
+      }
+      // Refeições da máquina para este dia
+      const _meals = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
+      for (const meal of _meals) {
+        const icon = (meal.label && meal.label.toLowerCase().startsWith('jantar')) ? '🌙' : '🍴';
+        shiftInfoHtml += '<span class="vc-tag">' + icon + ' ' + _fmtHmFromMs(meal.start) + '→' + _fmtHmFromMs(meal.end) + '</span>';
+      }
+      cell.innerHTML =
+        '<div class="vc-cell-title">' +
+          '<span class="vc-mach-name">' + machine + '</span>' +
+          '<span class="vc-shift-info">' + shiftInfoHtml + '</span>' +
+        '</div>' +
+        '<div class="vc-cell-header">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
       if (!isReadOnly()) setupZoneDropTarget(cell);
       const items = (byDay[dk] && byDay[dk][machine]) || [];
+      let _vcAltIdxLocal = 0;
       for (const it of items) {
-        const card = buildVcCard(it, shift, pxh, searchTerm);
+        const card = buildVcCard(it, shift, pxh, searchTerm, _vcAltIdxLocal);
         cell.appendChild(card);
+        _vcAltIdxLocal++;
       }
       row.appendChild(cell);
     }
@@ -4247,7 +4277,7 @@ function renderCardsView() {
     container.appendChild(empty);
   }
 }
-function buildVcCard(it, shift, pxh, searchTerm) {
+function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx) {
   const op = it.op;
   const start = it.start, end = it.end;
   const segMs = end - start;
@@ -4265,6 +4295,9 @@ function buildVcCard(it, shift, pxh, searchTerm) {
   card.draggable = isFirstSeg && !isReadOnly();
   card.dataset.id = op.id;
   card.dataset.seg = it.segIdx || 0;
+  card.dataset.estado = op.estado || 'Aberto';
+  // Zebra: alternar via índice do cartão dentro da célula (passado via param opcional)
+  if (typeof _vcAltIdx !== 'undefined' && _vcAltIdx % 2 === 1) card.classList.add('vc-alt');
   if (searchTerm && matchesSearch(op, searchTerm)) {
     card.style.background = '#39ff14';
     card.style.borderLeftColor = '#006400';
