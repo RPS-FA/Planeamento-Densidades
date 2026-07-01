@@ -506,7 +506,6 @@
     padding: 3px 8px; font-size: 10px; font-weight: 600;
     border-radius: 3px 3px 0 0;
     text-transform: uppercase; letter-spacing: 0.4px;
-    position: sticky; top: 0; z-index: 2;
     margin: -3px -3px 4px -3px;
   }
   .vc-cell-title .vc-mach-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -514,6 +513,15 @@
   .vc-cell-title .vc-shift-info .vc-tag { background: rgba(255,255,255,0.15); padding: 1px 4px; border-radius: 2px; margin-left: 3px; display: inline-flex; align-items: center; gap: 2px; }
   .vc-cell-title .vc-shift-info .vc-tag input[type="time"] { background: #fff; color: #1f2d20; border: none; border-radius: 2px; font-size: 9px; padding: 0 2px; width: 58px; font-family: inherit; }
   .vc-cell-title .vc-shift-info .vc-tag input[type="time"]:hover { background: #f2f4ef; }
+  .vc-cell-title .vc-shift-info .vc-turno-ok {
+    background: #fff; color: var(--c-primary);
+    border: 1px solid #cbd5c0; border-radius: 2px;
+    padding: 1px 8px; font-size: 10px; font-weight: 700;
+    cursor: pointer; margin-left: 6px;
+    font-family: inherit;
+  }
+  .vc-cell-title .vc-shift-info .vc-turno-ok:hover { background: #f2f4ef; }
+  .vc-cell-title .vc-shift-info .vc-turno-ok:active { background: #e2ead9; }
   .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
   .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
   .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
@@ -4254,21 +4262,22 @@ function renderCardsView() {
       const _almFim = tMaq.almocoFim || '';
       const _janIni = tMaq.jantarIni || '';
       const _janFim = tMaq.jantarFim || '';
-      const _ro = isReadOnly() ? ' disabled' : '';
+      // Turnos e refeições são editáveis em ambos perfis (a whitelist do servidor permite)
       const editableShift =
         '<span class="dms-turno vc-inline-turno" data-day="' + dk + '" data-machine="' + machine + '">' +
           '<span class="vc-tag" title="Turno">🕐 ' +
-            '<input type="time" data-field="ini" value="' + _turnoIni + '"' + _ro + '>–' +
-            '<input type="time" data-field="fim" value="' + _turnoFim + '"' + _ro + '>' +
+            '<input type="time" data-field="ini" value="' + _turnoIni + '">–' +
+            '<input type="time" data-field="fim" value="' + _turnoFim + '">' +
           '</span>' +
           '<span class="vc-tag" title="Almoço">🍴 ' +
-            '<input type="time" data-field="almocoIni" value="' + _almIni + '"' + _ro + '>–' +
-            '<input type="time" data-field="almocoFim" value="' + _almFim + '"' + _ro + '>' +
+            '<input type="time" data-field="almocoIni" value="' + _almIni + '">–' +
+            '<input type="time" data-field="almocoFim" value="' + _almFim + '">' +
           '</span>' +
           '<span class="vc-tag" title="Jantar">🌙 ' +
-            '<input type="time" data-field="jantarIni" value="' + _janIni + '"' + _ro + '>–' +
-            '<input type="time" data-field="jantarFim" value="' + _janFim + '"' + _ro + '>' +
+            '<input type="time" data-field="jantarIni" value="' + _janIni + '">–' +
+            '<input type="time" data-field="jantarFim" value="' + _janFim + '">' +
           '</span>' +
+          '<button class="vc-turno-ok" type="button" title="Confirmar horas">OK</button>' +
         '</span>';
       cell.innerHTML =
         '<div class="vc-cell-title">' +
@@ -4276,15 +4285,21 @@ function renderCardsView() {
           '<span class="vc-shift-info">' + editableShift + '</span>' +
         '</div>' +
         '<div class="vc-cell-header">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
-      // Handlers dos inputs de turno na Vista Cartões — auto-save no change
-      if (!isReadOnly()) {
-        cell.querySelectorAll('.vc-inline-turno input[type="time"]').forEach(inp => {
-          inp.addEventListener('mousedown', e => e.stopPropagation());
-          inp.addEventListener('click', e => e.stopPropagation());
-          inp.addEventListener('change', e => {
-            e.stopPropagation();
-            applyMachineTurno(dk, machine);
-          });
+      // Handlers dos inputs de turno — auto-save no change + botão OK
+      cell.querySelectorAll('.vc-inline-turno input[type="time"]').forEach(inp => {
+        inp.addEventListener('mousedown', e => e.stopPropagation());
+        inp.addEventListener('click', e => e.stopPropagation());
+        inp.addEventListener('change', e => {
+          e.stopPropagation();
+          applyMachineTurno(dk, machine);
+        });
+      });
+      const okBtn = cell.querySelector('.vc-turno-ok');
+      if (okBtn) {
+        okBtn.addEventListener('mousedown', e => e.stopPropagation());
+        okBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          applyMachineTurno(dk, machine);
         });
       }
       if (!isReadOnly()) setupZoneDropTarget(cell);
