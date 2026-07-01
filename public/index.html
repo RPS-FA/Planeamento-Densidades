@@ -476,6 +476,40 @@
   td.col-del:hover { background: #fee2e2 !important; }
   .tab-panel.settings { display: none; grid-template-columns: 1fr; padding: 16px 24px; overflow-y: auto; }
   .tab-panel.settings.active { display: block; }
+  /* Vista Cartões (experimental) */
+  .tab-panel.vcards-panel { display: none; padding: 6px 10px; overflow: hidden; flex-direction: column; }
+  .tab-panel.vcards-panel.active { display: flex; }
+  .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
+  .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
+  .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .vc-row { display: grid; grid-template-columns: 90px repeat(var(--machines,2), 1fr); gap: 6px; margin-bottom: 6px; align-items: stretch; }
+  .vc-day-label { background: linear-gradient(180deg, #f0f4ec, #e2ead9); border: 1px solid var(--c-border); border-radius: 4px; padding: 6px 8px; text-align: center; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--c-text); }
+  .vc-day-label.today { background: linear-gradient(180deg, #fff3d0, #ffde8a); border-color: #d4a017; }
+  .vc-day-label.fds { background: linear-gradient(180deg, #efe2c0, #d9c48a); }
+  .vc-day-label .vc-dow { font-size: 10px; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .vc-day-label .vc-date { font-weight: 700; font-size: 13px; margin-top: 2px; }
+  .vc-day-label .vc-shift { font-size: 9px; color: var(--c-muted); margin-top: 4px; }
+  .vc-day-label .vc-close-btn { margin-top: 4px; font-size: 9px; padding: 2px 6px; border-radius: 3px; border: 1px solid #bbb; background: #fff; cursor: pointer; }
+  .vc-day-label .vc-close-btn.closed { background: #6b7280; color: #fff; border-color: #4b5563; }
+  .vc-cell { border: 1px solid var(--c-border); border-radius: 4px; background: repeating-linear-gradient(180deg, #fafafa 0, #fafafa 30px, #f4f4f4 30px, #f4f4f4 60px); position: relative; overflow: visible; padding: 3px; }
+  .vc-cell.closed { background: #ececec; }
+  .vc-cell-header { position: absolute; top: 2px; right: 4px; font-size: 9px; color: var(--c-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; pointer-events: none; }
+  .vc-card { background: #fff; border: 1px solid #cbd5c0; border-left: 4px solid var(--c-primary); border-radius: 3px; padding: 6px 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); cursor: pointer; overflow: hidden; display: flex; flex-direction: column; gap: 3px; min-height: 30px; }
+  .vc-card:hover { background: #f7fbf1; }
+  .vc-card.seg-cont { border-left-style: dashed; opacity: 0.92; }
+  .vc-card.row-atrasada { background: #fef2f2; border-left-color: #dc2626; }
+  .vc-card .vc-c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .vc-card .vc-c-op { font-weight: 700; color: var(--c-primary); font-size: 12px; }
+  .vc-card .vc-c-qtd { font-size: 11px; color: var(--c-text); font-weight: 600; }
+  .vc-card .vc-c-desc { font-family: Consolas, monospace; font-size: 10px; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vc-card .vc-c-meta { font-size: 10px; color: var(--c-muted); }
+  .vc-card .vc-c-plan { font-size: 10px; color: #1a4020; }
+  .vc-card .vc-c-real { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 3px; font-size: 10px; }
+  .vc-card .vc-c-real label { color: var(--c-muted); font-size: 9px; display: block; }
+  .vc-card .vc-c-real input { width: 100%; padding: 2px 3px; font-size: 10px; border: 1px solid #d0d7ce; border-radius: 2px; font-family: inherit; }
+  .vc-card select.vc-c-estado { width: 100%; font-size: 10px; padding: 2px 3px; border: 1px solid #d0d7ce; border-radius: 2px; margin-top: 2px; background: #fff; }
+  .vc-machine-title { background: var(--c-primary); color: #fff; padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 3px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+  .vc-cell.machine-header { background: transparent; border: none; padding: 0; }
   .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 1200px; margin: 0 auto; }
   .settings-section { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px; padding: 14px; }
   .settings-section.full { grid-column: 1 / -1; }
@@ -681,6 +715,7 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
 
 <div class="tabs" id="tabs-bar">
   <div class="tab active" data-tab="mview" onclick="switchTab(pickDefaultTab())"><span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> Planeamento</span></div>
+  <div class="tab" data-tab="vcards" onclick="switchTab('vcards')">🧪 Vista Cartões</div>
   <div class="tab" data-tab="cfg" onclick="switchTab('cfg')">⚙ Configurações</div>
 </div>
 </div>
@@ -700,6 +735,30 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
 
 <!-- Painéis mensais (m05..m12) são injetados dinamicamente por buildMonthlyTabs() -->
 <div id="monthly-panels"></div>
+
+<!-- Vista Cartões (alternativa vertical, experimental) -->
+<div class="tab-panel vcards-panel" id="panel-vcards">
+  <div class="vc-toolbar">
+    <div class="left">
+      <div class="search-box">
+        <input type="text" id="search-vcards" placeholder="Procurar OP, cliente, PO, produto..." oninput="onSearch('vcards', this.value)">
+        <button class="clear-btn" onclick="clearSearch('vcards')" title="Limpar">×</button>
+      </div>
+    </div>
+    <div class="right">
+      <div class="month-nav">
+        <button onclick="prevMonth()" title="Mês anterior">◀</button>
+        <span class="label" id="vc-month-label">—</span>
+        <button onclick="nextMonth()" title="Próximo mês">▶</button>
+        <button onclick="goToCurrentMonth()" style="margin-left:6px" title="Mês actual">Hoje</button>
+      </div>
+      <label style="font-size:11px;margin-left:8px;color:var(--c-muted)">
+        px/h: <input type="number" id="vc-pxh" min="20" max="200" value="60" style="width:56px" onchange="renderCardsView()">
+      </label>
+    </div>
+  </div>
+  <div class="vc-scroll" id="vc-scroll"></div>
+</div>
 
 <!-- Configurações -->
 <div class="tab-panel settings" id="panel-cfg">
@@ -1783,14 +1842,18 @@ function formatHitsPill(term) {
 
 function onSearch(tab, value) {
   SEARCH.value = (value || '').trim().toLowerCase();
-  const inp = document.getElementById('search-mview');
-  if (inp && inp.value !== value) inp.value = value;
+  const inp1 = document.getElementById('search-mview');
+  if (inp1 && inp1.value !== value) inp1.value = value;
+  const inp2 = document.getElementById('search-vcards');
+  if (inp2 && inp2.value !== value) inp2.value = value;
   rerender();
 }
 function clearSearch(/* tab */) {
   SEARCH.value = '';
-  const inp = document.getElementById('search-mview');
-  if (inp) inp.value = '';
+  const inp1 = document.getElementById('search-mview');
+  if (inp1) inp1.value = '';
+  const inp2 = document.getElementById('search-vcards');
+  if (inp2) inp2.value = '';
   rerender();
 }
 
@@ -3993,9 +4056,10 @@ function buildMonthlyTabs() {
 
 function switchTab(which) {
   ACTIVE_TAB = which;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === (which === 'cfg' ? 'cfg' : 'mview')));
+  const activeTabKey = (which === 'cfg') ? 'cfg' : (which === 'vcards') ? 'vcards' : 'mview';
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTabKey));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const panelId = (which === 'cfg') ? 'panel-cfg' : 'panel-mview';
+  const panelId = (which === 'cfg') ? 'panel-cfg' : (which === 'vcards') ? 'panel-vcards' : 'panel-mview';
   const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
   if (MONTHLY_TABS.some(t => t.key === which)) {
@@ -4003,6 +4067,12 @@ function switchTab(which) {
     if (inp) inp.value = SEARCH.value || '';
     updateMonthLabel();
     rerender();
+  }
+  if (which === 'vcards') {
+    const inp = document.getElementById('search-vcards');
+    if (inp) inp.value = SEARCH.value || '';
+    updateMonthLabel();
+    renderCardsView();
   }
 }
 
@@ -4021,6 +4091,7 @@ function rerender() {
   if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
     renderMonth(ACTIVE_TAB);
   }
+  if (ACTIVE_TAB === 'vcards') renderCardsView();
   updateMonthLabel();
 }
 
@@ -4049,12 +4120,195 @@ function goToCurrentMonth() {
   }, 80);
 }
 
+// ============================================================
+// Vista Cartões (experimental) — layout vertical proporcional
+// ============================================================
+function _fmtHmFromMs(dt) {
+  if (!(dt instanceof Date)) return '';
+  return String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+}
+function renderCardsView() {
+  const container = document.getElementById('vc-scroll');
+  if (!container) return;
+  container.innerHTML = '';
+  const pxhInput = document.getElementById('vc-pxh');
+  const pxh = Math.max(20, Math.min(200, parseInt(pxhInput && pxhInput.value, 10) || 60));
+  const monthTabKey = MONTHLY_TABS.some(t => t.key === ACTIVE_TAB) ? ACTIVE_TAB : pickDefaultTab();
+  const tabDef = MONTHLY_TABS.find(t => t.key === monthTabKey);
+  if (!tabDef) return;
+  const year = MONTHLY_YEAR;
+  const month = tabDef.month;
+  const weeks = getWeeksInMonth(year, month);
+  const weeksExt = (() => {
+    const firstMon = weeks[0].monday;
+    const prev = new Date(firstMon); prev.setDate(prev.getDate() - 7);
+    return [{ key: weekKey(prev), monday: prev }, ...weeks];
+  })();
+  const schedByMachine = {};
+  for (const machine of MACHINES) {
+    schedByMachine[machine] = calcScheduleForMachineRange(machine, weeksExt);
+  }
+  const byDay = {};
+  for (const machine of MACHINES) {
+    for (const it of schedByMachine[machine]) {
+      if (!it.start || isNaN(it.start)) continue;
+      if (it.start.getFullYear() !== year || it.start.getMonth() !== month) continue;
+      const dk = fmtDate(it.start);
+      if (!byDay[dk]) byDay[dk] = {};
+      if (!byDay[dk][machine]) byDay[dk][machine] = [];
+      byDay[dk][machine].push(it);
+    }
+  }
+  // Cabeçalho
+  const headerRow = document.createElement('div');
+  headerRow.className = 'vc-row';
+  headerRow.style.setProperty('--machines', MACHINES.length);
+  const spacer = document.createElement('div');
+  spacer.className = 'vc-cell machine-header';
+  headerRow.appendChild(spacer);
+  for (const machine of MACHINES) {
+    const mh = document.createElement('div');
+    mh.className = 'vc-cell machine-header';
+    mh.innerHTML = '<div class="vc-machine-title">' + machine + '</div>';
+    headerRow.appendChild(mh);
+  }
+  container.appendChild(headerRow);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = fmtDate(new Date());
+  const searchTerm = SEARCH.value || '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dow = date.getDay();
+    const dk = fmtDate(date);
+    if (dow === 0 && !byDay[dk]) continue;
+    const diaSem = (dow + 6) % 7;
+    const diaNome = DIAS_PT_SHORT[diaSem] || '';
+    const ehFds = diaSem === 5 || diaSem === 6;
+    const isClosed = isDayClosed(dk);
+    const row = document.createElement('div');
+    row.className = 'vc-row';
+    row.style.setProperty('--machines', MACHINES.length);
+    row.dataset.dayKey = dk;
+    const dayLbl = document.createElement('div');
+    dayLbl.className = 'vc-day-label' + (dk === todayKey ? ' today' : '') + (ehFds ? ' fds' : '');
+    const refShift = getShiftRangeForDate(date, MACHINES[0]);
+    const shiftInfo = refShift ? (_fmtHmFromMs(refShift.start) + '-' + _fmtHmFromMs(refShift.end)) : '—';
+    dayLbl.innerHTML = '<div class="vc-dow">' + diaNome + '</div>' +
+      '<div class="vc-date">' + pad(d) + '/' + pad(month + 1) + '</div>' +
+      '<div class="vc-shift">' + shiftInfo + '</div>' +
+      '<button class="vc-close-btn ' + (isClosed ? 'closed' : '') + '" onclick="onDayClosedToggle(\'' + dk + '\')">' + (isClosed ? 'Aberto' : 'Fechar') + '</button>';
+    row.appendChild(dayLbl);
+    for (const machine of MACHINES) {
+      const shift = getShiftRangeForDate(date, machine);
+      const shiftMs = shift ? (shift.end - shift.start) : 0;
+      const shiftH = shiftMs / 3600000;
+      const cellHeight = Math.max(60, shiftH * pxh);
+      const cell = document.createElement('div');
+      cell.className = 'vc-cell' + (isClosed ? ' closed' : '');
+      cell.style.height = cellHeight + 'px';
+      cell.style.position = 'relative';
+      cell.innerHTML = '<div class="vc-cell-header">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
+      const items = (byDay[dk] && byDay[dk][machine]) || [];
+      for (const it of items) {
+        const card = buildVcCard(it, shift, pxh, searchTerm);
+        cell.appendChild(card);
+      }
+      row.appendChild(cell);
+    }
+    container.appendChild(row);
+  }
+  if (container.children.length <= 1) {
+    const empty = document.createElement('div');
+    empty.style.textAlign = 'center'; empty.style.padding = '30px'; empty.style.color = 'var(--c-muted)';
+    empty.textContent = 'Sem dias úteis neste mês';
+    container.appendChild(empty);
+  }
+}
+function buildVcCard(it, shift, pxh, searchTerm) {
+  const op = it.op;
+  const start = it.start, end = it.end;
+  const segMs = end - start;
+  const segH = segMs / 3600000;
+  const topH = shift ? ((start - shift.start) / 3600000) : 0;
+  const card = document.createElement('div');
+  card.className = 'vc-card';
+  if ((it.segIdx || 0) > 0) card.classList.add('seg-cont');
+  card.style.position = 'absolute';
+  card.style.left = '4px';
+  card.style.right = '4px';
+  card.style.top = Math.max(0, topH * pxh) + 'px';
+  card.style.height = Math.max(30, segH * pxh) + 'px';
+  if (searchTerm && matchesSearch(op, searchTerm)) {
+    card.style.background = '#39ff14';
+    card.style.borderLeftColor = '#006400';
+  }
+  const dk = fmtDate(start);
+  const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
+  const hIniR = rpd.hIniR || '';
+  const hFimR = rpd.hFimR || '';
+  const atrasoStr = rpd.tempoAtraso || (it.totalSegs === 1 ? (op.tempoAtraso || '') : '');
+  if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
+    const [ah, am] = atrasoStr.split(':').map(Number);
+    if ((ah * 60 + am) > 0) card.classList.add('row-atrasada');
+  }
+  const qtdSeg = (it.qtdSeg != null) ? it.qtdSeg : (op.qtdEntrada || 0);
+  const segLabel = (it.totalSegs > 1) ? (' <small style="color:var(--c-muted);font-weight:normal">(' + ((it.segIdx || 0) + 1) + '/' + it.totalSegs + ')</small>') : '';
+  const estadoOpts = DENS_ESTADOS.map(s => '<option ' + (s === op.estado ? 'selected' : '') + '>' + s + '</option>').join('');
+  card.innerHTML =
+    '<div class="vc-c-head">' +
+      '<span class="vc-c-op">' + (op.op || '') + segLabel + '</span>' +
+      '<span class="vc-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + ' rolhas</span>' +
+    '</div>' +
+    '<div class="vc-c-desc" title="' + (op.produto || '') + '">' + (op.produto || '') + '</div>' +
+    '<div class="vc-c-meta">' + (op.fileCliente || '') + ' · ' + (op.calibre || '') + '</div>' +
+    '<div class="vc-c-plan">⏱ ' + _fmtHmFromMs(start) + ' → ' + _fmtHmFromMs(end) + ' · ' + segH.toFixed(2) + 'h</div>' +
+    '<div class="vc-c-real">' +
+      '<div><label>Início Real</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hIniR" value="' + hIniR + '"></div>' +
+      '<div><label>Fim Real</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hFimR" value="' + hFimR + '"></div>' +
+      '<div><label>Atraso</label><input type="text" placeholder="HH:MM" data-op="' + op.id + '" data-day="' + dk + '" data-field="tempoAtraso" value="' + atrasoStr + '" style="text-align:center"></div>' +
+    '</div>' +
+    '<select class="vc-c-estado" data-op="' + op.id + '">' + estadoOpts + '</select>';
+  card.addEventListener('click', e => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'button' || tag === 'option' || tag === 'label') return;
+    if (e.target.closest('.vc-c-real') || e.target.closest('.vc-c-estado')) return;
+    openModal(op, dk);
+  });
+  card.querySelectorAll('.vc-c-real input').forEach(inp => {
+    inp.addEventListener('change', e => {
+      e.stopPropagation();
+      const id = parseInt(e.target.dataset.op, 10);
+      const dayKey = e.target.dataset.day;
+      const field = e.target.dataset.field;
+      const val = e.target.value;
+      const target = DATA.find(o => o.id === id);
+      if (!target) return;
+      if (!target.realPorDia) target.realPorDia = {};
+      if (!target.realPorDia[dayKey]) target.realPorDia[dayKey] = {};
+      target.realPorDia[dayKey][field] = val;
+      saveOneOp(target).catch(() => {});
+      rerender();
+    });
+  });
+  card.querySelector('.vc-c-estado').addEventListener('change', e => {
+    e.stopPropagation();
+    const id = parseInt(e.target.dataset.op, 10);
+    const target = DATA.find(o => o.id === id);
+    if (!target) return;
+    target.estado = e.target.value;
+    saveOneOp(target).catch(() => {});
+    rerender();
+  });
+  return card;
+}
 function updateMonthLabel() {
-  const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
+  const keyForMonth = MONTHLY_TABS.some(t => t.key === ACTIVE_TAB) ? ACTIVE_TAB : pickDefaultTab();
+  const t = MONTHLY_TABS.find(t => t.key === keyForMonth);
+  const label = t ? ((MONTHS_PT_LONG[t.month] || '') + ' ' + MONTHLY_YEAR) : '—';
   const el = document.getElementById('month-label');
-  if (!el) return;
-  if (t) el.textContent = (MONTHS_PT_LONG[t.month] || '') + ' ' + MONTHLY_YEAR;
-  else el.textContent = '—';
+  if (el) el.textContent = label;
+  const elVc = document.getElementById('vc-month-label');
+  if (elVc) elVc.textContent = label;
   const idx = MONTHLY_TABS.findIndex(x => x.key === ACTIVE_TAB);
   const btns = document.querySelectorAll('.month-nav button');
   if (btns.length >= 3) {
