@@ -366,15 +366,15 @@
   .day-machine-subzone.empty-zone:hover { background: #eef5e6; border-color: var(--c-primary); }
   .dms-plan-here {
     margin: 4px 8px 6px;
-    background: repeating-linear-gradient(135deg, #f4f7ef 0 8px, #eaf0e0 8px 16px);
-    border: 1px dashed #bbc7ad; border-radius: 3px;
+    background: repeating-linear-gradient(135deg, #e8f0f9 0 8px, #d8e5f2 8px 16px);
+    border: 1px dashed #7a9dc7; border-radius: 3px;
     padding: 6px; text-align: center;
-    color: #5a6a4a; font-size: 11px; font-weight: 700;
+    color: #385a83; font-size: 11px; font-weight: 700;
     letter-spacing: 0.4px; text-transform: uppercase;
     cursor: default;
   }
   .dms-plan-here .dms-plan-livre {
-    color: #1a4020; font-weight: 700; font-size: 12px;
+    color: #1e4a80; font-weight: 700; font-size: 12px;
     text-transform: none; letter-spacing: 0; margin-left: 6px;
   }
   .day-machine-subzone.empty-zone.drag-target {
@@ -588,17 +588,17 @@
   }
   .vc-plan-here {
     position: absolute; left: 4px; right: 4px;
-    background: repeating-linear-gradient(135deg, #f4f7ef 0 8px, #eaf0e0 8px 16px);
-    border: 1px dashed #bbc7ad; border-radius: 3px;
+    background: repeating-linear-gradient(135deg, #e8f0f9 0 8px, #d8e5f2 8px 16px);
+    border: 1px dashed #7a9dc7; border-radius: 3px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 4px;
-    color: #5a6a4a; font-size: 11px; font-weight: 700;
+    color: #385a83; font-size: 11px; font-weight: 700;
     letter-spacing: 0.4px; text-transform: uppercase;
     cursor: default; min-height: 24px;
     z-index: 1;
   }
-  .vc-plan-here .vc-plan-livre { color: #1a4020; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
-  .vc-plan-here.drag-target { background: #eaf3d8; border-color: var(--c-primary); }
+  .vc-plan-here .vc-plan-livre { color: #1e4a80; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+  .vc-plan-here.drag-target { background: #cee0f3; border-color: #365F91; }
   .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 1200px; margin: 0 auto; }
   .settings-section { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px; padding: 14px; }
   .settings-section.full { grid-column: 1 / -1; }
@@ -3064,10 +3064,7 @@ function renderDayMachineSubzone(dayKey, machine, items) {
 
   const head = document.createElement('div');
   head.className = 'dms-header occ-' + occMaq + (items.length === 0 ? ' empty' : '');
-  const dispLabel = capDiaMaq > 0
-    ? `${items.length} OP${items.length === 1 ? '' : 's'} · Disponível: <strong>${Math.round(livreMaq).toLocaleString('pt-PT')}</strong> rolhas`
-    : `${items.length} OP${items.length === 1 ? '' : 's'}`;
-  const metaTxt = `<span class="dms-meta">${dispLabel}</span>`;
+  const metaTxt = '';
   // Inputs de turno + almoço + jantar específicos da máquina
   const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
   const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:6px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px; flex-wrap:wrap">
