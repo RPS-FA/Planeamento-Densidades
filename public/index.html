@@ -585,6 +585,104 @@
   .vc-machine-title { background: #365F91; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 700; border-radius: 3px; text-align: center; text-transform: uppercase; letter-spacing: 0.6px; }
   .vc-cell.machine-header { background: transparent; border: none; padding: 0; }
   .vc-header-row { position: sticky; top: 0; z-index: 5; background: var(--c-bg); padding-bottom: 4px; }
+  /* ===== Vista Cartões V2 — bloco por dia com máquinas empilhadas + dia à direita ===== */
+  .vc2-day-block {
+    display: grid; grid-template-columns: 1fr 100px; gap: 6px;
+    margin-bottom: 12px;
+    background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px;
+    overflow: hidden;
+  }
+  .vc2-day-block.fds { border-color: #d4a017; }
+  .vc2-day-block.today { border-color: #86C47A; box-shadow: 0 0 0 2px rgba(134,196,122,0.25); }
+  .vc2-day-block.closed { opacity: 0.55; }
+  .vc2-machines { display: flex; flex-direction: column; }
+  .vc2-machine {
+    background: #fff; border-bottom: 1px solid var(--c-grid);
+  }
+  .vc2-machine:last-child { border-bottom: none; }
+  .vc2-mach-head {
+    display: flex; align-items: center; gap: 12px;
+    background: #eef2eb; padding: 5px 10px;
+    font-size: 11px; font-weight: 700; color: var(--c-primary);
+    border-left: 4px solid var(--c-primary);
+  }
+  .vc2-mach-name { font-size: 12px; }
+  .vc2-inline-turno { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 10px; font-weight: 500; color: #333; }
+  .vc2-inline-turno .vc-tag { display: inline-flex; align-items: center; gap: 3px; background: #fff; padding: 1px 4px; border: 1px solid var(--c-grid); border-radius: 3px; }
+  .vc2-inline-turno .vc-tag input[type="time"] { border: none; font-size: 10px; padding: 0 2px; width: 60px; background: transparent; font-family: inherit; }
+  .vc2-inline-turno .vc-turno-ok { font-size: 10px; padding: 2px 8px; background: #fff; color: var(--c-primary); border: 1px solid var(--c-grid); border-radius: 3px; cursor: pointer; font-weight: 700; font-family: inherit; }
+  .vc2-inline-turno .vc-turno-ok.dirty { background: #ffde8a; color: #4d3800; border-color: #d4a017; }
+  .vc2-op-list { display: flex; flex-direction: column; }
+  .vc2-op-card {
+    display: grid; grid-template-columns: 20px 1fr; gap: 4px;
+    padding: 6px 8px; border-bottom: 1px solid #eee;
+    cursor: pointer; align-items: start;
+    position: relative;
+  }
+  .vc2-op-card:hover { background: #f7fbf1; }
+  .vc2-op-card.vc2-alt { background: #fafbf7; }
+  .vc2-op-card.vc2-alt:hover { background: #eef5e2; }
+  .vc2-op-card.vc2-atrasada { background: #fef2f2; }
+  .vc2-op-card.vc2-match { background: #d1f0c2; }
+  .vc2-op-card.dragging { opacity: 0.4; }
+  .vc2-handle { color: #9aa0a6; cursor: grab; user-select: none; font-size: 12px; padding-top: 2px; }
+  body.profile-producao .vc2-handle { display: none; }
+  .vc2-handle-space { width: 20px; }
+  .vc2-op-card[data-estado="Aberto"]                { border-left: 4px solid #b0b7c0; }
+  .vc2-op-card[data-estado="Liberada"]              { border-left: 4px solid var(--st-pi-liberado); }
+  .vc2-op-card[data-estado="Entregue Logística"]    { border-left: 4px solid var(--st-pi-entregue-log); }
+  .vc2-op-card[data-estado="CSP2-AI por liberar"]   { border-left: 4px solid var(--st-csp2-por-liberar); }
+  .vc2-op-card[data-estado="CSP2-AI liberada"]      { border-left: 4px solid var(--st-csp2-liberada); }
+  .vc2-op-card[data-estado="Em Processo"]           { border-left: 4px solid var(--st-em-processo); }
+  .vc2-op-card[data-estado="Terminada"]             { border-left: 4px solid var(--st-terminada); }
+  .vc2-op-card[data-estado="Concluída Planeamento"] { border-left: 4px solid var(--st-concluida-plan); }
+  .vc2-line { display: grid; align-items: center; column-gap: 8px; font-size: 11px; }
+  .vc2-line1 {
+    grid-template-columns: 100px 130px 130px minmax(180px, 1.5fr) 60px 80px 1fr 130px;
+    font-weight: 600;
+  }
+  .vc2-line2 {
+    grid-template-columns: 1fr 130px 110px 110px 110px 18px;
+    color: var(--c-muted); margin-top: 3px;
+  }
+  .vc2-c-op { color: var(--c-primary); font-weight: 700; font-size: 12px; }
+  .vc2-c-estado { font-size: 10px; padding: 1px 4px; height: 20px; }
+  .vc2-c-fc, .vc2-c-prod, .vc2-c-obspi { font-family: Consolas, monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vc2-c-obspi { font-style: italic; color: #7a5a00; }
+  .vc2-c-qtd { font-weight: 700; text-align: right; }
+  .vc2-c-qtd small { color: var(--c-muted); font-weight: 500; }
+  .vc2-c-plan { color: #1a4020; font-weight: 600; }
+  .vc2-c-realIni, .vc2-c-realFim, .vc2-c-atraso { display: flex; flex-direction: column; }
+  .vc2-c-realIni label, .vc2-c-realFim label, .vc2-c-atraso label { font-size: 9px; color: var(--c-muted); }
+  .vc2-c-realIni input, .vc2-c-realFim input, .vc2-c-atraso input { border: 1px solid #d0d7ce; border-radius: 2px; padding: 1px 3px; font-size: 10px; font-family: inherit; }
+  .vc2-c-del { text-align: center; color: #dc2626; font-weight: 700; cursor: pointer; padding: 2px; }
+  .vc2-c-del:hover { background: #fee; }
+  .vc2-plan-here {
+    margin: 4px 8px 6px;
+    background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
+    border: 1px dashed #b7cbe1; border-radius: 3px;
+    padding: 6px; text-align: center;
+    color: #6a80a0; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    cursor: default;
+  }
+  .vc2-plan-here.drag-target { background: #cee0f3 !important; border-color: #365F91; }
+  .vc2-plan-here .vc2-plan-livre { color: #365F91; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  .vc2-machine.drag-target { background: #eaf3fb; outline: 2px dashed #365F91; outline-offset: -2px; }
+  /* Coluna direita: label do dia */
+  .vc2-day-side {
+    background: linear-gradient(180deg, #f0f4ec, #e2ead9);
+    border-left: 1px solid var(--c-border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8px 4px; text-align: center;
+    gap: 4px;
+  }
+  .vc2-day-block.today .vc2-day-side { background: linear-gradient(180deg, #fff3d0, #ffde8a); }
+  .vc2-day-block.fds .vc2-day-side { background: linear-gradient(180deg, #efe2c0, #d9c48a); }
+  .vc2-dow { font-size: 10px; text-transform: uppercase; color: var(--c-muted); letter-spacing: 0.5px; font-weight: 600; }
+  .vc2-date { font-size: 15px; font-weight: 800; color: var(--c-primary); }
+  .vc2-day-side .vc-close-btn { font-size: 10px; padding: 3px 8px; border-radius: 3px; border: 1px solid #bbb; background: #fff; cursor: pointer; font-family: inherit; }
+  .vc2-day-side .vc-close-btn.closed { background: #6b7280; color: #fff; border-color: #4b5563; }
   .vc-turnos-sel { position: absolute; top: 4px; left: 4px; right: 4px; z-index: 2; }
   .vc-turnos-sel select {
     width: 100%; padding: 3px 6px; font-size: 11px;
@@ -4349,8 +4447,6 @@ function renderCardsView() {
   const container = document.getElementById('vc-scroll');
   if (!container) return;
   container.innerHTML = '';
-  const pxhInput = document.getElementById('vc-pxh');
-  const pxh = Math.max(20, Math.min(200, parseInt(pxhInput && pxhInput.value, 10) || 60));
   const monthTabKey = MONTHLY_TABS.some(t => t.key === ACTIVE_TAB) ? ACTIVE_TAB : pickDefaultTab();
   const tabDef = MONTHLY_TABS.find(t => t.key === monthTabKey);
   if (!tabDef) return;
@@ -4378,27 +4474,9 @@ function renderCardsView() {
     }
   }
 
-  // Cabeçalho global — nomes das máquinas (sempre no topo)
-  const headerRow = document.createElement('div');
-  headerRow.className = 'vc-row vc-header-row';
-  headerRow.style.setProperty('--machines', MACHINES.length);
-  const spacer = document.createElement('div');
-  spacer.className = 'vc-cell machine-header';
-  headerRow.appendChild(spacer);
-  for (const machine of MACHINES) {
-    const mh = document.createElement('div');
-    mh.className = 'vc-cell machine-header';
-    mh.innerHTML = '<div class="vc-machine-title">' + machine + '</div>';
-    headerRow.appendChild(mh);
-  }
-  container.appendChild(headerRow);
-
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayKey = fmtDate(new Date());
   const searchTerm = SEARCH.value || '';
-  // Estrutura sandbox p/ numero de turnos por dia+máquina (só afecta a altura visual da célula)
-  if (!SETTINGS.numTurnos) SETTINGS.numTurnos = {};
-  const HOURS_PER_TURNO = 8;
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
@@ -4409,115 +4487,225 @@ function renderCardsView() {
     const diaNome = DIAS_PT[diaSem] || '';
     const ehFds = diaSem === 5 || diaSem === 6;
     const isClosed = isDayClosed(dk);
-    const row = document.createElement('div');
-    row.className = 'vc-row';
-    row.style.setProperty('--machines', MACHINES.length);
-    row.dataset.dayKey = dk;
 
-    // Coluna esquerda: label do dia
-    const dayLbl = document.createElement('div');
-    dayLbl.className = 'vc-day-label' + (dk === todayKey ? ' today' : '') + (ehFds ? ' fds' : '');
-    dayLbl.innerHTML =
-      '<div class="vc-day-head">' +
-        '<div class="vc-dow">' + diaNome + '</div>' +
-        '<div class="vc-date">' + pad(d) + '/' + pad(month + 1) + '</div>' +
-        '<button class="vc-close-btn ' + (isClosed ? 'closed' : '') + '" onclick="onDayClosedToggle(\'' + dk + '\')">' + (isClosed ? 'Aberto' : 'Fechar') + '</button>' +
-      '</div>';
-    row.appendChild(dayLbl);
+    const block = document.createElement('div');
+    block.className = 'vc2-day-block' + (ehFds ? ' fds' : '') + (dk === todayKey ? ' today' : '') + (isClosed ? ' closed' : '');
+    block.dataset.dayKey = dk;
 
-    // Uma célula por máquina
+    // Wrapper de máquinas (à esquerda)
+    const machinesWrap = document.createElement('div');
+    machinesWrap.className = 'vc2-machines';
     for (const machine of MACHINES) {
-      const shift = getShiftRangeForDate(date, machine);
-      // Número de turnos (default 1) — controla altura visual
-      if (!SETTINGS.numTurnos[machine]) SETTINGS.numTurnos[machine] = {};
-      const nTurnos = parseInt(SETTINGS.numTurnos[machine][dk], 10) || 1;
-      const cellUseHours = nTurnos * HOURS_PER_TURNO;
-      const cellHeight = Math.max(120, cellUseHours * pxh);
-      const cell = document.createElement('div');
-      cell.className = 'vc-cell' + (isClosed ? ' closed' : '');
-      cell.style.height = cellHeight + 'px';
-      cell.style.position = 'relative';
-      cell.dataset.dayKey = dk;
-      cell.dataset.machine = machine;
-      cell.dataset.weekKey = weekKey(date);
-      // Selector de turnos no topo
-      const selHtml =
-        '<div class="vc-turnos-sel">' +
-          '<select data-day="' + dk + '" data-machine="' + machine + '">' +
-            [1,2,3].map(n => '<option value="' + n + '"' + (n === nTurnos ? ' selected' : '') + '>' + n + ' turno' + (n>1?'s':'') + '</option>').join('') +
-          '</select>' +
-        '</div>';
-      cell.innerHTML = selHtml;
-      if (!isReadOnly()) setupZoneDropTarget(cell);
-      // Handler do selector de turnos
-      const selEl = cell.querySelector('.vc-turnos-sel select');
-      if (selEl) {
-        selEl.addEventListener('mousedown', e => e.stopPropagation());
-        selEl.addEventListener('click', e => e.stopPropagation());
-        selEl.addEventListener('change', e => {
-          e.stopPropagation();
-          if (!SETTINGS.numTurnos[machine]) SETTINGS.numTurnos[machine] = {};
-          SETTINGS.numTurnos[machine][dk] = parseInt(e.target.value, 10) || 1;
-          renderCardsView();
-        });
-      }
-
-      const items = (byDay[dk] && byDay[dk][machine]) || [];
-      let _vcAltIdxLocal = 0;
-      let _lastEnd = shift ? shift.start : null;
-      const HEADER_OFFSET = 30; // altura reservada para o selector no topo
-      for (const it of items) {
-        const card = buildVcCard(it, shift, pxh, searchTerm, _vcAltIdxLocal, HEADER_OFFSET);
-        cell.appendChild(card);
-        _vcAltIdxLocal++;
-        if (it.end && (!_lastEnd || it.end > _lastEnd)) _lastEnd = it.end;
-      }
-      // Zona PLANEAR AQUI — ocupa o resto da célula
-      if (!isClosed) {
-        const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-        const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
-        const mealsMs = (_mealsList || []).reduce((s, m) => s + (m.end - m.start), 0);
-        const shiftUsefulH = Math.max(0, cellUseHours - (mealsMs / 3600000));
-        const capTotal = krH * shiftUsefulH;
-        // Livre baseado em tempo cronológico restante (não em capacidade menos qtd planeada)
-        let livre = 0;
-        if (items.length === 0) {
-          livre = capTotal;
-        } else if (shift) {
-          const last = items[items.length - 1].end;
-          const remainMs = Math.max(0, shift.end - last);
-          const mealsAfter = _mealsList.filter(m => m.start >= last).reduce((s, m) => s + (m.end - m.start), 0);
-          livre = Math.max(0, ((remainMs - mealsAfter) / 3600000) * krH);
-        } else {
-          livre = 0;
-        }
-        const usedH = items.reduce((s, i) => s + (((i.prodMs != null) ? i.prodMs : (i.end - i.start)) / 3600000), 0);
-        const gapTopPx = HEADER_OFFSET + Math.max(0, usedH * pxh);
-        const gapHeightPx = Math.max(28, cellHeight - gapTopPx - 4);
-        if (gapHeightPx > 22) {
-          const ph = document.createElement('div');
-          ph.className = 'vc-plan-here';
-          ph.style.top = gapTopPx + 'px';
-          ph.style.height = gapHeightPx + 'px';
-          ph.dataset.dayKey = dk;
-          ph.dataset.machine = machine;
-          ph.dataset.weekKey = weekKey(date);
-          ph.innerHTML = 'PLANEAR AQUI' +
-            (livre > 0 ? '<span class="vc-plan-livre">livre ' + Math.round(livre).toLocaleString('pt-PT') + ' un</span>' : '');
-          if (!isReadOnly()) setupZoneDropTarget(ph);
-          cell.appendChild(ph);
-        }
-      }
-      row.appendChild(cell);
+      const machSec = renderVc2MachineSection(dk, machine, (byDay[dk] && byDay[dk][machine]) || [], date, searchTerm, isClosed);
+      machinesWrap.appendChild(machSec);
     }
-    container.appendChild(row);
+    block.appendChild(machinesWrap);
+
+    // Coluna direita: label do dia
+    const side = document.createElement('div');
+    side.className = 'vc2-day-side';
+    side.innerHTML =
+      '<div class="vc2-dow">' + diaNome + '</div>' +
+      '<div class="vc2-date">' + pad(d) + '/' + pad(month + 1) + '</div>' +
+      '<button class="vc-close-btn ' + (isClosed ? 'closed' : '') + '" onclick="onDayClosedToggle(\'' + dk + '\')">' + (isClosed ? 'Aberto' : 'Fechar') + '</button>';
+    block.appendChild(side);
+
+    container.appendChild(block);
   }
-  if (container.children.length <= 1) {
+  if (container.children.length === 0) {
     const empty = document.createElement('div');
     empty.style.textAlign = 'center'; empty.style.padding = '30px'; empty.style.color = 'var(--c-muted)';
     empty.textContent = 'Sem dias úteis neste mês';
     container.appendChild(empty);
   }
+}
+
+function renderVc2MachineSection(dk, machine, items, date, searchTerm, isClosed) {
+  const sec = document.createElement('div');
+  sec.className = 'vc2-machine';
+  sec.dataset.dayKey = dk;
+  sec.dataset.machine = machine;
+  sec.dataset.weekKey = weekKey(date);
+  // Header: nome máquina + turno + refeições
+  const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dk]) || {};
+  const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
+  const shift = getShiftRangeForDate(date, machine);
+  const headEl = document.createElement('div');
+  headEl.className = 'vc2-mach-head';
+  headEl.innerHTML =
+    '<span class="vc2-mach-name">🏭 ' + machine + '</span>' +
+    '<span class="dms-turno vc2-inline-turno" data-day="' + dk + '" data-machine="' + machine + '">' +
+      '<span class="vc-tag" title="Turno">🕐 ' +
+        '<input type="time" data-field="ini" value="' + (tMaq.ini || (shift ? _fmtHmFromMs(shift.start) : '')) + '">–' +
+        '<input type="time" data-field="fim" value="' + (tMaq.fim || (shift ? _fmtHmFromMs(shift.end) : '')) + '">' +
+      '</span>' +
+      '<span class="vc-tag" title="Almoço">🍴 ' +
+        '<input type="time" data-field="almocoIni" value="' + (tMaq.almocoIni || '') + '">–' +
+        '<input type="time" data-field="almocoFim" value="' + (tMaq.almocoFim || '') + '">' +
+      '</span>' +
+      '<span class="vc-tag" title="Jantar">🌙 ' +
+        '<input type="time" data-field="jantarIni" value="' + (tMaq.jantarIni || '') + '">–' +
+        '<input type="time" data-field="jantarFim" value="' + (tMaq.jantarFim || '') + '">' +
+      '</span>' +
+      '<button class="vc-turno-ok" type="button" title="Confirmar horas">OK</button>' +
+    '</span>';
+  sec.appendChild(headEl);
+  // Handlers dos inputs de turno + botão OK
+  headEl.querySelectorAll('.vc2-inline-turno input[type="time"]').forEach(inp => {
+    inp.addEventListener('mousedown', e => e.stopPropagation());
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', e => {
+      e.stopPropagation();
+      const okBtn = headEl.querySelector('.vc-turno-ok');
+      if (okBtn) okBtn.classList.add('dirty');
+    });
+  });
+  const okBtn = headEl.querySelector('.vc-turno-ok');
+  if (okBtn) {
+    okBtn.addEventListener('mousedown', e => e.stopPropagation());
+    okBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      applyMachineTurno(dk, machine);
+      okBtn.classList.remove('dirty');
+    });
+  }
+
+  // Lista de OPs — cartões de 2 linhas
+  const list = document.createElement('div');
+  list.className = 'vc2-op-list';
+  let idx = 0;
+  for (const it of items) {
+    const card = buildVc2Card(it, dk, machine, searchTerm, idx);
+    list.appendChild(card);
+    idx++;
+  }
+  sec.appendChild(list);
+
+  // PLANEAR AQUI (livre)
+  if (!isClosed) {
+    const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
+    let livre = 0;
+    if (shift && krH > 0) {
+      if (items.length === 0) {
+        const mealsMs = _mealsList.reduce((s, m) => s + (m.end - m.start), 0);
+        livre = ((shift.end - shift.start - mealsMs) / 3600000) * krH;
+      } else {
+        const last = items[items.length - 1].end;
+        const remainMs = Math.max(0, shift.end - last);
+        const mealsAfter = _mealsList.filter(m => m.start >= last).reduce((s, m) => s + (m.end - m.start), 0);
+        livre = Math.max(0, ((remainMs - mealsAfter) / 3600000) * krH);
+      }
+    }
+    if (livre > 0 || items.length === 0) {
+      const ph = document.createElement('div');
+      ph.className = 'vc2-plan-here';
+      ph.dataset.dayKey = dk;
+      ph.dataset.machine = machine;
+      ph.dataset.weekKey = weekKey(date);
+      ph.innerHTML = 'PLANEAR AQUI' +
+        (livre > 0 ? '<span class="vc2-plan-livre">livre ' + Math.round(livre).toLocaleString('pt-PT') + ' un</span>' : '');
+      if (!isReadOnly()) setupZoneDropTarget(ph);
+      sec.appendChild(ph);
+    }
+  }
+  if (!isReadOnly()) setupZoneDropTarget(sec);
+  return sec;
+}
+
+function buildVc2Card(it, dk, machine, searchTerm, idx) {
+  const op = it.op;
+  const card = document.createElement('div');
+  card.className = 'vc2-op-card';
+  card.dataset.id = op.id;
+  card.dataset.seg = it.segIdx || 0;
+  card.dataset.estado = op.estado || 'Aberto';
+  const isFirstSeg = (it.segIdx || 0) === 0;
+  card.draggable = isFirstSeg && !isReadOnly();
+  if (idx % 2 === 1) card.classList.add('vc2-alt');
+  if (searchTerm && matchesSearch(op, searchTerm)) card.classList.add('vc2-match');
+  // Dados
+  const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
+  const hIniR = rpd.hIniR || '';
+  const hFimR = rpd.hFimR || '';
+  const atrasoStr = rpd.tempoAtraso || (it.totalSegs === 1 ? (op.tempoAtraso || '') : '');
+  if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
+    const [ah, am] = atrasoStr.split(':').map(Number);
+    if ((ah * 60 + am) > 0) card.classList.add('vc2-atrasada');
+  }
+  const qtdSeg = (it.qtdSeg != null) ? it.qtdSeg : (op.qtdEntrada || 0);
+  const segLabel = (it.totalSegs > 1) ? ' (' + ((it.segIdx || 0) + 1) + '/' + it.totalSegs + ')' : '';
+  const estadoOpts = DENS_ESTADOS.map(s => '<option ' + (s === op.estado ? 'selected' : '') + '>' + s + '</option>').join('');
+  const hIniP = _fmtHmFromMs(it.start);
+  const hFimP = _fmtHmFromMs(it.end);
+  // Linha 1: handle · OP+seg · Estado · File/Cliente · Produto · Calibre · Massas · Obs PI · Qtd
+  // Linha 2: Destino · Início P → Fim P · Início Real · Fim Real · Atraso · Delete
+  card.innerHTML =
+    (isFirstSeg && !isReadOnly() ? '<span class="vc2-handle" title="Arrastar">⋮⋮</span>' : '<span class="vc2-handle-space"></span>') +
+    '<div class="vc2-line vc2-line1">' +
+      '<span class="vc2-c-op">' + (op.op || '') + segLabel + '</span>' +
+      '<select class="estado-select vc2-c-estado" data-est="' + (op.estado || 'Aberto') + '" data-op="' + op.id + '">' + estadoOpts + '</select>' +
+      '<span class="vc2-c-fc" title="' + (op.fileCliente || '') + '">' + (op.fileCliente || '—') + '</span>' +
+      '<span class="vc2-c-prod" title="' + (op.produto || '') + '">' + (op.produto || '') + '</span>' +
+      '<span class="vc2-c-calibre">' + (op.calibre || '') + '</span>' +
+      '<span class="vc2-c-massas">' + (op.massas || '') + '</span>' +
+      '<span class="vc2-c-obspi" title="' + (op.obsPi || '') + '">' + (op.obsPi || '') + '</span>' +
+      '<span class="vc2-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + '<small> / ' + Math.round(op.qtdEntrada || 0).toLocaleString('pt-PT') + '</small></span>' +
+    '</div>' +
+    '<div class="vc2-line vc2-line2">' +
+      '<span class="vc2-c-dest">' + (op.destino || '') + '</span>' +
+      '<span class="vc2-c-plan">⏱ ' + hIniP + ' → ' + hFimP + '</span>' +
+      '<span class="vc2-c-realIni"><label>Início R</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hIniR" value="' + hIniR + '"></span>' +
+      '<span class="vc2-c-realFim"><label>Fim R</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hFimR" value="' + hFimR + '"></span>' +
+      '<span class="vc2-c-atraso"><label>Atraso</label><input type="text" placeholder="HH:MM" data-op="' + op.id + '" data-day="' + dk + '" data-field="tempoAtraso" value="' + atrasoStr + '"></span>' +
+      (!isReadOnly() ? '<span class="vc2-c-del" title="Apagar OP">×</span>' : '') +
+    '</div>';
+
+  // Click no cartão (fora de inputs/select) abre modal
+  card.addEventListener('click', e => {
+    const t = (e.target.tagName || '').toLowerCase();
+    if (t === 'input' || t === 'select' || t === 'option' || t === 'label') return;
+    if (e.target.classList.contains('vc2-c-del')) {
+      if (confirm('Apagar OP ' + op.op + '?')) deleteOpAndPersist(op.id, 'Apagar OP ' + op.op);
+      return;
+    }
+    openModal(op, dk);
+  });
+  // Inputs reais/atraso
+  card.querySelectorAll('.vc2-line2 input').forEach(inp => {
+    inp.addEventListener('mousedown', e => e.stopPropagation());
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('change', e => {
+      e.stopPropagation();
+      const id = parseInt(e.target.dataset.op, 10);
+      const dayKey = e.target.dataset.day;
+      const field = e.target.dataset.field;
+      const target = DATA.find(o => o.id === id);
+      if (!target) return;
+      if (!target.realPorDia) target.realPorDia = {};
+      if (!target.realPorDia[dayKey]) target.realPorDia[dayKey] = {};
+      target.realPorDia[dayKey][field] = e.target.value;
+      saveOneOp(target).catch(() => {});
+      rerender();
+    });
+  });
+  const selEst = card.querySelector('.vc2-c-estado');
+  if (selEst) {
+    selEst.addEventListener('mousedown', e => e.stopPropagation());
+    selEst.addEventListener('click', e => e.stopPropagation());
+    selEst.addEventListener('change', e => {
+      e.stopPropagation();
+      const id = parseInt(e.target.dataset.op, 10);
+      const target = DATA.find(o => o.id === id);
+      if (!target) return;
+      target.estado = e.target.value;
+      e.target.setAttribute('data-est', e.target.value);
+      card.setAttribute('data-estado', e.target.value);
+      saveOneOp(target).catch(() => {});
+      rerender();
+    });
+  }
+  if (card.draggable) setupRowDragHandlers(card, op);
+  return card;
 }
 
 
