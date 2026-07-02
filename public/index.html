@@ -366,15 +366,15 @@
   .day-machine-subzone.empty-zone:hover { background: #eef5e6; border-color: var(--c-primary); }
   .dms-plan-here {
     margin: 4px 8px 6px;
-    background: repeating-linear-gradient(135deg, #e8f0f9 0 8px, #d8e5f2 8px 16px);
-    border: 1px dashed #7a9dc7; border-radius: 3px;
+    background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
+    border: 1px dashed #b7cbe1; border-radius: 3px;
     padding: 6px; text-align: center;
-    color: #385a83; font-size: 11px; font-weight: 700;
+    color: #6a80a0; font-size: 11px; font-weight: 700;
     letter-spacing: 0.4px; text-transform: uppercase;
     cursor: default;
   }
   .dms-plan-here .dms-plan-livre {
-    color: #1e4a80; font-weight: 700; font-size: 12px;
+    color: #365F91; font-weight: 700; font-size: 12px;
     text-transform: none; letter-spacing: 0; margin-left: 6px;
   }
   .day-machine-subzone.empty-zone.drag-target {
@@ -588,17 +588,17 @@
   }
   .vc-plan-here {
     position: absolute; left: 4px; right: 4px;
-    background: repeating-linear-gradient(135deg, #e8f0f9 0 8px, #d8e5f2 8px 16px);
-    border: 1px dashed #7a9dc7; border-radius: 3px;
+    background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
+    border: 1px dashed #b7cbe1; border-radius: 3px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 4px;
-    color: #385a83; font-size: 11px; font-weight: 700;
+    color: #6a80a0; font-size: 11px; font-weight: 700;
     letter-spacing: 0.4px; text-transform: uppercase;
     cursor: default; min-height: 24px;
     z-index: 1;
   }
-  .vc-plan-here .vc-plan-livre { color: #1e4a80; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
-  .vc-plan-here.drag-target { background: #cee0f3; border-color: #365F91; }
+  .vc-plan-here .vc-plan-livre { color: #365F91; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+  .vc-plan-here.drag-target { background: #dfe9f5; border-color: #365F91; }
   .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 1200px; margin: 0 auto; }
   .settings-section { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px; padding: 14px; }
   .settings-section.full { grid-column: 1 / -1; }
@@ -3097,24 +3097,27 @@ function renderDayMachineSubzone(dayKey, machine, items) {
 
   if (items.length === 0) {
     zone.classList.add('empty-zone');
-    const empty = document.createElement('div');
-    empty.className = 'empty-day-machine';
     if (isDayClosed(dayKey)) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-day-machine';
       empty.textContent = '🔒 Dia fechado';
+      zone.appendChild(empty);
     } else {
-      empty.textContent = isReadOnly() ? 'Sem OPs' : '⤵ Arraste OPs do KANBAN ou de outro dia';
+      // Mostrar faixa PLANEAR AQUI também quando a sub-zona está vazia
+      const plan = document.createElement('div');
+      plan.className = 'dms-plan-here';
+      plan.innerHTML = 'PLANEAR AQUI<span class="dms-plan-livre">livre ' + Math.round(livreMaq).toLocaleString('pt-PT') + ' un</span>';
+      zone.appendChild(plan);
     }
-    zone.appendChild(empty);
   } else {
     zone.appendChild(createWeekTable(items, wkRef, machine));
-  }
-
-  // Faixa "PLANEAR AQUI · livre X un" no fim da sub-zona (se há espaço livre e o dia está aberto)
-  if (!isDayClosed(dayKey) && livreMaq > 0 && items.length > 0) {
-    const plan = document.createElement('div');
-    plan.className = 'dms-plan-here';
-    plan.innerHTML = 'PLANEAR AQUI<span class="dms-plan-livre">livre ' + Math.round(livreMaq).toLocaleString('pt-PT') + ' un</span>';
-    zone.appendChild(plan);
+    // Faixa PLANEAR AQUI no fim (se há livre e dia aberto)
+    if (!isDayClosed(dayKey) && livreMaq > 0) {
+      const plan = document.createElement('div');
+      plan.className = 'dms-plan-here';
+      plan.innerHTML = 'PLANEAR AQUI<span class="dms-plan-livre">livre ' + Math.round(livreMaq).toLocaleString('pt-PT') + ' un</span>';
+      zone.appendChild(plan);
+    }
   }
 
   setupZoneDropTarget(zone);
