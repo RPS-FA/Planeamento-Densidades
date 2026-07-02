@@ -522,6 +522,8 @@
   }
   .vc-cell-title .vc-shift-info .vc-turno-ok:hover { background: #f2f4ef; }
   .vc-cell-title .vc-shift-info .vc-turno-ok:active { background: #e2ead9; }
+  .vc-cell-title .vc-shift-info .vc-turno-ok.dirty { background: #ffde8a; color: #4d3800; border-color: #d4a017; animation: vc-ok-pulse 1s ease-in-out infinite; }
+  @keyframes vc-ok-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(212,160,23,0.55); } 50% { box-shadow: 0 0 0 3px rgba(212,160,23,0); } }
   .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
   .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
   .vc-sandbox-badge { background: #d4a017; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
@@ -2996,17 +2998,17 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dayKey]) || {};
   const turnoInputs = `<span class="dms-turno" data-day="${dayKey}" data-machine="${machine}" style="display:inline-flex; gap:6px; align-items:center; margin-left:auto; margin-right:8px; font-size:10px; flex-wrap:wrap">
     <span style="font-weight:600; opacity:0.95">TURNO:</span>
-    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início turno">
+    <input type="time" data-field="ini" value="${tMaq.ini || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início turno">
     <span>–</span>
-    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim turno">
+    <input type="time" data-field="fim" value="${tMaq.fim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim turno">
     <span style="opacity:0.85; margin-left:4px" title="Almoço">🍴</span>
-    <input type="time" data-field="almocoIni" value="${tMaq.almocoIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início almoço">
+    <input type="time" data-field="almocoIni" value="${tMaq.almocoIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início almoço">
     <span>–</span>
-    <input type="time" data-field="almocoFim" value="${tMaq.almocoFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim almoço">
+    <input type="time" data-field="almocoFim" value="${tMaq.almocoFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim almoço">
     <span style="opacity:0.85; margin-left:4px" title="Jantar">🍽</span>
-    <input type="time" data-field="jantarIni" value="${tMaq.jantarIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início jantar">
+    <input type="time" data-field="jantarIni" value="${tMaq.jantarIni || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Início jantar">
     <span>–</span>
-    <input type="time" data-field="jantarFim" value="${tMaq.jantarFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onchange="applyMachineTurno('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim jantar">
+    <input type="time" data-field="jantarFim" value="${tMaq.jantarFim || ''}" oninput="markMachineTurnoDirty('${dayKey}', '${machine}')" onclick="event.stopPropagation()" style="font-size:10px; padding:1px 3px" title="Fim jantar">
     <button class="dms-ok-btn" onclick="applyMachineTurno('${dayKey}', '${machine}'); event.stopPropagation();" style="font-size:10px; padding:1px 6px; background:rgba(0,0,0,0.06); border:1px solid var(--c-grid); border-radius:2px; cursor:pointer">OK</button>
   </span>`;
   head.innerHTML = `
@@ -4381,13 +4383,15 @@ function renderCardsView() {
           '</div>' +
         '</div>' +
         '<div class="vc-cell-header" style="top:' + (TITLE_H + 2) + 'px">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
-      // Handlers dos inputs de turno — auto-save no change + botão OK
+      // Handlers dos inputs de turno — apenas botão OK grava (não auto-save)
       cell.querySelectorAll('.vc-inline-turno input[type="time"]').forEach(inp => {
         inp.addEventListener('mousedown', e => e.stopPropagation());
         inp.addEventListener('click', e => e.stopPropagation());
-        inp.addEventListener('change', e => {
+        inp.addEventListener('input', e => {
           e.stopPropagation();
-          applyMachineTurno(dk, machine);
+          // Só marca dirty — não grava; o OK confirma
+          const okBtn = cell.querySelector('.vc-turno-ok');
+          if (okBtn) okBtn.classList.add('dirty');
         });
       });
       const okBtn = cell.querySelector('.vc-turno-ok');
@@ -4396,6 +4400,7 @@ function renderCardsView() {
         okBtn.addEventListener('click', e => {
           e.stopPropagation();
           applyMachineTurno(dk, machine);
+          okBtn.classList.remove('dirty');
         });
       }
       if (!isReadOnly()) setupZoneDropTarget(cell);
