@@ -587,7 +587,7 @@
   .vc-header-row { position: sticky; top: 0; z-index: 5; background: var(--c-bg); padding-bottom: 4px; }
   /* ===== Vista Cartões V2 — bloco por dia com máquinas empilhadas + dia à direita ===== */
   .vc2-day-block {
-    display: grid; grid-template-columns: 1fr 100px; gap: 6px;
+    display: grid; grid-template-columns: 100px 1fr; gap: 6px;
     margin-bottom: 12px;
     background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px;
     overflow: hidden;
@@ -595,11 +595,13 @@
   .vc2-day-block.fds { border-color: #d4a017; }
   .vc2-day-block.today { border-color: #86C47A; box-shadow: 0 0 0 2px rgba(134,196,122,0.25); }
   .vc2-day-block.closed { opacity: 0.55; }
-  .vc2-machines { display: flex; flex-direction: column; }
+  .vc2-machines { display: grid; grid-template-columns: repeat(var(--machines, 2), 1fr); gap: 0; }
   .vc2-machine {
-    background: #fff; border-bottom: 1px solid var(--c-grid);
+    background: #fff; border-left: 1px solid var(--c-grid);
+    display: flex; flex-direction: column;
+    min-width: 0;
   }
-  .vc2-machine:last-child { border-bottom: none; }
+  .vc2-machine:first-child { border-left: none; }
   .vc2-mach-head {
     display: flex; align-items: center; gap: 12px;
     background: #eef2eb; padding: 5px 10px;
@@ -638,11 +640,11 @@
   .vc2-op-card[data-estado="Concluída Planeamento"] { border-left: 4px solid var(--st-concluida-plan); }
   .vc2-line { display: grid; align-items: center; column-gap: 8px; font-size: 11px; }
   .vc2-line1 {
-    grid-template-columns: 100px 130px 130px minmax(180px, 1.5fr) 60px 80px 1fr 130px;
+    grid-template-columns: 80px 100px 100px minmax(120px, 1.5fr) 55px 65px 1fr 100px;
     font-weight: 600;
   }
   .vc2-line2 {
-    grid-template-columns: 1fr 130px 110px 110px 110px 18px;
+    grid-template-columns: 1fr 100px 90px 90px 90px 18px;
     color: var(--c-muted); margin-top: 3px;
   }
   .vc2-c-op { color: var(--c-primary); font-weight: 700; font-size: 12px; }
@@ -672,7 +674,7 @@
   /* Coluna direita: label do dia */
   .vc2-day-side {
     background: linear-gradient(180deg, #f0f4ec, #e2ead9);
-    border-left: 1px solid var(--c-border);
+    border-right: 1px solid var(--c-border);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 8px 4px; text-align: center;
     gap: 4px;
@@ -4492,16 +4494,7 @@ function renderCardsView() {
     block.className = 'vc2-day-block' + (ehFds ? ' fds' : '') + (dk === todayKey ? ' today' : '') + (isClosed ? ' closed' : '');
     block.dataset.dayKey = dk;
 
-    // Wrapper de máquinas (à esquerda)
-    const machinesWrap = document.createElement('div');
-    machinesWrap.className = 'vc2-machines';
-    for (const machine of MACHINES) {
-      const machSec = renderVc2MachineSection(dk, machine, (byDay[dk] && byDay[dk][machine]) || [], date, searchTerm, isClosed);
-      machinesWrap.appendChild(machSec);
-    }
-    block.appendChild(machinesWrap);
-
-    // Coluna direita: label do dia
+    // Coluna esquerda: label do dia
     const side = document.createElement('div');
     side.className = 'vc2-day-side';
     side.innerHTML =
@@ -4509,6 +4502,16 @@ function renderCardsView() {
       '<div class="vc2-date">' + pad(d) + '/' + pad(month + 1) + '</div>' +
       '<button class="vc-close-btn ' + (isClosed ? 'closed' : '') + '" onclick="onDayClosedToggle(\'' + dk + '\')">' + (isClosed ? 'Aberto' : 'Fechar') + '</button>';
     block.appendChild(side);
+
+    // Wrapper de máquinas — lado a lado (colunas)
+    const machinesWrap = document.createElement('div');
+    machinesWrap.className = 'vc2-machines';
+    machinesWrap.style.setProperty('--machines', MACHINES.length);
+    for (const machine of MACHINES) {
+      const machSec = renderVc2MachineSection(dk, machine, (byDay[dk] && byDay[dk][machine]) || [], date, searchTerm, isClosed);
+      machinesWrap.appendChild(machSec);
+    }
+    block.appendChild(machinesWrap);
 
     container.appendChild(block);
   }
