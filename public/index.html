@@ -524,6 +524,9 @@
   .vc-cell-title .vc-shift-info .vc-turno-ok:active { background: #e2ead9; }
   .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
   .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
+  .vc-sandbox-badge { background: #d4a017; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .vc-toolbar .left .btn.secondary { color: var(--c-primary); border-color: var(--c-primary); font-size: 11px; padding: 3px 8px; }
+  .vc-toolbar .left .btn.secondary:hover { background: rgba(0,120,50,0.06); }
   .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
   .vc-row { display: grid; grid-template-columns: 90px repeat(var(--machines,2), 1fr); gap: 6px; margin-bottom: 6px; align-items: stretch; }
   .vc-day-label { background: linear-gradient(180deg, #f0f4ec, #e2ead9); border: 1px solid var(--c-border); border-radius: 4px; text-align: center; font-size: 12px; color: var(--c-text); position: relative; overflow: hidden; }
@@ -799,6 +802,9 @@ table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
           <input type="text" id="search-vcards" placeholder="Procurar OP, cliente, PO, produto..." oninput="onSearch('vcards', this.value)">
           <button class="clear-btn" onclick="clearSearch('vcards')" title="Limpar">×</button>
         </div>
+        <span class="vc-sandbox-badge" title="As alterações desta vista NÃO afectam o Planeamento nem são gravadas">🧪 SANDBOX</span>
+        <button class="btn secondary vc-sync-btn" onclick="vcResync()" title="Recarregar do Planeamento (descarta alterações locais)">🔄 Recarregar</button>
+        <button class="btn secondary vc-discard-btn" onclick="vcDiscard()" title="Descartar alterações">💥 Descartar</button>
       </div>
       <div class="right">
         <div class="month-nav">
@@ -1662,6 +1668,7 @@ function _scheduleSaveToast(msg) {
   }, 350);
 }
 function saveSettings() {
+  if (VC_MODE) return; // Vista Cartões — não persistir
   const payload = isProducao()
     ? {
         turnosPorDia: SETTINGS.turnosPorDia || {},
@@ -1918,6 +1925,41 @@ function clearSearch(/* tab */) {
 // ============================================================
 let DATA = [];
 let DENS_ETAG = null;
+// ===== Sandbox da Vista Cartões — DATA/SETTINGS isolados =====
+let VC_MODE = false;
+let DATA_VC = null, SETTINGS_VC = null;
+let DATA_BACKUP = null, SETTINGS_BACKUP = null;
+function vcEnter() {
+  if (VC_MODE) return;
+  if (DATA_VC === null) {
+    DATA_VC = JSON.parse(JSON.stringify(DATA));
+    SETTINGS_VC = JSON.parse(JSON.stringify(SETTINGS));
+  }
+  DATA_BACKUP = DATA; SETTINGS_BACKUP = SETTINGS;
+  DATA = DATA_VC; SETTINGS = SETTINGS_VC;
+  VC_MODE = true;
+}
+function vcLeave() {
+  if (!VC_MODE) return;
+  DATA_VC = DATA; SETTINGS_VC = SETTINGS;
+  DATA = DATA_BACKUP; SETTINGS = SETTINGS_BACKUP;
+  DATA_BACKUP = null; SETTINGS_BACKUP = null;
+  VC_MODE = false;
+}
+function vcResync() {
+  const wasIn = VC_MODE;
+  if (wasIn) vcLeave();
+  DATA_VC = JSON.parse(JSON.stringify(DATA));
+  SETTINGS_VC = JSON.parse(JSON.stringify(SETTINGS));
+  if (wasIn) vcEnter();
+  if (typeof renderCardsView === 'function') renderCardsView();
+  if (typeof renderKanbanAll === 'function') renderKanbanAll();
+}
+function vcDiscard() {
+  if (!confirm('Descartar todas as alterações da Vista Cartões e recarregar do Planeamento?')) return;
+  vcResync();
+}
+
 const LS_KEY_REAL = 'planeamento_dens_v1';
 
 // loadData — compat: arranca com DATA vazio; bootstrap real via loadStateFromServer()
@@ -2004,6 +2046,7 @@ async function loadStateFromServer() {
 let _saveDataPending = false;
 let _diaIdxFixing = false;  // anti-loop para auto-fix de diaIdx no renderMonth
 function saveData() {
+  if (VC_MODE) return; // Vista Cartões — não persistir
   // Heurística: chamado após mutações em DATA. Re-persiste tudo via API.
   // Para não inundar a rede em sequências rápidas, agrupa por 50ms.
   if (_saveDataPending) return;
@@ -2031,6 +2074,7 @@ async function deleteOpAndPersist(id, label) {
   pushUndo(label || ('Apagar OP id ' + id));
   DATA = DATA.filter(o => o.id !== id);
   rerender();
+  if (VC_MODE) return; // Vista Cartões — apagar só local, não persistir
   try {
     await Api.deleteOp(id);
     setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
@@ -2044,6 +2088,7 @@ async function deleteOpAndPersist(id, label) {
 
 // Helper para escritas dirigidas a uma única OP (mais eficiente)
 async function saveOneOp(op) {
+  if (VC_MODE) return; // Vista Cartões — não persistir
   if (!op || typeof op.id !== 'number') return;
   const profile = (typeof getProfile === 'function') ? getProfile() : 'planeador';
   try {
@@ -4114,6 +4159,11 @@ function buildMonthlyTabs() {
 }
 
 function switchTab(which) {
+  // Se estivermos a sair de 'vcards' → vcLeave; se a entrar → vcEnter
+  const wasVc = (ACTIVE_TAB === 'vcards');
+  const goVc = (which === 'vcards');
+  if (wasVc && !goVc) vcLeave();
+  if (!wasVc && goVc) vcEnter();
   ACTIVE_TAB = which;
   const activeTabKey = (which === 'cfg') ? 'cfg' : (which === 'vcards') ? 'vcards' : 'mview';
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTabKey));
@@ -4132,6 +4182,7 @@ function switchTab(which) {
     if (inp) inp.value = SEARCH.value || '';
     updateMonthLabel();
     renderCardsView();
+    renderKanbanAll();
   }
 }
 
@@ -4526,6 +4577,7 @@ function _utilizadorAEditar() {
 setInterval(async () => {
   if (_modalAberto()) return;
   if (_utilizadorAEditar()) return;  // não destruir o que está a ser digitado
+  if (VC_MODE) return; // Vista Cartões sandbox — não sobrescrever
   try {
     const state = await Api.getState();
     DATA = Array.isArray(state.ops) ? state.ops : [];
