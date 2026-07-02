@@ -3840,14 +3840,11 @@ function openModal(op, segDayKey) {
   }
   get('m_hInicioR').value = _realIni;
   get('m_hFimR').value = _realFim;
-  // Tempo Atraso é manual — lê do segmento (realPorDia) ou do legacy
+  // Tempo Atraso — usa a mesma lógica da tabela: segmento primeiro, cai para legacy
   let _atrasoVal = '';
   if (op) {
-    if (segDayKey && op.realPorDia && op.realPorDia[segDayKey]) {
-      _atrasoVal = op.realPorDia[segDayKey].tempoAtraso || '';
-    } else {
-      _atrasoVal = op.tempoAtraso || '';
-    }
+    const _rpdSeg = (segDayKey && op.realPorDia && op.realPorDia[segDayKey]) || null;
+    _atrasoVal = (_rpdSeg && _rpdSeg.tempoAtraso) || (op.tempoAtraso || '');
   }
   get('m_tempoAtraso').value = _atrasoVal;
   get('m_colaborador').value = op ? (op.colaborador || '') : '';
