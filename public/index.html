@@ -3378,8 +3378,9 @@ function createWeekTable(sched, wk, machine) {
     const _hFimR = _segReal.hFimR || (totalSegs === 1 ? (op.hFimR || '') : '');
     const _dataIniR = _segReal.dataIniR || (totalSegs === 1 ? (op.dataInicioR || '') : '');
     const _dataFimR = _segReal.dataFimR || (totalSegs === 1 ? (op.dataFimR || '') : '');
-    // Atraso MANUAL — lê do segmento (realPorDia[dayKey].tempoAtraso) ou legacy
-    const atrasoStr = _segReal.tempoAtraso || (totalSegs === 1 ? (op.tempoAtraso || '') : '');
+    // Atraso MANUAL — lê do segmento (realPorDia[dayKey].tempoAtraso) ou cai para legacy
+    // (mesma lógica do modal: sempre cai para op.tempoAtraso se o segmento não tiver)
+    const atrasoStr = _segReal.tempoAtraso || (op.tempoAtraso || '');
     // Linha atrasada = tem tempoAtraso > 0 OU hInicioR > hInicioP planeado
     let isAtrasada = false;
     if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
@@ -4651,7 +4652,7 @@ function buildVc2Card(it, dk, machine, searchTerm, idx) {
   const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
   const hIniR = rpd.hIniR || '';
   const hFimR = rpd.hFimR || '';
-  const atrasoStr = rpd.tempoAtraso || (it.totalSegs === 1 ? (op.tempoAtraso || '') : '');
+  const atrasoStr = rpd.tempoAtraso || (op.tempoAtraso || '');
   if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
     const [ah, am] = atrasoStr.split(':').map(Number);
     if ((ah * 60 + am) > 0) card.classList.add('vc2-atrasada');
@@ -4762,7 +4763,7 @@ function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx, titleH) {
   const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
   const hIniR = rpd.hIniR || '';
   const hFimR = rpd.hFimR || '';
-  const atrasoStr = rpd.tempoAtraso || (it.totalSegs === 1 ? (op.tempoAtraso || '') : '');
+  const atrasoStr = rpd.tempoAtraso || (op.tempoAtraso || '');
   if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
     const [ah, am] = atrasoStr.split(':').map(Number);
     if ((ah * 60 + am) > 0) card.classList.add('row-atrasada');
