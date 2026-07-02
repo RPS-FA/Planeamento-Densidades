@@ -364,6 +364,19 @@
     border: 1px dashed var(--c-border); cursor: copy;
   }
   .day-machine-subzone.empty-zone:hover { background: #eef5e6; border-color: var(--c-primary); }
+  .dms-plan-here {
+    margin: 4px 8px 6px;
+    background: repeating-linear-gradient(135deg, #f4f7ef 0 8px, #eaf0e0 8px 16px);
+    border: 1px dashed #bbc7ad; border-radius: 3px;
+    padding: 6px; text-align: center;
+    color: #5a6a4a; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    cursor: default;
+  }
+  .dms-plan-here .dms-plan-livre {
+    color: #1a4020; font-weight: 700; font-size: 12px;
+    text-transform: none; letter-spacing: 0; margin-left: 6px;
+  }
   .day-machine-subzone.empty-zone.drag-target {
     background: #d4e9b8 !important; border-color: var(--c-primary);
     color: var(--c-primary-dark); font-weight: 600;
@@ -3089,6 +3102,14 @@ function renderDayMachineSubzone(dayKey, machine, items) {
     zone.appendChild(empty);
   } else {
     zone.appendChild(createWeekTable(items, wkRef, machine));
+  }
+
+  // Faixa "PLANEAR AQUI · livre X un" no fim da sub-zona (se há espaço livre e o dia está aberto)
+  if (!isDayClosed(dayKey) && livreMaq > 0 && items.length > 0) {
+    const plan = document.createElement('div');
+    plan.className = 'dms-plan-here';
+    plan.innerHTML = 'PLANEAR AQUI<span class="dms-plan-livre">livre ' + Math.round(livreMaq).toLocaleString('pt-PT') + ' un</span>';
+    zone.appendChild(plan);
   }
 
   setupZoneDropTarget(zone);
