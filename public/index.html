@@ -1568,13 +1568,22 @@ function getTurnoForDate(date, machine) {
 function getMealBreaksForDate(date, machine) {
   const t = getTurnoForDate(date, machine);
   const out = [];
+  // Determinar limites do turno para posicionar refeições que caem no dia seguinte
+  const shift = getShiftRangeForDate(date, machine);
   function _push(iniStr, fimStr, label, scope) {
     if (!iniStr || !fimStr || !/^\d{2}:\d{2}$/.test(iniStr) || !/^\d{2}:\d{2}$/.test(fimStr)) return;
     if (machine && scope && scope !== 'all' && scope !== machine) return;
     const [iH, iM] = iniStr.split(':').map(Number);
     const [fH, fM] = fimStr.split(':').map(Number);
-    const start = new Date(date); start.setHours(iH, iM, 0, 0);
-    const end   = new Date(date); end.setHours(fH, fM, 0, 0);
+    let start = new Date(date); start.setHours(iH, iM, 0, 0);
+    let end   = new Date(date); end.setHours(fH, fM, 0, 0);
+    // Refeição atravessa meia-noite → fim no dia seguinte
+    if (end <= start) end.setDate(end.getDate() + 1);
+    // Turno noturno: se refeição ficou ANTES do início do turno, empurrar para dia seguinte
+    if (shift && shift.end.getDate() !== shift.start.getDate() && start < shift.start) {
+      start.setDate(start.getDate() + 1);
+      end.setDate(end.getDate() + 1);
+    }
     if (end > start) out.push({ start, end, label });
   }
   _push(t.almocoIni, t.almocoFim, 'Almoço', t.almocoScope || 'all');
@@ -2253,7 +2262,8 @@ function getShiftRangeForDate(date, machine) {
   const [fH, fM] = t.fim.split(':').map(Number);
   const start = new Date(date); start.setHours(iH, iM, 0, 0);
   const end = new Date(date); end.setHours(fH, fM, 0, 0);
-  if (end <= start) return null;
+  // Turno noturno: fim antes/igual ao início → fim é no DIA SEGUINTE
+  if (end <= start) end.setDate(end.getDate() + 1);
   return { start, end };
 }
 
@@ -2281,8 +2291,26 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges, machine) {
   const _pushSeg = (endDate) => { segments.push({ start: segStart, end: endDate, prodMs: segProdMs }); segStart = null; segProdMs = 0; };
   const MAX_ITER = 600;
   let iter = 0;
+  function _findActiveShift(c) {
+    // 1) Turno de "hoje" (data operacional = data do cursor)
+    let s = getShiftRangeForDate(c, machine);
+    if (s && c >= s.start && c < s.end) return s;
+    // 2) Turno de "ontem" (nocturno que atravessa meia-noite)
+    const yst = new Date(c); yst.setDate(yst.getDate() - 1); yst.setHours(12,0,0,0);
+    const ysh = getShiftRangeForDate(yst, machine);
+    if (ysh && c >= ysh.start && c < ysh.end) return ysh;
+    // 3) Turno futuro (cursor ainda antes do início)
+    if (s && c < s.start) return s;
+    return null;
+  }
+  function _nextDayAfterShiftStart(s) {
+    const d = new Date(s.start);
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
   while (remaining > 0 && iter++ < MAX_ITER) {
-    const shift = getShiftRangeForDate(cursor, machine);
+    const shift = _findActiveShift(cursor);
     if (!shift) {
       if (segStart) _pushSeg(new Date(cursor.getTime()));
       cursor = nextDayMidnight(cursor);
@@ -2291,7 +2319,7 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges, machine) {
     if (cursor < shift.start) cursor = new Date(shift.start);
     if (cursor >= shift.end) {
       if (segStart) _pushSeg(new Date(cursor.getTime()));
-      cursor = nextDayMidnight(cursor);
+      cursor = _nextDayAfterShiftStart(shift);
       continue;
     }
     const sNow = inStop(cursor);
@@ -2311,9 +2339,9 @@ function advanceWithinShiftsSegmented(startCursor, durMs, stopRanges, machine) {
     segProdMs += available;
     cursor = new Date(limit);
     if (cursor.getTime() === shift.end.getTime()) {
-      // fim de turno → fecha segmento, próximo dia
+      // fim de turno → fecha segmento, próximo turno operacional
       _pushSeg(new Date(cursor.getTime()));
-      cursor = nextDayMidnight(cursor);
+      cursor = _nextDayAfterShiftStart(shift);
     }
     // se for paragem intermédia, segStart continua e o loop saltará a paragem
   }
@@ -2340,11 +2368,23 @@ function advanceWithinShifts(startCursor, durMs, stopRanges, machine) {
   let actualStart = null;
   const MAX_ITER = 400;
   let iter = 0;
+  function _findActiveShift2(c) {
+    let s = getShiftRangeForDate(c, machine);
+    if (s && c >= s.start && c < s.end) return s;
+    const yst = new Date(c); yst.setDate(yst.getDate() - 1); yst.setHours(12,0,0,0);
+    const ysh = getShiftRangeForDate(yst, machine);
+    if (ysh && c >= ysh.start && c < ysh.end) return ysh;
+    if (s && c < s.start) return s;
+    return null;
+  }
+  function _nextDayAfterShiftStart2(s) {
+    const d = new Date(s.start); d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d;
+  }
   while (remaining > 0 && iter++ < MAX_ITER) {
-    const shift = getShiftRangeForDate(cursor, machine);
+    const shift = _findActiveShift2(cursor);
     if (!shift) { cursor = nextDayMidnight(cursor); continue; }
     if (cursor < shift.start) cursor = new Date(shift.start);
-    if (cursor >= shift.end) { cursor = nextDayMidnight(cursor); continue; }
+    if (cursor >= shift.end) { cursor = _nextDayAfterShiftStart2(shift); continue; }
     const sNow = inStop(cursor);
     if (sNow) { cursor = new Date(sNow.end); continue; }
     const sNext = nextStopAfter(cursor);
@@ -2358,7 +2398,7 @@ function advanceWithinShifts(startCursor, durMs, stopRanges, machine) {
     }
     remaining -= available;
     cursor = new Date(limit);
-    if (cursor.getTime() === shift.end.getTime()) cursor = nextDayMidnight(cursor);
+    if (cursor.getTime() === shift.end.getTime()) cursor = _nextDayAfterShiftStart2(shift);
   }
   return { start: actualStart || new Date(startCursor), end: new Date(cursor) };
 }
