@@ -3065,7 +3065,25 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   const capDiaMaq = Math.round(krH * horasTurno);
   const totalKr = items.reduce((a, b) => a + ((b.qtdSeg != null) ? b.qtdSeg : (b.op.qtdEntrada || 0)), 0);
   const pct = capDiaMaq > 0 ? Math.min(999, (totalKr / capDiaMaq) * 100) : 0;
-  const livreMaq = Math.max(0, capDiaMaq - totalKr);
+  // Livre = tempo cronológico ainda disponível no turno (após último cartão, sem contar refeições fora)
+  // Evita mostrar "livre X un" quando o turno já está cheio cronologicamente (por setups etc.)
+  let livreMaq = 0;
+  if (capDiaMaq > 0 && krH > 0) {
+    const shift = getShiftRangeForDate(refDate, machine);
+    if (shift && items.length === 0) {
+      livreMaq = capDiaMaq;
+    } else if (shift) {
+      const last = items[items.length - 1].end;
+      const remainMs = Math.max(0, shift.end - last);
+      // subtrair refeições que caiam depois do último cartão
+      const meals = getMealBreaksForDate(refDate, machine) || [];
+      const mealsAfter = meals.filter(m => m.start >= last).reduce((s, m) => s + (m.end - m.start), 0);
+      const netRemainMs = Math.max(0, remainMs - mealsAfter);
+      livreMaq = Math.max(0, (netRemainMs / 3600000) * krH);
+    } else {
+      livreMaq = Math.max(0, capDiaMaq - totalKr);
+    }
+  }
   const occMaq = pct <= 80 ? 'low' : pct <= 100 ? 'mid' : 'high';
 
   const head = document.createElement('div');
@@ -4457,13 +4475,22 @@ function renderCardsView() {
       // Zona PLANEAR AQUI — ocupa o resto da célula
       if (!isClosed) {
         const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-        // Capacidade útil = nTurnos × HOURS_PER_TURNO × krH menos refeições dentro do 1º turno (aprox)
         const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
         const mealsMs = (_mealsList || []).reduce((s, m) => s + (m.end - m.start), 0);
         const shiftUsefulH = Math.max(0, cellUseHours - (mealsMs / 3600000));
         const capTotal = krH * shiftUsefulH;
-        const planeado = items.reduce((s, i) => s + ((i.qtdSeg != null) ? i.qtdSeg : (i.op.qtdEntrada || 0)), 0);
-        const livre = Math.max(0, capTotal - planeado);
+        // Livre baseado em tempo cronológico restante (não em capacidade menos qtd planeada)
+        let livre = 0;
+        if (items.length === 0) {
+          livre = capTotal;
+        } else if (shift) {
+          const last = items[items.length - 1].end;
+          const remainMs = Math.max(0, shift.end - last);
+          const mealsAfter = _mealsList.filter(m => m.start >= last).reduce((s, m) => s + (m.end - m.start), 0);
+          livre = Math.max(0, ((remainMs - mealsAfter) / 3600000) * krH);
+        } else {
+          livre = 0;
+        }
         const usedH = items.reduce((s, i) => s + (((i.prodMs != null) ? i.prodMs : (i.end - i.start)) / 3600000), 0);
         const gapTopPx = HEADER_OFFSET + Math.max(0, usedH * pxh);
         const gapHeightPx = Math.max(28, cellHeight - gapTopPx - 4);
