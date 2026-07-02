@@ -576,8 +576,16 @@
   .vc-card .vc-c-real label { color: var(--c-muted); font-size: 9px; display: block; }
   .vc-card .vc-c-real input { width: 100%; padding: 2px 3px; font-size: 10px; border: 1px solid #d0d7ce; border-radius: 2px; font-family: inherit; }
   .vc-card select.vc-c-estado { width: 100%; font-size: 10px; padding: 2px 3px; border: 1px solid #d0d7ce; border-radius: 2px; margin-top: 2px; background: #fff; }
-  .vc-machine-title { background: var(--c-primary); color: #fff; padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 3px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+  .vc-machine-title { background: #365F91; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 700; border-radius: 3px; text-align: center; text-transform: uppercase; letter-spacing: 0.6px; }
   .vc-cell.machine-header { background: transparent; border: none; padding: 0; }
+  .vc-header-row { position: sticky; top: 0; z-index: 5; background: var(--c-bg); padding-bottom: 4px; }
+  .vc-turnos-sel { position: absolute; top: 4px; left: 4px; right: 4px; z-index: 2; }
+  .vc-turnos-sel select {
+    width: 100%; padding: 3px 6px; font-size: 11px;
+    border: 1px solid var(--c-border); border-radius: 3px;
+    background: #fff; font-family: inherit;
+    box-sizing: border-box;
+  }
   .vc-plan-here {
     position: absolute; left: 4px; right: 4px;
     background: repeating-linear-gradient(135deg, #f4f7ef 0 8px, #eaf0e0 8px 16px);
@@ -4345,10 +4353,29 @@ function renderCardsView() {
       byDay[dk][machine].push(it);
     }
   }
-  // (cabeçalho global de máquinas removido — cada célula tem o seu próprio título)
+
+  // Cabeçalho global — nomes das máquinas (sempre no topo)
+  const headerRow = document.createElement('div');
+  headerRow.className = 'vc-row vc-header-row';
+  headerRow.style.setProperty('--machines', MACHINES.length);
+  const spacer = document.createElement('div');
+  spacer.className = 'vc-cell machine-header';
+  headerRow.appendChild(spacer);
+  for (const machine of MACHINES) {
+    const mh = document.createElement('div');
+    mh.className = 'vc-cell machine-header';
+    mh.innerHTML = '<div class="vc-machine-title">' + machine + '</div>';
+    headerRow.appendChild(mh);
+  }
+  container.appendChild(headerRow);
+
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayKey = fmtDate(new Date());
   const searchTerm = SEARCH.value || '';
+  // Estrutura sandbox p/ numero de turnos por dia+máquina (só afecta a altura visual da célula)
+  if (!SETTINGS.numTurnos) SETTINGS.numTurnos = {};
+  const HOURS_PER_TURNO = 8;
+
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
     const dow = date.getDay();
@@ -4362,143 +4389,78 @@ function renderCardsView() {
     row.className = 'vc-row';
     row.style.setProperty('--machines', MACHINES.length);
     row.dataset.dayKey = dk;
+
+    // Coluna esquerda: label do dia
     const dayLbl = document.createElement('div');
     dayLbl.className = 'vc-day-label' + (dk === todayKey ? ' today' : '') + (ehFds ? ' fds' : '');
-    const refShift = getShiftRangeForDate(date, MACHINES[0]);
-    const shiftInfo = refShift ? (_fmtHmFromMs(refShift.start) + '-' + _fmtHmFromMs(refShift.end)) : '—';
-    dayLbl.style.position = 'relative';
-    // Altura igual à célula da máquina (usa turno da 1ª máquina como referência)
-    const _refShiftMs = refShift ? (refShift.end - refShift.start) : 0;
-    const _refShiftH = _refShiftMs / 3600000;
-    const TITLE_H_DAY = 30;
-    const dayHeight = TITLE_H_DAY + Math.max(60, _refShiftH * pxh);
-    dayLbl.style.height = dayHeight + 'px';
-    // Coleccionar horas dos cartões (todas as máquinas) para mostrar timeline
-    let timelineHtml = '';
-    const _allItems = [];
-    for (const m of MACHINES) {
-      for (const it of ((byDay[dk] && byDay[dk][m]) || [])) _allItems.push({it, m});
-    }
-    _allItems.sort((a,b)=> a.it.start - b.it.start);
-    const _seenTops = new Set();
-    if (refShift) {
-      for (const {it} of _allItems) {
-        const topH = (it.start - refShift.start) / 3600000;
-        const topPx = Math.max(0, topH * pxh) + TITLE_H_DAY;
-        const key = Math.round(topPx / 4);
-        if (_seenTops.has(key)) continue;
-        _seenTops.add(key);
-        timelineHtml += '<div class="vc-day-hourmark" style="top:' + topPx + 'px">' + _fmtHmFromMs(it.start) + '</div>';
-        // Fim
-        const endH = (it.end - refShift.start) / 3600000;
-        const endPx = Math.max(0, endH * pxh) + TITLE_H_DAY;
-        const keyEnd = Math.round(endPx / 4);
-        if (!_seenTops.has(keyEnd)) {
-          _seenTops.add(keyEnd);
-          timelineHtml += '<div class="vc-day-hourmark vc-hm-end" style="top:' + endPx + 'px">' + _fmtHmFromMs(it.end) + '</div>';
-        }
-      }
-    }
     dayLbl.innerHTML =
       '<div class="vc-day-head">' +
         '<div class="vc-dow">' + diaNome + '</div>' +
         '<div class="vc-date">' + pad(d) + '/' + pad(month + 1) + '</div>' +
-        '<div class="vc-shift">' + shiftInfo + '</div>' +
         '<button class="vc-close-btn ' + (isClosed ? 'closed' : '') + '" onclick="onDayClosedToggle(\'' + dk + '\')">' + (isClosed ? 'Aberto' : 'Fechar') + '</button>' +
-      '</div>' +
-      timelineHtml;
+      '</div>';
     row.appendChild(dayLbl);
+
+    // Uma célula por máquina
     for (const machine of MACHINES) {
       const shift = getShiftRangeForDate(date, machine);
-      const shiftMs = shift ? (shift.end - shift.start) : 0;
-      const shiftH = shiftMs / 3600000;
-      const TITLE_H = 30; // altura reservada para o título fixo da célula
-      const cellHeight = TITLE_H + Math.max(60, shiftH * pxh);
+      // Número de turnos (default 1) — controla altura visual
+      if (!SETTINGS.numTurnos[machine]) SETTINGS.numTurnos[machine] = {};
+      const nTurnos = parseInt(SETTINGS.numTurnos[machine][dk], 10) || 1;
+      const cellUseHours = nTurnos * HOURS_PER_TURNO;
+      const cellHeight = Math.max(120, cellUseHours * pxh);
       const cell = document.createElement('div');
-      cell.className = 'vc-cell has-title' + (isClosed ? ' closed' : '');
+      cell.className = 'vc-cell' + (isClosed ? ' closed' : '');
       cell.style.height = cellHeight + 'px';
       cell.style.position = 'relative';
       cell.dataset.dayKey = dk;
       cell.dataset.machine = machine;
-      // weekKey deste dia
-      const _wk = weekKey(date);
-      cell.dataset.weekKey = _wk;
-      // Título com nome da máquina + inputs editáveis de turno/almoço/jantar
-      const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dk]) || {};
-      const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
-      const _turnoIni = tMaq.ini || (shift ? _fmtHmFromMs(shift.start) : '');
-      const _turnoFim = tMaq.fim || (shift ? _fmtHmFromMs(shift.end) : '');
-      const _almIni = tMaq.almocoIni || '';
-      const _almFim = tMaq.almocoFim || '';
-      const _janIni = tMaq.jantarIni || '';
-      const _janFim = tMaq.jantarFim || '';
-      // Turnos e refeições são editáveis em ambos perfis (a whitelist do servidor permite)
-      const editableShift =
-        '<span class="dms-turno vc-inline-turno" data-day="' + dk + '" data-machine="' + machine + '">' +
-          '<span class="vc-tag" title="Turno">🕐 ' +
-            '<input type="time" data-field="ini" value="' + _turnoIni + '">–' +
-            '<input type="time" data-field="fim" value="' + _turnoFim + '">' +
-          '</span>' +
-          '<span class="vc-tag" title="Almoço">🍴 ' +
-            '<input type="time" data-field="almocoIni" value="' + _almIni + '">–' +
-            '<input type="time" data-field="almocoFim" value="' + _almFim + '">' +
-          '</span>' +
-          '<span class="vc-tag" title="Jantar">🌙 ' +
-            '<input type="time" data-field="jantarIni" value="' + _janIni + '">–' +
-            '<input type="time" data-field="jantarFim" value="' + _janFim + '">' +
-          '</span>' +
-          '<button class="vc-turno-ok" type="button" title="Confirmar horas">OK</button>' +
-        '</span>';
-      cell.innerHTML =
-        '<div class="vc-cell-title-abs">' +
-          '<div class="vc-cell-title">' +
-            '<span class="vc-mach-name">' + machine + '</span>' +
-            '<span class="vc-shift-info">' + editableShift + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="vc-cell-header" style="top:' + (TITLE_H + 2) + 'px">' + (shiftH ? shiftH.toFixed(1) + 'h' : '') + '</div>';
-      // Handlers dos inputs de turno — apenas botão OK grava (não auto-save)
-      cell.querySelectorAll('.vc-inline-turno input[type="time"]').forEach(inp => {
-        inp.addEventListener('mousedown', e => e.stopPropagation());
-        inp.addEventListener('click', e => e.stopPropagation());
-        inp.addEventListener('input', e => {
+      cell.dataset.weekKey = weekKey(date);
+      // Selector de turnos no topo
+      const selHtml =
+        '<div class="vc-turnos-sel">' +
+          '<select data-day="' + dk + '" data-machine="' + machine + '">' +
+            [1,2,3].map(n => '<option value="' + n + '"' + (n === nTurnos ? ' selected' : '') + '>' + n + ' turno' + (n>1?'s':'') + '</option>').join('') +
+          '</select>' +
+        '</div>';
+      cell.innerHTML = selHtml;
+      if (!isReadOnly()) setupZoneDropTarget(cell);
+      // Handler do selector de turnos
+      const selEl = cell.querySelector('.vc-turnos-sel select');
+      if (selEl) {
+        selEl.addEventListener('mousedown', e => e.stopPropagation());
+        selEl.addEventListener('click', e => e.stopPropagation());
+        selEl.addEventListener('change', e => {
           e.stopPropagation();
-          // Só marca dirty — não grava; o OK confirma
-          const okBtn = cell.querySelector('.vc-turno-ok');
-          if (okBtn) okBtn.classList.add('dirty');
-        });
-      });
-      const okBtn = cell.querySelector('.vc-turno-ok');
-      if (okBtn) {
-        okBtn.addEventListener('mousedown', e => e.stopPropagation());
-        okBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          applyMachineTurno(dk, machine);
-          okBtn.classList.remove('dirty');
+          if (!SETTINGS.numTurnos[machine]) SETTINGS.numTurnos[machine] = {};
+          SETTINGS.numTurnos[machine][dk] = parseInt(e.target.value, 10) || 1;
+          renderCardsView();
         });
       }
-      if (!isReadOnly()) setupZoneDropTarget(cell);
+
       const items = (byDay[dk] && byDay[dk][machine]) || [];
       let _vcAltIdxLocal = 0;
-      let _lastEnd = shift ? shift.start : null; // fim do último cartão
+      let _lastEnd = shift ? shift.start : null;
+      const HEADER_OFFSET = 30; // altura reservada para o selector no topo
       for (const it of items) {
-        const card = buildVcCard(it, shift, pxh, searchTerm, _vcAltIdxLocal, TITLE_H);
+        const card = buildVcCard(it, shift, pxh, searchTerm, _vcAltIdxLocal, HEADER_OFFSET);
         cell.appendChild(card);
         _vcAltIdxLocal++;
         if (it.end && (!_lastEnd || it.end > _lastEnd)) _lastEnd = it.end;
       }
-      // Zona "PLANEAR AQUI" — capacidade livre no fim do dia
-      if (shift && !isClosed) {
+      // Zona PLANEAR AQUI — ocupa o resto da célula
+      if (!isClosed) {
         const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-        // Capacidade útil (h) = turno − refeições
+        // Capacidade útil = nTurnos × HOURS_PER_TURNO × krH menos refeições dentro do 1º turno (aprox)
+        const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
         const mealsMs = (_mealsList || []).reduce((s, m) => s + (m.end - m.start), 0);
-        const shiftUsefulH = Math.max(0, ((shift.end - shift.start) - mealsMs) / 3600000);
+        const shiftUsefulH = Math.max(0, cellUseHours - (mealsMs / 3600000));
         const capTotal = krH * shiftUsefulH;
         const planeado = items.reduce((s, i) => s + ((i.qtdSeg != null) ? i.qtdSeg : (i.op.qtdEntrada || 0)), 0);
         const livre = Math.max(0, capTotal - planeado);
-        const gapTopH = _lastEnd ? ((_lastEnd - shift.start) / 3600000) : 0;
-        const gapTopPx = TITLE_H + Math.max(0, gapTopH * pxh);
-        const gapHeightPx = Math.max(24, cellHeight - gapTopPx - 4);
+        const usedH = items.reduce((s, i) => s + (((i.prodMs != null) ? i.prodMs : (i.end - i.start)) / 3600000), 0);
+        const gapTopPx = HEADER_OFFSET + Math.max(0, usedH * pxh);
+        const gapHeightPx = Math.max(28, cellHeight - gapTopPx - 4);
         if (gapHeightPx > 22) {
           const ph = document.createElement('div');
           ph.className = 'vc-plan-here';
@@ -4506,7 +4468,7 @@ function renderCardsView() {
           ph.style.height = gapHeightPx + 'px';
           ph.dataset.dayKey = dk;
           ph.dataset.machine = machine;
-          ph.dataset.weekKey = _wk;
+          ph.dataset.weekKey = weekKey(date);
           ph.innerHTML = 'PLANEAR AQUI' +
             (livre > 0 ? '<span class="vc-plan-livre">livre ' + Math.round(livre).toLocaleString('pt-PT') + ' un</span>' : '');
           if (!isReadOnly()) setupZoneDropTarget(ph);
@@ -4524,6 +4486,8 @@ function renderCardsView() {
     container.appendChild(empty);
   }
 }
+
+
 function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx, titleH) {
   const op = it.op;
   const start = it.start, end = it.end;
