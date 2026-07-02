@@ -3994,6 +3994,23 @@ function saveOP() {
   };
   if (editingOP) {
     Object.assign(editingOP, data);
+    // Se o modal foi aberto sem segDayKey mas a OP tem realPorDia com chaves,
+    // propagar hIniR/hFimR/tempoAtraso para TODOS os segmentos (evita bug de valor
+    // legacy limpo enquanto segmento mantém valor antigo).
+    if (!editingSegDayKey && editingOP.realPorDia && typeof editingOP.realPorDia === 'object') {
+      const _keys = Object.keys(editingOP.realPorDia);
+      if (_keys.length > 0) {
+        const _iR = document.getElementById('m_hInicioR').value || '';
+        const _fR = document.getElementById('m_hFimR').value || '';
+        const _atr = document.getElementById('m_tempoAtraso').value || '';
+        for (const k of _keys) {
+          if (!editingOP.realPorDia[k]) editingOP.realPorDia[k] = {};
+          editingOP.realPorDia[k].hIniR = _iR;
+          editingOP.realPorDia[k].hFimR = _fR;
+          editingOP.realPorDia[k].tempoAtraso = _atr;
+        }
+      }
+    }
     saveData();
     closeModal();
     rerender();
