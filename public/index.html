@@ -358,12 +358,18 @@
   .day-machine-subzone .dms-header.empty { color: var(--c-muted); font-style: italic; font-weight: 500; }
   .day-machine-subzone.empty-zone {
     min-height: 48px;
-    background: repeating-linear-gradient(45deg, #f8faf6, #f8faf6 6px, #eef2eb 6px, #eef2eb 12px);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--c-muted); font-size: 11px; font-style: italic;
-    border: 1px dashed var(--c-border); cursor: copy;
+    background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
+    display: block;
+    color: #6a80a0; font-size: 11px;
+    border: 1px dashed #b7cbe1; cursor: copy;
   }
-  .day-machine-subzone.empty-zone:hover { background: #eef5e6; border-color: var(--c-primary); }
+  .day-machine-subzone.empty-zone:hover { background: #e8f0f9; border-color: #365F91; }
+  /* Header dentro da empty-zone também em azul claro */
+  .day-machine-subzone.empty-zone .dms-header {
+    background: #eaf1f8;
+    color: #365F91; border-left-color: #365F91;
+  }
+  .day-machine-subzone.empty-zone .dms-header .dms-turno input[type="time"] { background: #fff; }
   .dms-plan-here {
     margin: 4px 8px 6px;
     background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
@@ -378,15 +384,15 @@
     text-transform: none; letter-spacing: 0; margin-left: 6px;
   }
   .day-machine-subzone.empty-zone.drag-target {
-    background: #d4e9b8 !important; border-color: var(--c-primary);
-    color: var(--c-primary-dark); font-weight: 600;
+    background: #cee0f3 !important; border-color: #365F91;
+    color: #1e4a80; font-weight: 600;
   }
   .day-machine-subzone .dms-meta { font-weight: 500; font-size: 10.5px; color: var(--c-muted); }
   .day-machine-subzone .dms-meta strong { color: var(--c-text); }
   .day-machine-subzone .dms-meta .dms-over { color: #b91c1c; font-weight: 700; }
   .day-machine-subzone .dms-header.occ-mid { background: #fff5e1; border-left-color: #f59e0b; }
   .day-machine-subzone .dms-header.occ-high { background: #fde2e2; border-left-color: #ef4444; }
-  .day-machine-subzone.drag-target { background: #eaf3fb; outline: 2px dashed var(--c-primary); outline-offset: -2px; }
+  .day-machine-subzone.drag-target { background: #eaf3fb; outline: 2px dashed #365F91; outline-offset: -2px; }
   .day-machine-subzone .empty-day-machine { padding: 6px 12px; color: var(--c-muted); font-size: 10.5px; font-style: italic; }
   table.excel { border-collapse: collapse; font-size: 10.5px; table-layout: fixed; width: 100%; }
   table.excel th {
