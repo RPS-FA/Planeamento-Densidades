@@ -659,27 +659,23 @@
   .vc2-op-card[data-estado="Em Processo"]           { border-left: 4px solid var(--st-em-processo); }
   .vc2-op-card[data-estado="Terminada"]             { border-left: 4px solid var(--st-terminada); }
   .vc2-op-card[data-estado="Concluída Planeamento"] { border-left: 4px solid var(--st-concluida-plan); }
-  .vc2-line { display: grid; align-items: center; column-gap: 8px; font-size: 11px; }
-  .vc2-line1 {
-    grid-template-columns: 80px 100px 100px minmax(120px, 1.5fr) 55px 65px 1fr 100px;
-    font-weight: 600;
-  }
-  .vc2-line2 {
-    grid-template-columns: 1fr 100px 90px 90px 90px 18px;
-    color: var(--c-muted); margin-top: 3px;
-  }
-  .vc2-c-op { color: var(--c-primary); font-weight: 700; font-size: 12px; }
-  .vc2-c-estado { font-size: 10px; padding: 1px 4px; height: 20px; }
-  .vc2-c-fc, .vc2-c-prod, .vc2-c-obspi { font-family: Consolas, monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vc2-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 11px; }
+  .vc2-line1 { font-weight: 600; }
+  .vc2-c-op { color: var(--c-primary); font-weight: 700; font-size: 12px; min-width: 80px; }
+  .vc2-c-estado { font-size: 10px; padding: 1px 4px; height: 20px; min-width: 110px; max-width: 160px; }
+  .vc2-c-fc, .vc2-c-prod, .vc2-c-obspi { font-family: Consolas, monospace; font-size: 10px; }
+  .vc2-c-fc { min-width: 90px; }
+  .vc2-c-prod { font-weight: 600; color: #374151; }
   .vc2-c-obspi { font-style: italic; color: #7a5a00; }
-  .vc2-c-qtd { font-weight: 700; text-align: right; }
-  .vc2-c-qtd small { color: var(--c-muted); font-weight: 500; }
+  .vc2-c-calibre, .vc2-c-massas { color: var(--c-muted); font-size: 10px; }
+  .vc2-c-dest { font-size: 10px; color: #365F91; background: #e8f0f9; padding: 1px 6px; border-radius: 3px; }
   .vc2-c-plan { color: #1a4020; font-weight: 600; }
-  .vc2-c-realIni, .vc2-c-realFim, .vc2-c-atraso { display: flex; flex-direction: column; }
-  .vc2-c-realIni label, .vc2-c-realFim label, .vc2-c-atraso label { font-size: 9px; color: var(--c-muted); }
-  .vc2-c-realIni input, .vc2-c-realFim input, .vc2-c-atraso input { border: 1px solid #d0d7ce; border-radius: 2px; padding: 1px 3px; font-size: 10px; font-family: inherit; }
-  .vc2-c-del { text-align: center; color: #dc2626; font-weight: 700; cursor: pointer; padding: 2px; }
-  .vc2-c-del:hover { background: #fee; }
+  .vc2-c-real-badge { color: #4b5563; background: #f3f4f6; padding: 1px 6px; border-radius: 3px; font-size: 10px; }
+  .vc2-c-atraso-badge { color: #b91c1c; background: #fee2e2; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px; }
+  .vc2-c-qtd { font-weight: 700; margin-left: auto; }
+  .vc2-c-qtd small { color: var(--c-muted); font-weight: 500; }
+  .vc2-c-del { text-align: center; color: #dc2626; font-weight: 700; cursor: pointer; padding: 2px 6px; }
+  .vc2-c-del:hover { background: #fee; border-radius: 3px; }
   .vc2-plan-here {
     margin: 4px 8px 6px;
     background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
@@ -4676,8 +4672,13 @@ function buildVc2Card(it, dk, machine, searchTerm, idx) {
   const estadoOpts = DENS_ESTADOS.map(s => '<option ' + (s === op.estado ? 'selected' : '') + '>' + s + '</option>').join('');
   const hIniP = _fmtHmFromMs(it.start);
   const hFimP = _fmtHmFromMs(it.end);
-  // Linha 1: handle · OP+seg · Estado · File/Cliente · Produto · Calibre · Massas · Obs PI · Qtd
-  // Linha 2: Destino · Início P → Fim P · Início Real · Fim Real · Atraso · Delete
+  // Linha única — informação toda visível (edição de reais/atraso é no modal)
+  const _atrasoBadge = (atrasoStr && /^-?\d{1,2}:\d{2}$/.test(atrasoStr) && atrasoStr !== '00:00')
+    ? ('<span class="vc2-c-atraso-badge" title="Atraso">Δ ' + atrasoStr + '</span>')
+    : '';
+  const _realBadge = (hIniR || hFimR)
+    ? ('<span class="vc2-c-real-badge" title="Reais">▶ ' + (hIniR || '--:--') + ' → ' + (hFimR || '--:--') + '</span>')
+    : '';
   card.innerHTML =
     (isFirstSeg && !isReadOnly() ? '<span class="vc2-handle" title="Arrastar">⋮⋮</span>' : '<span class="vc2-handle-space"></span>') +
     '<div class="vc2-line vc2-line1">' +
@@ -4688,14 +4689,11 @@ function buildVc2Card(it, dk, machine, searchTerm, idx) {
       '<span class="vc2-c-calibre">' + (op.calibre || '') + '</span>' +
       '<span class="vc2-c-massas">' + (op.massas || '') + '</span>' +
       '<span class="vc2-c-obspi" title="' + (op.obsPi || '') + '">' + (op.obsPi || '') + '</span>' +
-      '<span class="vc2-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + '<small> / ' + Math.round(op.qtdEntrada || 0).toLocaleString('pt-PT') + '</small></span>' +
-    '</div>' +
-    '<div class="vc2-line vc2-line2">' +
       '<span class="vc2-c-dest">' + (op.destino || '') + '</span>' +
-      '<span class="vc2-c-plan">⏱ ' + hIniP + ' → ' + hFimP + '</span>' +
-      '<span class="vc2-c-realIni"><label>Início R</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hIniR" value="' + hIniR + '"></span>' +
-      '<span class="vc2-c-realFim"><label>Fim R</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hFimR" value="' + hFimR + '"></span>' +
-      '<span class="vc2-c-atraso"><label>Atraso</label><input type="text" placeholder="HH:MM" data-op="' + op.id + '" data-day="' + dk + '" data-field="tempoAtraso" value="' + atrasoStr + '"></span>' +
+      '<span class="vc2-c-plan" title="Planeado">⏱ ' + hIniP + ' → ' + hFimP + '</span>' +
+      _realBadge +
+      _atrasoBadge +
+      '<span class="vc2-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + '<small> / ' + Math.round(op.qtdEntrada || 0).toLocaleString('pt-PT') + '</small></span>' +
       (!isReadOnly() ? '<span class="vc2-c-del" title="Apagar OP">×</span>' : '') +
     '</div>';
 
@@ -4709,24 +4707,7 @@ function buildVc2Card(it, dk, machine, searchTerm, idx) {
     }
     openModal(op, dk);
   });
-  // Inputs reais/atraso
-  card.querySelectorAll('.vc2-line2 input').forEach(inp => {
-    inp.addEventListener('mousedown', e => e.stopPropagation());
-    inp.addEventListener('click', e => e.stopPropagation());
-    inp.addEventListener('change', e => {
-      e.stopPropagation();
-      const id = parseInt(e.target.dataset.op, 10);
-      const dayKey = e.target.dataset.day;
-      const field = e.target.dataset.field;
-      const target = DATA.find(o => o.id === id);
-      if (!target) return;
-      if (!target.realPorDia) target.realPorDia = {};
-      if (!target.realPorDia[dayKey]) target.realPorDia[dayKey] = {};
-      target.realPorDia[dayKey][field] = e.target.value;
-      saveOneOp(target).catch(() => {});
-      rerender();
-    });
-  });
+  // Reais/atraso agora só editáveis no modal — sem inputs inline no cartão
   const selEst = card.querySelector('.vc2-c-estado');
   if (selEst) {
     selEst.addEventListener('mousedown', e => e.stopPropagation());
