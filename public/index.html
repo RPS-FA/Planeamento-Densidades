@@ -856,19 +856,23 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
 }
 .day-block-header .dh-turno .dh-scope option { color: #1f2d20; background: #fff; }
 
-/* ===== Linha OP atrasada (vermelho suave) ===== */
-table.excel tbody tr.row-data.row-atrasada td {
-  background: #fee2e2 !important;
-}
-table.excel tbody tr.row-data.row-atrasada:nth-child(even) td {
-  background: #fecaca !important;
-}
-table.excel tbody tr.row-data.row-atrasada:hover td {
-  background: #fca5a5 !important;
-}
-table.excel tbody tr.row-data.row-atrasada td.inicio-manual {
-  background: #ffff00 !important;  /* mantém amarelo do início manual */
-}
+/* ===== Linha OP atrasada ===== */
+/* A linha inteira já não fica vermelha; apenas a célula "Atraso" (atraso-pos) mantém a cor vermelha. */
+
+/* ===== Cores dos dias (mview) ===== */
+.day-block.db-today { border-color: #86C47A; box-shadow: 0 0 0 2px rgba(134,196,122,0.25); }
+.day-block.db-past-1 { background: #f0f1f2; }
+.day-block.db-past-1 .day-block-header { background: linear-gradient(180deg, #4b5563, #6b7280); }
+.day-block.db-past-1 .day-machine-subzone { background: #f6f7f8; }
+.day-block.db-past-1 .dms-header { background: #dde0e3; color: #374151; border-left-color: #6b7280; }
+.day-block.db-past-2plus { background: #e8e9eb; opacity: 0.7; }
+.day-block.db-past-2plus .day-block-header { background: linear-gradient(180deg, #6b7280, #9ca3af); }
+.day-block.db-past-2plus .day-machine-subzone { background: #ececee; }
+.day-block.db-past-2plus .dms-header { background: #cccfd2; color: #4b5563; border-left-color: #9ca3af; }
+.day-block.db-future { background: #f4f8fc; border-color: #b7cbe1; }
+.day-block.db-future .day-block-header { background: linear-gradient(180deg, #365F91, #4a76b3); }
+.day-block.db-future .day-machine-subzone { background: #fbfdff; }
+.day-block.db-future .dms-header { background: #e4edf7; color: #365F91; border-left-color: #365F91; }
 
 /* ===== Previsão: linhas com 3 colunas (label, input, peso) ===== */
 .settings-section .prev-row {
@@ -3076,11 +3080,20 @@ function renderMonth(tabKey) {
 // Cria um bloco diário com cabeçalho sticky + sub-zonas por máquina
 function renderDayBlock(dayKey, byMachine) {
   const block = document.createElement('div');
-  block.className = 'day-block';
-  block.dataset.dayKey = dayKey;
-
   const [y, m, d] = dayKey.split('-').map(Number);
   const date = new Date(y, m - 1, d);
+  // Classe temporal em relação a hoje
+  const _today0 = new Date(); _today0.setHours(0,0,0,0);
+  const _thisDay0 = new Date(date); _thisDay0.setHours(0,0,0,0);
+  const _diffDays = Math.round((_thisDay0 - _today0) / 86400000);
+  let _tempClass = '';
+  if (_diffDays === 0) _tempClass = ' db-today';
+  else if (_diffDays === -1) _tempClass = ' db-past-1';
+  else if (_diffDays <= -2) _tempClass = ' db-past-2plus';
+  else if (_diffDays >= 1) _tempClass = ' db-future';
+  block.className = 'day-block' + _tempClass;
+  block.dataset.dayKey = dayKey;
+
   // Mapeia getDay() (0=Dom..6=Sáb) para nosso índice (0=Seg..6=Dom)
   const diaSem = (date.getDay() + 6) % 7;
   const diaNome = DIAS_PT_LONG[diaSem] || '';
