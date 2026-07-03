@@ -70,9 +70,6 @@
   body.profile-producao #swapOpsBtn { display: none !important; }
   body.profile-producao #m_btnSplit { display: none !important; }
   body.profile-producao .row-handle { display: none; }
-  /* Em Produção: esconder KANBAN lateral e usar o ecrã todo para o planeamento */
-  body.profile-producao #panel-mview { grid-template-columns: 1fr !important; }
-  body.profile-producao #panel-mview > .panel:first-child { display: none !important; }
   .conn-chip {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 11px; padding: 3px 8px; border-radius: 10px;
@@ -496,30 +493,9 @@
   .tab-panel.settings { display: none; grid-template-columns: 1fr; padding: 16px 24px; overflow-y: auto; }
   .tab-panel.settings.active { display: block; }
   /* Vista Cartões (experimental) */
-  .tab-panel.vcards-panel { display: none; padding: 8px; overflow: hidden; }
-  .tab-panel.vcards-panel.active { display: grid; grid-template-columns: 240px 1fr; gap: 8px; }
-  body.profile-producao .tab-panel.vcards-panel.active { grid-template-columns: 1fr; }
-  body.profile-producao .tab-panel.vcards-panel .vc-kanban-panel { display: none !important; }
-  .vc-kanban-panel { display: flex; flex-direction: column; overflow: hidden; }
-  .vc-main { display: flex; flex-direction: column; overflow: hidden; }
-  .vc-card.dragging { opacity: 0.4; }
-  .vc-cell.drag-target { outline: 2px dashed var(--c-primary); outline-offset: -3px; }
-  .vc-card-handle { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #9aa0a6; cursor: grab; user-select: none; }
-  body.profile-producao .vc-card-handle { display: none; }
   /* Cor por estado — border esquerda do cartão */
-  .vc-card[data-estado="Aberto"]                { border-left-color: #b0b7c0; }
-  .vc-card[data-estado="Liberada"]              { border-left-color: var(--st-pi-liberado); }
-  .vc-card[data-estado="Entregue Logística"]    { border-left-color: var(--st-pi-entregue-log); }
-  .vc-card[data-estado="CSP2-AI por liberar"]   { border-left-color: var(--st-csp2-por-liberar); }
-  .vc-card[data-estado="CSP2-AI liberada"]      { border-left-color: var(--st-csp2-liberada); }
-  .vc-card[data-estado="Em Processo"]           { border-left-color: var(--st-em-processo); }
-  .vc-card[data-estado="Terminada"]             { border-left-color: var(--st-terminada); }
-  .vc-card[data-estado="Concluída Planeamento"] { border-left-color: var(--st-concluida-plan); }
   /* Zebra suave — alterna backgrounds nos cartões */
-  .vc-card.vc-alt { background: #f2f4ef; }
-  .vc-card.vc-alt:hover { background: #eaf0e0; }
   /* Título da máquina + barra de turno dentro da célula */
-  .vc-cell-title {
     display: flex; align-items: center; gap: 8px;
     background: var(--c-primary); color: #fff;
     padding: 3px 8px; font-size: 10px; font-weight: 600;
@@ -527,110 +503,31 @@
     text-transform: uppercase; letter-spacing: 0.4px;
     height: 26px; box-sizing: border-box;
   }
-  .vc-cell-title .vc-mach-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .vc-cell-title .vc-shift-info { font-size: 9px; opacity: 0.9; font-weight: 500; text-transform: none; letter-spacing: 0; white-space: nowrap; }
-  .vc-cell-title .vc-shift-info .vc-tag { background: rgba(255,255,255,0.15); padding: 1px 4px; border-radius: 2px; margin-left: 3px; display: inline-flex; align-items: center; gap: 2px; }
-  .vc-cell-title .vc-shift-info .vc-tag input[type="time"] { background: #fff; color: #1f2d20; border: none; border-radius: 2px; font-size: 9px; padding: 0 2px; width: 58px; font-family: inherit; }
-  .vc-cell-title .vc-shift-info .vc-tag input[type="time"]:hover { background: #f2f4ef; }
-  .vc-cell-title .vc-shift-info .vc-turno-ok {
     background: #fff; color: var(--c-primary);
     border: 1px solid #cbd5c0; border-radius: 2px;
     padding: 1px 8px; font-size: 10px; font-weight: 700;
     cursor: pointer; margin-left: 6px;
     font-family: inherit;
   }
-  .vc-cell-title .vc-shift-info .vc-turno-ok:hover { background: #f2f4ef; }
-  .vc-cell-title .vc-shift-info .vc-turno-ok:active { background: #e2ead9; }
-  .vc-cell-title .vc-shift-info .vc-turno-ok.dirty { background: #ffde8a; color: #4d3800; border-color: #d4a017; animation: vc-ok-pulse 1s ease-in-out infinite; }
   @keyframes vc-ok-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(212,160,23,0.55); } 50% { box-shadow: 0 0 0 3px rgba(212,160,23,0); } }
-  .vc-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 10px; gap: 12px; border-bottom: 1px solid var(--c-border); }
-  .vc-toolbar .left, .vc-toolbar .right { display: flex; align-items: center; gap: 8px; }
-  .vc-sandbox-badge { background: #d4a017; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
-  .vc-toolbar .left .btn.secondary { color: var(--c-primary); border-color: var(--c-primary); font-size: 11px; padding: 3px 8px; }
-  .vc-toolbar .left .btn.secondary:hover { background: rgba(0,120,50,0.06); }
-  .vc-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
-  .vc-row { display: grid; grid-template-columns: 90px repeat(var(--machines,2), 1fr); gap: 6px; margin-bottom: 6px; align-items: stretch; }
-  .vc-day-label { background: linear-gradient(180deg, #f0f4ec, #e2ead9); border: 1px solid var(--c-border); border-radius: 4px; text-align: center; font-size: 12px; color: var(--c-text); position: relative; overflow: hidden; }
-  .vc-day-label .vc-day-head { padding: 4px 6px 6px; border-bottom: 1px dashed rgba(0,0,0,0.15); }
-  .vc-day-label .vc-day-hourmark { position: absolute; left: 0; right: 0; font-size: 9px; color: #2a3d1e; font-family: Consolas, monospace; font-weight: 600; background: rgba(255,255,255,0.6); border-top: 1px dashed rgba(0,0,0,0.15); padding: 0 2px; text-align: right; box-sizing: border-box; }
-  .vc-day-label .vc-day-hourmark.vc-hm-end { color: #7a1d1d; }
-  .vc-day-label.today { background: linear-gradient(180deg, #fff3d0, #ffde8a); border-color: #d4a017; }
-  .vc-day-label.fds { background: linear-gradient(180deg, #efe2c0, #d9c48a); }
-  .vc-day-label .vc-dow { font-size: 10px; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-  .vc-day-label .vc-date { font-weight: 700; font-size: 13px; margin-top: 2px; }
-  .vc-day-label .vc-shift { font-size: 9px; color: var(--c-muted); margin-top: 4px; }
-  .vc-day-label .vc-close-btn { margin-top: 4px; font-size: 9px; padding: 2px 6px; border-radius: 3px; border: 1px solid #bbb; background: #fff; cursor: pointer; }
-  .vc-day-label .vc-close-btn.closed { background: #6b7280; color: #fff; border-color: #4b5563; }
-  .vc-cell { border: 1px solid var(--c-border); border-radius: 4px; background: repeating-linear-gradient(180deg, #fafafa 0, #fafafa 30px, #f4f4f4 30px, #f4f4f4 60px); position: relative; overflow: visible; padding: 3px; }
-  .vc-cell.has-title { padding-top: 30px; }
-  .vc-cell .vc-cell-title-abs { position: absolute; top: 0; left: 0; right: 0; z-index: 3; }
-  .vc-cell.closed { background: #ececec; }
-  .vc-cell-header { position: absolute; top: 2px; right: 4px; font-size: 9px; color: var(--c-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; pointer-events: none; }
-  .vc-card { background: #fff; border: 1px solid #cbd5c0; border-left: 4px solid var(--c-primary); border-radius: 3px; padding: 6px 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); cursor: pointer; overflow: hidden; display: flex; flex-direction: column; gap: 3px; min-height: 30px; }
-  .vc-card:hover { background: #f7fbf1; }
-  .vc-card.seg-cont { border-left-style: dashed; opacity: 0.92; }
-  .vc-card.row-atrasada { background: #fef2f2; border-left-color: #dc2626; }
-  .vc-card .vc-c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-  .vc-card .vc-c-op { font-weight: 700; color: var(--c-primary); font-size: 12px; }
-  .vc-card .vc-c-qtd { font-size: 11px; color: var(--c-text); font-weight: 600; }
-  .vc-card .vc-c-desc { font-family: Consolas, monospace; font-size: 10px; color: #374151; overflow: hidden; }
-  .vc-card .vc-c-meta { font-size: 10px; color: var(--c-muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
-  .vc-card .vc-c-meta .vc-tag-inline { background: #eef2ea; padding: 1px 5px; border-radius: 2px; font-weight: 500; }
-  .vc-card .vc-c-obspi { font-size: 10px; color: #7a5a00; font-style: italic; background: #fffbe6; padding: 2px 4px; border-radius: 2px; border-left: 2px solid #d4a017; }
-  .vc-card .vc-c-plan { font-size: 10px; color: #1a4020; }
-  .vc-card .vc-c-real { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 3px; font-size: 10px; }
-  .vc-card .vc-c-real label { color: var(--c-muted); font-size: 9px; display: block; }
-  .vc-card .vc-c-real input { width: 100%; padding: 2px 3px; font-size: 10px; border: 1px solid #d0d7ce; border-radius: 2px; font-family: inherit; }
-  .vc-card select.vc-c-estado { width: 100%; font-size: 10px; padding: 2px 3px; border: 1px solid #d0d7ce; border-radius: 2px; margin-top: 2px; background: #fff; }
-  .vc-machine-title { background: #365F91; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 700; border-radius: 3px; text-align: center; text-transform: uppercase; letter-spacing: 0.6px; }
-  .vc-cell.machine-header { background: transparent; border: none; padding: 0; }
-  .vc-header-row { position: sticky; top: 0; z-index: 5; background: var(--c-bg); padding-bottom: 4px; }
   /* ===== Vista Cartões V2 — bloco por dia com máquinas empilhadas + dia à direita ===== */
-  .vc2-day-block {
     display: grid; grid-template-columns: 100px 1fr; gap: 6px;
     margin-bottom: 12px;
     background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px;
     overflow: hidden;
   }
-  .vc2-day-block.fds { border-color: #d4a017; }
-  .vc2-day-block.today { border-color: #86C47A; box-shadow: 0 0 0 2px rgba(134,196,122,0.25); }
-  .vc2-day-block.closed { opacity: 0.55; }
   /* Ontem — cinza */
-  .vc2-day-block.past-1 { background: #f0f1f2; }
-  .vc2-day-block.past-1 .vc2-day-side { background: linear-gradient(180deg, #e2e4e6, #cfd2d5); color: #4b5563; }
-  .vc2-day-block.past-1 .vc2-machine { background: #f6f7f8; }
-  .vc2-day-block.past-1 .vc2-mach-head { background: #dde0e3; color: #4b5563; border-left-color: #6b7280; }
   /* 2+ dias atrás — fechado/desaturado */
-  .vc2-day-block.past-2plus { background: #e8e9eb; opacity: 0.7; }
-  .vc2-day-block.past-2plus .vc2-day-side { background: linear-gradient(180deg, #d3d5d8, #b6bac0); color: #6b7280; }
-  .vc2-day-block.past-2plus .vc2-machine { background: #ececee; }
-  .vc2-day-block.past-2plus .vc2-mach-head { background: #cccfd2; color: #6b7280; border-left-color: #9ca3af; }
   /* Futuros — azul */
-  .vc2-day-block.future { background: #f4f8fc; border-color: #b7cbe1; }
-  .vc2-day-block.future .vc2-day-side { background: linear-gradient(180deg, #dfe9f5, #b7cbe1); color: #365F91; border-right-color: #b7cbe1; }
-  .vc2-day-block.future .vc2-machine { background: #fbfdff; }
-  .vc2-day-block.future .vc2-mach-head { background: #e4edf7; color: #365F91; border-left-color: #365F91; }
-  .vc2-machines { display: grid; grid-template-columns: repeat(var(--machines, 2), 1fr); gap: 0; }
-  .vc2-machine {
     background: #fff; border-left: 1px solid var(--c-grid);
     display: flex; flex-direction: column;
     min-width: 0;
   }
-  .vc2-machine:first-child { border-left: none; }
-  .vc2-mach-head {
     display: flex; align-items: center; gap: 12px;
     background: #eef2eb; padding: 5px 10px;
     font-size: 11px; font-weight: 700; color: var(--c-primary);
     border-left: 4px solid var(--c-primary);
   }
-  .vc2-mach-name { font-size: 12px; }
-  .vc2-inline-turno { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 10px; font-weight: 500; color: #333; }
-  .vc2-inline-turno .vc-tag { display: inline-flex; align-items: center; gap: 3px; background: #fff; padding: 1px 4px; border: 1px solid var(--c-grid); border-radius: 3px; }
-  .vc2-inline-turno .vc-tag input[type="time"] { border: none; font-size: 10px; padding: 0 2px; width: 60px; background: transparent; font-family: inherit; }
-  .vc2-inline-turno .vc-turno-ok { font-size: 10px; padding: 2px 8px; background: #fff; color: var(--c-primary); border: 1px solid var(--c-grid); border-radius: 3px; cursor: pointer; font-weight: 700; font-family: inherit; }
-  .vc2-inline-turno .vc-turno-ok.dirty { background: #ffde8a; color: #4d3800; border-color: #d4a017; }
-  .vc2-op-list { display: flex; flex-direction: column; padding: 2px 0; }
-  .vc2-op-card {
     display: grid; grid-template-columns: 20px 1fr; gap: 4px;
     padding: 8px 10px;
     background: #fff;
@@ -642,56 +539,16 @@
     position: relative;
     transition: box-shadow 0.15s, transform 0.05s;
   }
-  .vc2-op-card:hover { background: #f7fbf1; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
-  .vc2-op-card:active { transform: translateY(1px); }
-  .vc2-op-card.vc2-alt { background: #fbfcf8; }
-  .vc2-op-card.vc2-alt:hover { background: #eef5e2; }
-  .vc2-op-card.vc2-atrasada { background: #fef2f2; }
-  .vc2-op-card.vc2-match { background: #d1f0c2; }
-  .vc2-op-card.dragging { opacity: 0.4; }
-  .vc2-op-card.drop-above { border-top: 3px solid #365F91; box-shadow: 0 -4px 0 -1px #365F91, 0 1px 3px rgba(0,0,0,0.06); }
-  .vc2-op-card.drop-below { border-bottom: 3px solid #365F91; box-shadow: 0 4px 0 -1px #365F91, 0 1px 3px rgba(0,0,0,0.06); }
-  .vc2-op-card.drop-above::before {
     content: 'colocar aqui'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
     background: #365F91; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 3px;
     font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; z-index: 10;
     white-space: nowrap;
   }
-  .vc2-op-card.drop-below::after {
     content: 'colocar aqui'; position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
     background: #365F91; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 3px;
     font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; z-index: 10;
     white-space: nowrap;
   }
-  .vc2-handle { color: #9aa0a6; cursor: grab; user-select: none; font-size: 12px; padding-top: 2px; }
-  body.profile-producao .vc2-handle { display: none; }
-  .vc2-handle-space { width: 20px; }
-  .vc2-op-card[data-estado="Aberto"]                { border-left: 4px solid #b0b7c0; }
-  .vc2-op-card[data-estado="Liberada"]              { border-left: 4px solid var(--st-pi-liberado); }
-  .vc2-op-card[data-estado="Entregue Logística"]    { border-left: 4px solid var(--st-pi-entregue-log); }
-  .vc2-op-card[data-estado="CSP2-AI por liberar"]   { border-left: 4px solid var(--st-csp2-por-liberar); }
-  .vc2-op-card[data-estado="CSP2-AI liberada"]      { border-left: 4px solid var(--st-csp2-liberada); }
-  .vc2-op-card[data-estado="Em Processo"]           { border-left: 4px solid var(--st-em-processo); }
-  .vc2-op-card[data-estado="Terminada"]             { border-left: 4px solid var(--st-terminada); }
-  .vc2-op-card[data-estado="Concluída Planeamento"] { border-left: 4px solid var(--st-concluida-plan); }
-  .vc2-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 11px; }
-  .vc2-line1 { font-weight: 600; }
-  .vc2-c-op { color: var(--c-primary); font-weight: 700; font-size: 12px; min-width: 80px; }
-  .vc2-c-estado { font-size: 10px; padding: 1px 4px; height: 20px; min-width: 110px; max-width: 160px; }
-  .vc2-c-fc, .vc2-c-prod, .vc2-c-obspi { font-family: Consolas, monospace; font-size: 10px; }
-  .vc2-c-fc { min-width: 90px; }
-  .vc2-c-prod { font-weight: 600; color: #374151; }
-  .vc2-c-obspi { font-style: italic; color: #7a5a00; }
-  .vc2-c-calibre, .vc2-c-massas { color: var(--c-muted); font-size: 10px; }
-  .vc2-c-dest { font-size: 10px; color: #365F91; background: #e8f0f9; padding: 1px 6px; border-radius: 3px; }
-  .vc2-c-plan { color: #1a4020; font-weight: 600; }
-  .vc2-c-real-badge { color: #4b5563; background: #f3f4f6; padding: 1px 6px; border-radius: 3px; font-size: 10px; }
-  .vc2-c-atraso-badge { color: #b91c1c; background: #fee2e2; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px; }
-  .vc2-c-qtd { font-weight: 700; margin-left: auto; }
-  .vc2-c-qtd small { color: var(--c-muted); font-weight: 500; }
-  .vc2-c-del { text-align: center; color: #dc2626; font-weight: 700; cursor: pointer; padding: 2px 6px; }
-  .vc2-c-del:hover { background: #fee; border-radius: 3px; }
-  .vc2-plan-here {
     margin: 4px 8px 6px;
     background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
     border: 1px dashed #b7cbe1; border-radius: 3px;
@@ -700,31 +557,18 @@
     letter-spacing: 0.4px; text-transform: uppercase;
     cursor: default;
   }
-  .vc2-plan-here.drag-target { background: #cee0f3 !important; border-color: #365F91; }
-  .vc2-plan-here .vc2-plan-livre { color: #365F91; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-left: 6px; }
-  .vc2-machine.drag-target { background: #eaf3fb; outline: 2px dashed #365F91; outline-offset: -2px; }
   /* Coluna direita: label do dia */
-  .vc2-day-side {
     background: linear-gradient(180deg, #f0f4ec, #e2ead9);
     border-right: 1px solid var(--c-border);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 8px 4px; text-align: center;
     gap: 4px;
   }
-  .vc2-day-block.today .vc2-day-side { background: linear-gradient(180deg, #fff3d0, #ffde8a); }
-  .vc2-day-block.fds .vc2-day-side { background: linear-gradient(180deg, #efe2c0, #d9c48a); }
-  .vc2-dow { font-size: 10px; text-transform: uppercase; color: var(--c-muted); letter-spacing: 0.5px; font-weight: 600; }
-  .vc2-date { font-size: 15px; font-weight: 800; color: var(--c-primary); }
-  .vc2-day-side .vc-close-btn { font-size: 10px; padding: 3px 8px; border-radius: 3px; border: 1px solid #bbb; background: #fff; cursor: pointer; font-family: inherit; }
-  .vc2-day-side .vc-close-btn.closed { background: #6b7280; color: #fff; border-color: #4b5563; }
-  .vc-turnos-sel { position: absolute; top: 4px; left: 4px; right: 4px; z-index: 2; }
-  .vc-turnos-sel select {
     width: 100%; padding: 3px 6px; font-size: 11px;
     border: 1px solid var(--c-border); border-radius: 3px;
     background: #fff; font-family: inherit;
     box-sizing: border-box;
   }
-  .vc-plan-here {
     position: absolute; left: 4px; right: 4px;
     background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
     border: 1px dashed #b7cbe1; border-radius: 3px;
@@ -735,8 +579,6 @@
     cursor: default; min-height: 24px;
     z-index: 1;
   }
-  .vc-plan-here .vc-plan-livre { color: #365F91; font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
-  .vc-plan-here.drag-target { background: #dfe9f5; border-color: #365F91; }
   .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 1200px; margin: 0 auto; }
   .settings-section { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px; padding: 14px; }
   .settings-section.full { grid-column: 1 / -1; }
@@ -946,7 +788,6 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
 
 <div class="tabs" id="tabs-bar">
   <div class="tab active" data-tab="mview" onclick="switchTab(pickDefaultTab())"><span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> Planeamento</span></div>
-  <div class="tab" data-tab="vcards" onclick="switchTab('vcards')">🧪 Vista Cartões</div>
   <div class="tab" data-tab="cfg" onclick="switchTab('cfg')">⚙ Configurações</div>
 </div>
 </div>
@@ -967,40 +808,8 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
 <!-- Painéis mensais (m05..m12) são injetados dinamicamente por buildMonthlyTabs() -->
 <div id="monthly-panels"></div>
 
-<!-- Vista Cartões (alternativa vertical, experimental) -->
-<div class="tab-panel vcards-panel" id="panel-vcards">
-  <div class="panel vc-kanban-panel">
-    <div class="kanban-header"><span>📋 KANBAN</span><span class="count" id="count-kanban-vcards">0</span></div>
-    <div class="kanban-body" id="col-kanban-vcards" data-machine="KANBAN"></div>
-  </div>
-  <div class="vc-main">
-    <div class="vc-toolbar">
-      <div class="left">
-        <div class="search-box">
-          <input type="text" id="search-vcards" placeholder="Procurar OP, cliente, PO, produto..." oninput="onSearch('vcards', this.value)">
-          <button class="clear-btn" onclick="clearSearch('vcards')" title="Limpar">×</button>
-        </div>
-        <span class="vc-sandbox-badge" title="As alterações desta vista NÃO afectam o Planeamento nem são gravadas">🧪 SANDBOX</span>
-        <button class="btn secondary vc-sync-btn" onclick="vcResync()" title="Recarregar do Planeamento (descarta alterações locais)">🔄 Recarregar</button>
-        <button class="btn secondary vc-discard-btn" onclick="vcDiscard()" title="Descartar alterações">💥 Descartar</button>
-      </div>
-      <div class="right">
-        <div class="month-nav">
-          <button onclick="prevMonth()" title="Mês anterior">◀</button>
-          <span class="label" id="vc-month-label">—</span>
-          <button onclick="nextMonth()" title="Próximo mês">▶</button>
-          <button onclick="goToCurrentMonth()" style="margin-left:6px" title="Mês actual">Hoje</button>
-        </div>
-        <label style="font-size:11px;margin-left:8px;color:var(--c-muted)">
-          px/h: <input type="number" id="vc-pxh" min="20" max="200" value="60" style="width:56px" onchange="renderCardsView()">
-        </label>
-      </div>
-    </div>
-    <div class="vc-scroll" id="vc-scroll"></div>
-  </div>
-</div>
-
 <!-- Configurações -->
+
 <div class="tab-panel settings" id="panel-cfg">
   <div class="settings-grid">
 
@@ -1855,7 +1664,6 @@ function _scheduleSaveToast(msg) {
   }, 350);
 }
 function saveSettings() {
-  if (VC_MODE) return; // Vista Cartões — não persistir
   const payload = isProducao()
     ? {
         turnosPorDia: SETTINGS.turnosPorDia || {},
@@ -2092,18 +1900,14 @@ function formatHitsPill(term) {
 
 function onSearch(tab, value) {
   SEARCH.value = (value || '').trim().toLowerCase();
-  const inp1 = document.getElementById('search-mview');
-  if (inp1 && inp1.value !== value) inp1.value = value;
-  const inp2 = document.getElementById('search-vcards');
-  if (inp2 && inp2.value !== value) inp2.value = value;
+  const inp = document.getElementById('search-mview');
+  if (inp && inp.value !== value) inp.value = value;
   rerender();
 }
 function clearSearch(/* tab */) {
   SEARCH.value = '';
-  const inp1 = document.getElementById('search-mview');
-  if (inp1) inp1.value = '';
-  const inp2 = document.getElementById('search-vcards');
-  if (inp2) inp2.value = '';
+  const inp = document.getElementById('search-mview');
+  if (inp) inp.value = '';
   rerender();
 }
 
@@ -2112,40 +1916,6 @@ function clearSearch(/* tab */) {
 // ============================================================
 let DATA = [];
 let DENS_ETAG = null;
-// ===== Sandbox da Vista Cartões — DATA/SETTINGS isolados =====
-let VC_MODE = false;
-let DATA_VC = null, SETTINGS_VC = null;
-let DATA_BACKUP = null, SETTINGS_BACKUP = null;
-function vcEnter() {
-  if (VC_MODE) return;
-  if (DATA_VC === null) {
-    DATA_VC = JSON.parse(JSON.stringify(DATA));
-    SETTINGS_VC = JSON.parse(JSON.stringify(SETTINGS));
-  }
-  DATA_BACKUP = DATA; SETTINGS_BACKUP = SETTINGS;
-  DATA = DATA_VC; SETTINGS = SETTINGS_VC;
-  VC_MODE = true;
-}
-function vcLeave() {
-  if (!VC_MODE) return;
-  DATA_VC = DATA; SETTINGS_VC = SETTINGS;
-  DATA = DATA_BACKUP; SETTINGS = SETTINGS_BACKUP;
-  DATA_BACKUP = null; SETTINGS_BACKUP = null;
-  VC_MODE = false;
-}
-function vcResync() {
-  const wasIn = VC_MODE;
-  if (wasIn) vcLeave();
-  DATA_VC = JSON.parse(JSON.stringify(DATA));
-  SETTINGS_VC = JSON.parse(JSON.stringify(SETTINGS));
-  if (wasIn) vcEnter();
-  if (typeof renderCardsView === 'function') renderCardsView();
-  if (typeof renderKanbanAll === 'function') renderKanbanAll();
-}
-function vcDiscard() {
-  if (!confirm('Descartar todas as alterações da Vista Cartões e recarregar do Planeamento?')) return;
-  vcResync();
-}
 
 const LS_KEY_REAL = 'planeamento_dens_v1';
 
@@ -2233,7 +2003,6 @@ async function loadStateFromServer() {
 let _saveDataPending = false;
 let _diaIdxFixing = false;  // anti-loop para auto-fix de diaIdx no renderMonth
 function saveData() {
-  if (VC_MODE) return; // Vista Cartões — não persistir
   // Heurística: chamado após mutações em DATA. Re-persiste tudo via API.
   // Para não inundar a rede em sequências rápidas, agrupa por 50ms.
   if (_saveDataPending) return;
@@ -2261,7 +2030,6 @@ async function deleteOpAndPersist(id, label) {
   pushUndo(label || ('Apagar OP id ' + id));
   DATA = DATA.filter(o => o.id !== id);
   rerender();
-  if (VC_MODE) return; // Vista Cartões — apagar só local, não persistir
   try {
     await Api.deleteOp(id);
     setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
@@ -2275,7 +2043,6 @@ async function deleteOpAndPersist(id, label) {
 
 // Helper para escritas dirigidas a uma única OP (mais eficiente)
 async function saveOneOp(op) {
-  if (VC_MODE) return; // Vista Cartões — não persistir
   if (!op || typeof op.id !== 'number') return;
   const profile = (typeof getProfile === 'function') ? getProfile() : 'planeador';
   try {
@@ -2948,13 +2715,10 @@ function _renderNormalSvg(mu, sig, lsi, lss) {
 // Render — KANBAN lateral (um por painel mensal — todos partilham o mesmo conteúdo)
 // ============================================================
 function renderKanbanAll() {
-  // KANBAN partilhado por mview e vcards. Procura faz highlight, não filtro.
+  // KANBAN único (mview). Procura faz highlight, não filtro.
   const term = SEARCH.value || '';
   const allOps = DATA.filter(o => o.maquina === 'KANBAN').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   renderKanbanInto('col-kanban-mview', 'count-kanban-mview', allOps, term);
-  if (document.getElementById('col-kanban-vcards')) {
-    renderKanbanInto('col-kanban-vcards', 'count-kanban-vcards', allOps, term);
-  }
 }
 function renderKanbanInto(containerId, countId, ops, term) {
   const c = document.getElementById(containerId);
@@ -4430,16 +4194,11 @@ function buildMonthlyTabs() {
 }
 
 function switchTab(which) {
-  // Se estivermos a sair de 'vcards' → vcLeave; se a entrar → vcEnter
-  const wasVc = (ACTIVE_TAB === 'vcards');
-  const goVc = (which === 'vcards');
-  if (wasVc && !goVc) vcLeave();
-  if (!wasVc && goVc) vcEnter();
   ACTIVE_TAB = which;
-  const activeTabKey = (which === 'cfg') ? 'cfg' : (which === 'vcards') ? 'vcards' : 'mview';
+  const activeTabKey = (which === 'cfg') ? 'cfg' : 'mview';
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTabKey));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const panelId = (which === 'cfg') ? 'panel-cfg' : (which === 'vcards') ? 'panel-vcards' : 'panel-mview';
+  const panelId = (which === 'cfg') ? 'panel-cfg' : 'panel-mview';
   const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
   if (MONTHLY_TABS.some(t => t.key === which)) {
@@ -4447,13 +4206,6 @@ function switchTab(which) {
     if (inp) inp.value = SEARCH.value || '';
     updateMonthLabel();
     rerender();
-  }
-  if (which === 'vcards') {
-    const inp = document.getElementById('search-vcards');
-    if (inp) inp.value = SEARCH.value || '';
-    updateMonthLabel();
-    renderCardsView();
-    renderKanbanAll();
   }
 }
 
@@ -4472,7 +4224,6 @@ function rerender() {
   if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
     renderMonth(ACTIVE_TAB);
   }
-  if (ACTIVE_TAB === 'vcards') renderCardsView();
   updateMonthLabel();
 }
 
@@ -4501,376 +4252,12 @@ function goToCurrentMonth() {
   }, 80);
 }
 
-// ============================================================
-// Vista Cartões (experimental) — layout vertical proporcional
-// ============================================================
-function _fmtHmFromMs(dt) {
-  if (!(dt instanceof Date)) return '';
-  return String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
-}
-function renderCardsView() {
-  const container = document.getElementById('vc-scroll');
-  if (!container) return;
-  container.innerHTML = '';
-  const monthTabKey = MONTHLY_TABS.some(t => t.key === ACTIVE_TAB) ? ACTIVE_TAB : pickDefaultTab();
-  const tabDef = MONTHLY_TABS.find(t => t.key === monthTabKey);
-  if (!tabDef) return;
-  const year = MONTHLY_YEAR;
-  const month = tabDef.month;
-  const weeks = getWeeksInMonth(year, month);
-  const weeksExt = (() => {
-    const firstMon = weeks[0].monday;
-    const prev = new Date(firstMon); prev.setDate(prev.getDate() - 7);
-    return [{ key: weekKey(prev), monday: prev }, ...weeks];
-  })();
-  const schedByMachine = {};
-  for (const machine of MACHINES) {
-    schedByMachine[machine] = calcScheduleForMachineRange(machine, weeksExt);
-  }
-  const byDay = {};
-  for (const machine of MACHINES) {
-    for (const it of schedByMachine[machine]) {
-      if (!it.start || isNaN(it.start)) continue;
-      if (it.start.getFullYear() !== year || it.start.getMonth() !== month) continue;
-      const dk = fmtDate(it.start);
-      if (!byDay[dk]) byDay[dk] = {};
-      if (!byDay[dk][machine]) byDay[dk][machine] = [];
-      byDay[dk][machine].push(it);
-    }
-  }
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayKey = fmtDate(new Date());
-  const searchTerm = SEARCH.value || '';
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d);
-    const dow = date.getDay();
-    const dk = fmtDate(date);
-    if (dow === 0 && !byDay[dk]) continue;
-    const diaSem = (dow + 6) % 7;
-    const diaNome = DIAS_PT[diaSem] || '';
-    const ehFds = diaSem === 5 || diaSem === 6;
-    const isClosed = isDayClosed(dk);
-
-    // Classe temporal em relação a hoje
-    const _today0 = new Date(); _today0.setHours(0,0,0,0);
-    const _thisDay0 = new Date(date); _thisDay0.setHours(0,0,0,0);
-    const _diffDays = Math.round((_thisDay0 - _today0) / 86400000);
-    let _tempClass = '';
-    if (_diffDays === 0) _tempClass = ' today';
-    else if (_diffDays === -1) _tempClass = ' past-1';
-    else if (_diffDays <= -2) _tempClass = ' past-2plus closed';
-    else if (_diffDays >= 1) _tempClass = ' future';
-    const block = document.createElement('div');
-    block.className = 'vc2-day-block' + (ehFds ? ' fds' : '') + _tempClass + (isClosed ? ' closed' : '');
-    block.dataset.dayKey = dk;
-
-    // Coluna esquerda: label do dia
-    const side = document.createElement('div');
-    side.className = 'vc2-day-side';
-    side.innerHTML =
-      '<div class="vc2-dow">' + diaNome + '</div>' +
-      '<div class="vc2-date">' + pad(d) + '/' + pad(month + 1) + '</div>' +
-      '<button class="vc-close-btn ' + (isClosed ? 'closed' : '') + '" onclick="onDayClosedToggle(\'' + dk + '\')">' + (isClosed ? 'Aberto' : 'Fechar') + '</button>';
-    block.appendChild(side);
-
-    // Wrapper de máquinas — lado a lado (colunas)
-    const machinesWrap = document.createElement('div');
-    machinesWrap.className = 'vc2-machines';
-    machinesWrap.style.setProperty('--machines', MACHINES.length);
-    for (const machine of MACHINES) {
-      const machSec = renderVc2MachineSection(dk, machine, (byDay[dk] && byDay[dk][machine]) || [], date, searchTerm, isClosed);
-      machinesWrap.appendChild(machSec);
-    }
-    block.appendChild(machinesWrap);
-
-    container.appendChild(block);
-  }
-  if (container.children.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.textAlign = 'center'; empty.style.padding = '30px'; empty.style.color = 'var(--c-muted)';
-    empty.textContent = 'Sem dias úteis neste mês';
-    container.appendChild(empty);
-  }
-}
-
-function renderVc2MachineSection(dk, machine, items, date, searchTerm, isClosed) {
-  const sec = document.createElement('div');
-  sec.className = 'vc2-machine';
-  sec.dataset.dayKey = dk;
-  sec.dataset.machine = machine;
-  sec.dataset.weekKey = weekKey(date);
-  // Header: nome máquina + turno + refeições
-  const tMaq = (SETTINGS.turnosPorMaquina && SETTINGS.turnosPorMaquina[machine] && SETTINGS.turnosPorMaquina[machine][dk]) || {};
-  const _mealsList = (typeof getMealBreaksForDate === 'function') ? getMealBreaksForDate(date, machine) : [];
-  const shift = getShiftRangeForDate(date, machine);
-  const headEl = document.createElement('div');
-  headEl.className = 'vc2-mach-head';
-  headEl.innerHTML =
-    '<span class="vc2-mach-name">🏭 ' + machine + '</span>' +
-    '<span class="dms-turno vc2-inline-turno" data-day="' + dk + '" data-machine="' + machine + '">' +
-      '<span class="vc-tag" title="Turno">🕐 ' +
-        '<input type="time" data-field="ini" value="' + (tMaq.ini || (shift ? _fmtHmFromMs(shift.start) : '')) + '">–' +
-        '<input type="time" data-field="fim" value="' + (tMaq.fim || (shift ? _fmtHmFromMs(shift.end) : '')) + '">' +
-      '</span>' +
-      '<span class="vc-tag" title="Almoço">🍴 ' +
-        '<input type="time" data-field="almocoIni" value="' + (tMaq.almocoIni || '') + '">–' +
-        '<input type="time" data-field="almocoFim" value="' + (tMaq.almocoFim || '') + '">' +
-      '</span>' +
-      '<span class="vc-tag" title="Jantar">🌙 ' +
-        '<input type="time" data-field="jantarIni" value="' + (tMaq.jantarIni || '') + '">–' +
-        '<input type="time" data-field="jantarFim" value="' + (tMaq.jantarFim || '') + '">' +
-      '</span>' +
-      '<button class="vc-turno-ok" type="button" title="Confirmar horas">OK</button>' +
-    '</span>';
-  sec.appendChild(headEl);
-  // Handlers dos inputs de turno + botão OK
-  headEl.querySelectorAll('.vc2-inline-turno input[type="time"]').forEach(inp => {
-    inp.addEventListener('mousedown', e => e.stopPropagation());
-    inp.addEventListener('click', e => e.stopPropagation());
-    inp.addEventListener('input', e => {
-      e.stopPropagation();
-      const okBtn = headEl.querySelector('.vc-turno-ok');
-      if (okBtn) okBtn.classList.add('dirty');
-    });
-  });
-  const okBtn = headEl.querySelector('.vc-turno-ok');
-  if (okBtn) {
-    okBtn.addEventListener('mousedown', e => e.stopPropagation());
-    okBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      applyMachineTurno(dk, machine);
-      okBtn.classList.remove('dirty');
-    });
-  }
-
-  // Lista de OPs — cartões de 2 linhas
-  const list = document.createElement('div');
-  list.className = 'vc2-op-list';
-  let idx = 0;
-  for (const it of items) {
-    const card = buildVc2Card(it, dk, machine, searchTerm, idx);
-    list.appendChild(card);
-    idx++;
-  }
-  sec.appendChild(list);
-
-  // PLANEAR AQUI (livre)
-  if (!isClosed) {
-    const krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-    let livre = 0;
-    if (shift && krH > 0) {
-      if (items.length === 0) {
-        const mealsMs = _mealsList.reduce((s, m) => s + (m.end - m.start), 0);
-        livre = ((shift.end - shift.start - mealsMs) / 3600000) * krH;
-      } else {
-        const last = items[items.length - 1].end;
-        const remainMs = Math.max(0, shift.end - last);
-        const mealsAfter = _mealsList.filter(m => m.start >= last).reduce((s, m) => s + (m.end - m.start), 0);
-        livre = Math.max(0, ((remainMs - mealsAfter) / 3600000) * krH);
-      }
-    }
-    if (livre > 0 || items.length === 0) {
-      const ph = document.createElement('div');
-      ph.className = 'vc2-plan-here';
-      ph.dataset.dayKey = dk;
-      ph.dataset.machine = machine;
-      ph.dataset.weekKey = weekKey(date);
-      ph.innerHTML = 'PLANEAR AQUI' +
-        (livre > 0 ? '<span class="vc2-plan-livre">livre ' + Math.round(livre).toLocaleString('pt-PT') + ' un</span>' : '');
-      if (!isReadOnly()) setupZoneDropTarget(ph);
-      sec.appendChild(ph);
-    }
-  }
-  if (!isReadOnly()) setupZoneDropTarget(sec);
-  return sec;
-}
-
-function buildVc2Card(it, dk, machine, searchTerm, idx) {
-  const op = it.op;
-  const card = document.createElement('div');
-  card.className = 'vc2-op-card';
-  card.dataset.id = op.id;
-  card.dataset.seg = it.segIdx || 0;
-  card.dataset.estado = op.estado || 'Aberto';
-  const isFirstSeg = (it.segIdx || 0) === 0;
-  card.draggable = isFirstSeg && !isReadOnly();
-  if (idx % 2 === 1) card.classList.add('vc2-alt');
-  if (searchTerm && matchesSearch(op, searchTerm)) card.classList.add('vc2-match');
-  // Dados
-  const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
-  const hIniR = rpd.hIniR || '';
-  const hFimR = rpd.hFimR || '';
-  const atrasoStr = (Object.prototype.hasOwnProperty.call(rpd, 'tempoAtraso')) ? (rpd.tempoAtraso || '') : (op.tempoAtraso || '');
-  if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
-    const [ah, am] = atrasoStr.split(':').map(Number);
-    if ((ah * 60 + am) > 0) card.classList.add('vc2-atrasada');
-  }
-  const qtdSeg = (it.qtdSeg != null) ? it.qtdSeg : (op.qtdEntrada || 0);
-  const segLabel = (it.totalSegs > 1) ? ' (' + ((it.segIdx || 0) + 1) + '/' + it.totalSegs + ')' : '';
-  const estadoOpts = DENS_ESTADOS.map(s => '<option ' + (s === op.estado ? 'selected' : '') + '>' + s + '</option>').join('');
-  const hIniP = _fmtHmFromMs(it.start);
-  const hFimP = _fmtHmFromMs(it.end);
-  // Linha única — informação toda visível (edição de reais/atraso é no modal)
-  const _atrasoBadge = (atrasoStr && /^-?\d{1,2}:\d{2}$/.test(atrasoStr) && atrasoStr !== '00:00')
-    ? ('<span class="vc2-c-atraso-badge" title="Atraso">Δ ' + atrasoStr + '</span>')
-    : '';
-  const _realBadge = (hIniR || hFimR)
-    ? ('<span class="vc2-c-real-badge" title="Reais">▶ ' + (hIniR || '--:--') + ' → ' + (hFimR || '--:--') + '</span>')
-    : '';
-  card.innerHTML =
-    (isFirstSeg && !isReadOnly() ? '<span class="vc2-handle" title="Arrastar">⋮⋮</span>' : '<span class="vc2-handle-space"></span>') +
-    '<div class="vc2-line vc2-line1">' +
-      '<span class="vc2-c-op">' + (op.op || '') + segLabel + '</span>' +
-      '<select class="estado-select vc2-c-estado" data-est="' + (op.estado || 'Aberto') + '" data-op="' + op.id + '">' + estadoOpts + '</select>' +
-      '<span class="vc2-c-fc" title="' + (op.fileCliente || '') + '">' + (op.fileCliente || '—') + '</span>' +
-      '<span class="vc2-c-prod" title="' + (op.produto || '') + '">' + (op.produto || '') + '</span>' +
-      '<span class="vc2-c-calibre">' + (op.calibre || '') + '</span>' +
-      '<span class="vc2-c-massas">' + (op.massas || '') + '</span>' +
-      '<span class="vc2-c-obspi" title="' + (op.obsPi || '') + '">' + (op.obsPi || '') + '</span>' +
-      '<span class="vc2-c-dest">' + (op.destino || '') + '</span>' +
-      '<span class="vc2-c-plan" title="Planeado">⏱ ' + hIniP + ' → ' + hFimP + '</span>' +
-      _realBadge +
-      _atrasoBadge +
-      '<span class="vc2-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + '<small> / ' + Math.round(op.qtdEntrada || 0).toLocaleString('pt-PT') + '</small></span>' +
-      (!isReadOnly() ? '<span class="vc2-c-del" title="Apagar OP">×</span>' : '') +
-    '</div>';
-
-  // Click no cartão (fora de inputs/select) abre modal
-  card.addEventListener('click', e => {
-    const t = (e.target.tagName || '').toLowerCase();
-    if (t === 'input' || t === 'select' || t === 'option' || t === 'label') return;
-    if (e.target.classList.contains('vc2-c-del')) {
-      if (confirm('Apagar OP ' + op.op + '?')) deleteOpAndPersist(op.id, 'Apagar OP ' + op.op);
-      return;
-    }
-    openModal(op, dk);
-  });
-  // Reais/atraso agora só editáveis no modal — sem inputs inline no cartão
-  const selEst = card.querySelector('.vc2-c-estado');
-  if (selEst) {
-    selEst.addEventListener('mousedown', e => e.stopPropagation());
-    selEst.addEventListener('click', e => e.stopPropagation());
-    selEst.addEventListener('change', e => {
-      e.stopPropagation();
-      const id = parseInt(e.target.dataset.op, 10);
-      const target = DATA.find(o => o.id === id);
-      if (!target) return;
-      target.estado = e.target.value;
-      e.target.setAttribute('data-est', e.target.value);
-      card.setAttribute('data-estado', e.target.value);
-      saveOneOp(target).catch(() => {});
-      rerender();
-    });
-  }
-  if (card.draggable) setupRowDragHandlers(card, op);
-  return card;
-}
-
-
-function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx, titleH) {
-  const op = it.op;
-  const start = it.start, end = it.end;
-  const segMs = end - start;
-  const segH = segMs / 3600000;
-  const topH = shift ? ((start - shift.start) / 3600000) : 0;
-  const card = document.createElement('div');
-  card.className = 'vc-card';
-  const isFirstSeg = (it.segIdx || 0) === 0;
-  if (!isFirstSeg) card.classList.add('seg-cont');
-  card.style.position = 'absolute';
-  card.style.left = '4px';
-  card.style.right = '4px';
-  card.style.top = ((typeof titleH === "number" ? titleH : 0) + Math.max(0, topH * pxh)) + 'px';
-  card.style.height = Math.max(30, segH * pxh) + 'px';
-  card.draggable = isFirstSeg && !isReadOnly();
-  card.dataset.id = op.id;
-  card.dataset.seg = it.segIdx || 0;
-  card.dataset.estado = op.estado || 'Aberto';
-  // Zebra: alternar via índice do cartão dentro da célula (passado via param opcional)
-  if (typeof _vcAltIdx !== 'undefined' && _vcAltIdx % 2 === 1) card.classList.add('vc-alt');
-  if (searchTerm && matchesSearch(op, searchTerm)) {
-    card.style.background = '#39ff14';
-    card.style.borderLeftColor = '#006400';
-  }
-  const dk = fmtDate(start);
-  const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
-  const hIniR = rpd.hIniR || '';
-  const hFimR = rpd.hFimR || '';
-  const atrasoStr = (Object.prototype.hasOwnProperty.call(rpd, 'tempoAtraso')) ? (rpd.tempoAtraso || '') : (op.tempoAtraso || '');
-  if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
-    const [ah, am] = atrasoStr.split(':').map(Number);
-    if ((ah * 60 + am) > 0) card.classList.add('row-atrasada');
-  }
-  const qtdSeg = (it.qtdSeg != null) ? it.qtdSeg : (op.qtdEntrada || 0);
-  const segLabel = (it.totalSegs > 1) ? (' <small style="color:var(--c-muted);font-weight:normal">(' + ((it.segIdx || 0) + 1) + '/' + it.totalSegs + ')</small>') : '';
-  const estadoOpts = DENS_ESTADOS.map(s => '<option ' + (s === op.estado ? 'selected' : '') + '>' + s + '</option>').join('');
-  card.innerHTML =
-    (isFirstSeg && !isReadOnly() ? '<span class="vc-card-handle" title="Arrastar">⋮⋮</span>' : '') +
-    '<div class="vc-c-head">' +
-      '<span class="vc-c-op">' + (op.op || '') + segLabel + '</span>' +
-      '<span class="vc-c-qtd">' + Math.round(qtdSeg).toLocaleString('pt-PT') + ' rolhas</span>' +
-    '</div>' +
-    '<div class="vc-c-desc" title="' + (op.produto || '') + '">' + (op.produto || '') + '</div>' +
-    '<div class="vc-c-meta">' +
-      '<span class="vc-tag-inline">' + (op.fileCliente || '—') + '</span>' +
-      '<span class="vc-tag-inline">' + (op.calibre || '—') + '</span>' +
-      ((op.massas || '').trim() ? '<span class="vc-tag-inline">m: ' + op.massas + '</span>' : '') +
-      '<span class="vc-tag-inline">' + (op.destino || '') + '</span>' +
-    '</div>' +
-    ((op.obsPi || '').trim() ? ('<div class="vc-c-obspi" title="' + op.obsPi + '">📌 ' + op.obsPi + '</div>') : '') +
-    '<div class="vc-c-plan">⏱ ' + _fmtHmFromMs(start) + ' → ' + _fmtHmFromMs(end) + ' · ' + segH.toFixed(2) + 'h</div>' +
-    '<div class="vc-c-real">' +
-      '<div><label>Início Real</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hIniR" value="' + hIniR + '"></div>' +
-      '<div><label>Fim Real</label><input type="time" data-op="' + op.id + '" data-day="' + dk + '" data-field="hFimR" value="' + hFimR + '"></div>' +
-      '<div><label>Atraso</label><input type="text" placeholder="HH:MM" data-op="' + op.id + '" data-day="' + dk + '" data-field="tempoAtraso" value="' + atrasoStr + '" style="text-align:center"></div>' +
-    '</div>' +
-    '<select class="estado-select vc-c-estado" data-est="' + (op.estado || 'Aberto') + '" data-op="' + op.id + '">' + estadoOpts + '</select>';
-  card.addEventListener('click', e => {
-    const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'select' || tag === 'button' || tag === 'option' || tag === 'label') return;
-    if (e.target.closest('.vc-c-real') || e.target.closest('.vc-c-estado')) return;
-    openModal(op, dk);
-  });
-  card.querySelectorAll('.vc-c-real input').forEach(inp => {
-    inp.addEventListener('change', e => {
-      e.stopPropagation();
-      const id = parseInt(e.target.dataset.op, 10);
-      const dayKey = e.target.dataset.day;
-      const field = e.target.dataset.field;
-      const val = e.target.value;
-      const target = DATA.find(o => o.id === id);
-      if (!target) return;
-      if (!target.realPorDia) target.realPorDia = {};
-      if (!target.realPorDia[dayKey]) target.realPorDia[dayKey] = {};
-      target.realPorDia[dayKey][field] = val;
-      saveOneOp(target).catch(() => {});
-      rerender();
-    });
-  });
-  card.querySelector('.vc-c-estado').addEventListener('change', e => {
-    e.stopPropagation();
-    const id = parseInt(e.target.dataset.op, 10);
-    const target = DATA.find(o => o.id === id);
-    if (!target) return;
-    target.estado = e.target.value;
-    e.target.setAttribute('data-est', e.target.value);
-    card.setAttribute('data-estado', e.target.value);
-    saveOneOp(target).catch(() => {});
-    rerender();
-  });
-  if (card.draggable) setupRowDragHandlers(card, op);
-  return card;
-}
 function updateMonthLabel() {
-  const keyForMonth = MONTHLY_TABS.some(t => t.key === ACTIVE_TAB) ? ACTIVE_TAB : pickDefaultTab();
-  const t = MONTHLY_TABS.find(t => t.key === keyForMonth);
-  const label = t ? ((MONTHS_PT_LONG[t.month] || '') + ' ' + MONTHLY_YEAR) : '—';
+  const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
   const el = document.getElementById('month-label');
-  if (el) el.textContent = label;
-  const elVc = document.getElementById('vc-month-label');
-  if (elVc) elVc.textContent = label;
+  if (!el) return;
+  if (t) el.textContent = (MONTHS_PT_LONG[t.month] || '') + ' ' + MONTHLY_YEAR;
+  else el.textContent = '—';
   const idx = MONTHLY_TABS.findIndex(x => x.key === ACTIVE_TAB);
   const btns = document.querySelectorAll('.month-nav button');
   if (btns.length >= 3) {
@@ -4929,7 +4316,6 @@ function _utilizadorAEditar() {
 setInterval(async () => {
   if (_modalAberto()) return;
   if (_utilizadorAEditar()) return;  // não destruir o que está a ser digitado
-  if (VC_MODE) return; // Vista Cartões sandbox — não sobrescrever
   try {
     const state = await Api.getState();
     DATA = Array.isArray(state.ops) ? state.ops : [];
