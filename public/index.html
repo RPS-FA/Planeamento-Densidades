@@ -3374,9 +3374,10 @@ function createWeekTable(sched, wk, machine) {
     const _hFimR = _segReal.hFimR || (totalSegs === 1 ? (op.hFimR || '') : '');
     const _dataIniR = _segReal.dataIniR || (totalSegs === 1 ? (op.dataInicioR || '') : '');
     const _dataFimR = _segReal.dataFimR || (totalSegs === 1 ? (op.dataFimR || '') : '');
-    // Atraso MANUAL — lê do segmento (realPorDia[dayKey].tempoAtraso) ou cai para legacy
-    // (mesma lógica do modal: sempre cai para op.tempoAtraso se o segmento não tiver)
-    const atrasoStr = _segReal.tempoAtraso || (op.tempoAtraso || '');
+    // Atraso MANUAL — se o segmento tem a propriedade definida (mesmo vazia), respeita.
+    // Se não tem, cai para legacy op.tempoAtraso.
+    const _segHasAtr = Object.prototype.hasOwnProperty.call(_segReal, 'tempoAtraso');
+    const atrasoStr = _segHasAtr ? (_segReal.tempoAtraso || '') : (op.tempoAtraso || '');
     // Linha atrasada = tem tempoAtraso > 0 OU hInicioR > hInicioP planeado
     let isAtrasada = false;
     if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
@@ -3836,11 +3837,13 @@ function openModal(op, segDayKey) {
   }
   get('m_hInicioR').value = _realIni;
   get('m_hFimR').value = _realFim;
-  // Tempo Atraso — usa a mesma lógica da tabela: segmento primeiro, cai para legacy
+  // Tempo Atraso — se o segmento tem a propriedade definida (mesmo vazia), respeita.
+  // Se não tem, cai para legacy op.tempoAtraso.
   let _atrasoVal = '';
   if (op) {
     const _rpdSeg = (segDayKey && op.realPorDia && op.realPorDia[segDayKey]) || null;
-    _atrasoVal = (_rpdSeg && _rpdSeg.tempoAtraso) || (op.tempoAtraso || '');
+    const _hasAtr = _rpdSeg && Object.prototype.hasOwnProperty.call(_rpdSeg, 'tempoAtraso');
+    _atrasoVal = _hasAtr ? (_rpdSeg.tempoAtraso || '') : (op.tempoAtraso || '');
   }
   get('m_tempoAtraso').value = _atrasoVal;
   get('m_colaborador').value = op ? (op.colaborador || '') : '';
@@ -4662,7 +4665,7 @@ function buildVc2Card(it, dk, machine, searchTerm, idx) {
   const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
   const hIniR = rpd.hIniR || '';
   const hFimR = rpd.hFimR || '';
-  const atrasoStr = rpd.tempoAtraso || (op.tempoAtraso || '');
+  const atrasoStr = (Object.prototype.hasOwnProperty.call(rpd, 'tempoAtraso')) ? (rpd.tempoAtraso || '') : (op.tempoAtraso || '');
   if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
     const [ah, am] = atrasoStr.split(':').map(Number);
     if ((ah * 60 + am) > 0) card.classList.add('vc2-atrasada');
@@ -4758,7 +4761,7 @@ function buildVcCard(it, shift, pxh, searchTerm, _vcAltIdx, titleH) {
   const rpd = (op.realPorDia && op.realPorDia[dk]) || {};
   const hIniR = rpd.hIniR || '';
   const hFimR = rpd.hFimR || '';
-  const atrasoStr = rpd.tempoAtraso || (op.tempoAtraso || '');
+  const atrasoStr = (Object.prototype.hasOwnProperty.call(rpd, 'tempoAtraso')) ? (rpd.tempoAtraso || '') : (op.tempoAtraso || '');
   if (atrasoStr && /^\d{1,2}:\d{2}$/.test(atrasoStr)) {
     const [ah, am] = atrasoStr.split(':').map(Number);
     if ((ah * 60 + am) > 0) card.classList.add('row-atrasada');
