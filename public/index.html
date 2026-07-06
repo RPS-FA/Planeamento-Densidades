@@ -866,6 +866,8 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
         <button class="clear-btn" onclick="clearSearchBuffer()">×</button>
       </div>
       <button class="btn btn-primary" onclick="addBufferOp()">+ Nova ordem</button>
+      <button class="btn secondary" onclick="document.getElementById('buffer-xlsx-input').click()">📥 Importar Excel</button>
+      <input type="file" id="buffer-xlsx-input" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="importBufferXlsx(this)">
     </div>
   </div>
   <div class="buffer-body" id="buffer-body"></div>
@@ -4418,6 +4420,114 @@ function addBufferOp() {
   window._NEW_OP_MAQUINA = 'BUFFER';
   openModal(null);
 }
+// Importar Excel para Buffer — formato: Ordem, Data Plano, Cliente, MAT, Quantidade, Massas, Observações, Destino
+async function importBufferXlsx(inputEl) {
+  if (isReadOnly()) { showErrorToast('Sem permissão (perfil produção).'); inputEl.value = ''; return; }
+  if (typeof XLSX === 'undefined') { showErrorToast('Biblioteca Excel ainda a carregar. Tenta outra vez.'); return; }
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sh = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sh, { header: 1, raw: false, defval: '' });
+    if (rows.length < 2) { showErrorToast('Excel vazio ou sem dados.'); inputEl.value = ''; return; }
+    // Localizar header — tenta primeira linha com "Ordem" e "Cliente"
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      const cells = (rows[i] || []).map(v => String(v || '').toLowerCase().trim());
+      if (cells.some(c => c.includes('ordem')) && cells.some(c => c.includes('cliente'))) {
+        headerIdx = i; break;
+      }
+    }
+    if (headerIdx < 0) { showErrorToast('Não encontrei os cabeçalhos (Ordem, Cliente, MAT, ...).'); inputEl.value = ''; return; }
+    const header = rows[headerIdx].map(v => String(v || '').toLowerCase().trim());
+    const colOf = (needle) => header.findIndex(h => h.includes(needle));
+    const cIdx = {
+      ordem: colOf('ordem'),
+      data: colOf('data'),
+      cliente: colOf('cliente'),
+      mat: colOf('mat'),
+      qtd: header.findIndex(h => h.includes('quant') || h === 'qtd'),
+      massas: colOf('massa'),
+      obs: colOf('observa'),
+      destino: colOf('destino'),
+    };
+    const created = [];
+    let skipped = 0;
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const r = rows[i] || [];
+      const ordemRaw = String(r[cIdx.ordem] || '').trim();
+      const cliente = String(r[cIdx.cliente] || '').trim();
+      if (!ordemRaw && !cliente) { skipped++; continue; }
+      // Extrair número da ordem: se contém dígitos, ficar com o primeiro conjunto (>=5 dígitos idealmente)
+      const opMatch = /(\d{5,})/.exec(ordemRaw);
+      const opNum = opMatch ? opMatch[1] : ordemRaw;
+      // Data plano — se Date válida, usa; senão string vai para obsPi
+      let dataPlanoText = '';
+      let weekKey = '';
+      let diaIdx = 0;
+      const dataCell = r[cIdx.data];
+      let dt = null;
+      if (dataCell instanceof Date && !isNaN(dataCell)) dt = dataCell;
+      else if (typeof dataCell === 'string' && dataCell.trim()) {
+        dataPlanoText = dataCell.trim();
+      }
+      if (dt) {
+        // Converter para weekKey + diaIdx (0=Seg..6=Dom)
+        weekKey = window.weekKey(dt);
+        diaIdx = (dt.getDay() + 6) % 7;
+      }
+      // Quantidade — assumir milhares (Excel tem 60 = 60000 rolhas). Se valor > 1000, já está em rolhas.
+      let qtdNum = parseFloat(String(r[cIdx.qtd] || '0').replace(',', '.'));
+      if (isNaN(qtdNum)) qtdNum = 0;
+      const qtdEntrada = qtdNum <= 1000 ? Math.round(qtdNum * 1000) : Math.round(qtdNum);
+      const produto = String(r[cIdx.mat] || '').trim();
+      const massas = String(r[cIdx.massas] || '').trim();
+      const obsPi = String(r[cIdx.obs] || '').trim() + (dataPlanoText ? (' · Data plano: ' + dataPlanoText) : '');
+      const destino = String(r[cIdx.destino] || '').trim();
+      // Calibre — extrair do produto (formato XX x XXX)
+      let calibre = '';
+      const cM = /(\d{2})X(\d{3})/i.exec(produto);
+      if (cM) calibre = cM[1] + 'x' + cM[2];
+      const payload = {
+        op: opNum,
+        tipo: 'DENS',
+        fileCliente: cliente,
+        produto,
+        calibre,
+        massas,
+        qtdEntrada,
+        obsPi: obsPi.trim(),
+        destino,
+        maquina: 'BUFFER',
+        estado: 'Aberto',
+        inicioMode: 'auto',
+        hInicioP: '',
+        weekKey: weekKey || '',
+        diaIdx: diaIdx || 0,
+        sortIdx: DATA.filter(o => o.maquina === 'BUFFER').length + created.length,
+      };
+      created.push(payload);
+    }
+    if (created.length === 0) { showErrorToast('Nenhuma linha válida encontrada.'); inputEl.value = ''; return; }
+    if (!confirm('Importar ' + created.length + ' OPs para o Buffer' + (skipped > 0 ? ' (' + skipped + ' linhas ignoradas)' : '') + '?')) { inputEl.value = ''; return; }
+    // Enviar cada uma via POST
+    let ok = 0, fail = 0;
+    for (const payload of created) {
+      try { const r = await Api.postOp(payload); if (r && r.ok) { DATA.push(r.op); ok++; } else { fail++; } }
+      catch (e) { console.error(e); fail++; }
+    }
+    setConnStatus('ok', '✓ Buffer: ' + ok + ' OPs importadas' + (fail ? ' · ' + fail + ' falhas' : ''));
+    if (typeof showSuccessToast === 'function') showSuccessToast('✓ ' + ok + ' OPs importadas');
+    rerender();
+  } catch (e) {
+    console.error(e);
+    showErrorToast('Falha ao importar: ' + e.message);
+  }
+  inputEl.value = '';
+}
+
 function updateMonthLabel() {
   const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
   const el = document.getElementById('month-label');
