@@ -492,6 +492,54 @@
   td.col-del:hover { background: #fee2e2 !important; }
   .tab-panel.settings { display: none; grid-template-columns: 1fr; padding: 16px 24px; overflow-y: auto; }
   .tab-panel.settings.active { display: block; }
+  /* ===== Buffer ===== */
+  .tab-panel.buffer-panel { display: none; padding: 12px 16px; overflow-y: auto; }
+  .tab-panel.buffer-panel.active { display: block; }
+  .buffer-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: #f9f9f6; border: 1px solid var(--c-border); border-radius: 4px; }
+  .buffer-title { font-size: 13px; color: var(--c-text); }
+  .buffer-title strong { color: var(--c-primary); font-size: 14px; }
+  .buffer-actions { display: flex; gap: 10px; align-items: center; }
+  .buffer-actions .btn { padding: 5px 12px; font-size: 12px; }
+  .buffer-actions .btn-primary { background: var(--c-primary); color: #fff; border: 1px solid var(--c-primary); }
+  .buffer-actions .btn-primary:hover { background: var(--c-primary-dark); }
+  .buffer-body { display: flex; flex-direction: column; gap: 6px; }
+  .buffer-row {
+    display: grid;
+    grid-template-columns: 130px 100px 130px 60px 120px 80px 130px minmax(200px, 1fr) 130px;
+    gap: 10px; align-items: center;
+    background: #fff; border: 1px solid var(--c-border); border-radius: 4px;
+    padding: 8px 10px; font-size: 11px;
+    transition: box-shadow 0.15s;
+  }
+  .buffer-row:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.08); background: #fbfcf7; }
+  .buffer-row.header {
+    background: #eef2eb; color: var(--c-primary); font-weight: 700;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 10px; border-color: var(--c-primary);
+  }
+  .buffer-row.header:hover { background: #eef2eb; box-shadow: none; }
+  .buffer-c-op { font-weight: 700; color: var(--c-primary); }
+  .buffer-c-produto { font-family: Consolas, monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .buffer-c-qtd { text-align: right; font-weight: 700; }
+  .buffer-c-obs { font-size: 10px; color: #7a5a00; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .buffer-c-obs:empty::before { content: '—'; color: var(--c-muted); font-style: normal; }
+  .buffer-c-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .buffer-btn-kanban {
+    background: var(--c-primary); color: #fff; border: none;
+    padding: 4px 10px; font-size: 11px; border-radius: 3px; cursor: pointer; font-family: inherit; font-weight: 600;
+  }
+  .buffer-btn-kanban:hover { background: var(--c-primary-dark); }
+  .buffer-btn-del {
+    background: #fff; color: #b91c1c; border: 1px solid #e2b1b1;
+    padding: 4px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; font-family: inherit; font-weight: 700;
+  }
+  .buffer-btn-del:hover { background: #fee2e2; }
+  .buffer-empty { text-align: center; color: var(--c-muted); padding: 30px; font-style: italic; }
+  .tab-count {
+    background: rgba(255,255,255,0.25); color: #fff;
+    padding: 0 6px; border-radius: 10px; font-size: 10px;
+    margin-left: 4px; font-weight: 700; min-width: 18px; display: inline-block; text-align: center;
+  }
   /* Vista Cartões (experimental) */
   /* Cor por estado — border esquerda do cartão */
   /* Zebra suave — alterna backgrounds nos cartões */
@@ -788,6 +836,7 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
 
 <div class="tabs" id="tabs-bar">
   <div class="tab active" data-tab="mview" onclick="switchTab(pickDefaultTab())"><span class="cs-badge cs-dens"><span class="cs-pill">DENS</span> Planeamento</span></div>
+  <div class="tab" data-tab="buffer" onclick="switchTab('buffer')">🗂 Buffer <span class="tab-count" id="tab-count-buffer">0</span></div>
   <div class="tab" data-tab="cfg" onclick="switchTab('cfg')">⚙ Configurações</div>
 </div>
 </div>
@@ -803,6 +852,23 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
     <span class="swatch"><span class="dot" style="background:var(--st-terminada)"></span>Terminada</span>
     <span class="swatch"><span class="dot" style="background:var(--st-concluida-plan)"></span>Concluída Planeamento</span>
   </div>
+</div>
+
+<!-- Buffer — ordens à espera de planeamento (maquina='BUFFER') -->
+<div class="tab-panel buffer-panel" id="panel-buffer">
+  <div class="buffer-toolbar">
+    <div class="buffer-title">
+      <strong>BUFFER</strong> · à espera de planeamento (<span id="buffer-count">0</span>)
+    </div>
+    <div class="buffer-actions">
+      <div class="search-box">
+        <input type="text" id="search-buffer" placeholder="Pesquisar no Buffer..." oninput="onSearchBuffer(this.value)">
+        <button class="clear-btn" onclick="clearSearchBuffer()">×</button>
+      </div>
+      <button class="btn btn-primary" onclick="addBufferOp()">+ Nova ordem</button>
+    </div>
+  </div>
+  <div class="buffer-body" id="buffer-body"></div>
 </div>
 
 <!-- Painéis mensais (m05..m12) são injetados dinamicamente por buildMonthlyTabs() -->
@@ -3713,7 +3779,8 @@ function saveOP() {
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
   };
-  const maqVal = editingOP ? editingOP.maquina : 'KANBAN';
+  const maqVal = editingOP ? editingOP.maquina : (window._NEW_OP_MAQUINA || 'KANBAN');
+  if (!editingOP) window._NEW_OP_MAQUINA = null;
   const weekVal = editingOP ? (editingOP.weekKey || '') : '';
   const estadoVal = get('m_estado') || (editingOP ? editingOP.estado : 'Aberto');
   const data = {
@@ -4180,10 +4247,10 @@ function buildMonthlyTabs() {
 
 function switchTab(which) {
   ACTIVE_TAB = which;
-  const activeTabKey = (which === 'cfg') ? 'cfg' : 'mview';
+  const activeTabKey = (which === 'cfg') ? 'cfg' : (which === 'buffer') ? 'buffer' : 'mview';
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTabKey));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const panelId = (which === 'cfg') ? 'panel-cfg' : 'panel-mview';
+  const panelId = (which === 'cfg') ? 'panel-cfg' : (which === 'buffer') ? 'panel-buffer' : 'panel-mview';
   const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
   if (MONTHLY_TABS.some(t => t.key === which)) {
@@ -4191,6 +4258,9 @@ function switchTab(which) {
     if (inp) inp.value = SEARCH.value || '';
     updateMonthLabel();
     rerender();
+  }
+  if (which === 'buffer') {
+    renderBuffer();
   }
 }
 
@@ -4209,6 +4279,12 @@ function rerender() {
   if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
     renderMonth(ACTIVE_TAB);
   }
+  if (ACTIVE_TAB === 'buffer' || document.getElementById('panel-buffer').classList.contains('active')) {
+    renderBuffer();
+  }
+  // Actualizar contador do tab
+  const tcb = document.getElementById('tab-count-buffer');
+  if (tcb) tcb.textContent = DATA.filter(o => o.maquina === 'BUFFER').length;
   updateMonthLabel();
 }
 
@@ -4237,6 +4313,111 @@ function goToCurrentMonth() {
   }, 80);
 }
 
+// ============================================================
+// Buffer — ordens à espera de planeamento (maquina='BUFFER')
+// ============================================================
+let BUFFER_SEARCH = '';
+function onSearchBuffer(v) { BUFFER_SEARCH = (v || '').trim().toLowerCase(); renderBuffer(); }
+function clearSearchBuffer() {
+  BUFFER_SEARCH = '';
+  const inp = document.getElementById('search-buffer');
+  if (inp) inp.value = '';
+  renderBuffer();
+}
+function renderBuffer() {
+  const body = document.getElementById('buffer-body');
+  const countEl = document.getElementById('buffer-count');
+  const tabCountEl = document.getElementById('tab-count-buffer');
+  if (!body) return;
+  const all = DATA.filter(o => o.maquina === 'BUFFER').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  const list = BUFFER_SEARCH ? all.filter(o => matchesSearch(o, BUFFER_SEARCH)) : all;
+  if (countEl) countEl.textContent = BUFFER_SEARCH ? (list.length + '/' + all.length) : all.length;
+  if (tabCountEl) tabCountEl.textContent = all.length;
+  body.innerHTML = '';
+  if (list.length === 0) {
+    body.innerHTML = '<div class="buffer-empty">' + (BUFFER_SEARCH ? 'Sem resultados no Buffer.' : 'Sem ordens no Buffer. Clica "+ Nova ordem" para adicionar.') + '</div>';
+    return;
+  }
+  // Header
+  const header = document.createElement('div');
+  header.className = 'buffer-row header';
+  header.innerHTML =
+    '<span>OP</span>' +
+    '<span>Dia Plano</span>' +
+    '<span>Produto</span>' +
+    '<span>Calibre</span>' +
+    '<span>Lote / File</span>' +
+    '<span style="text-align:right">Qtd (un)</span>' +
+    '<span>Cliente</span>' +
+    '<span>Obs PI</span>' +
+    '<span style="text-align:right">Ações</span>';
+  body.appendChild(header);
+  for (const op of list) {
+    const row = document.createElement('div');
+    row.className = 'buffer-row';
+    row.dataset.id = op.id;
+    // Dia Plano — deriva do weekKey/diaIdx se existir, senão vazio
+    let diaPlano = '—';
+    if (op.weekKey && typeof op.diaIdx === 'number') {
+      const monday = isoWeekToMonday(op.weekKey);
+      if (monday) {
+        const d = new Date(monday); d.setDate(monday.getDate() + (op.diaIdx || 0));
+        diaPlano = pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+      }
+    }
+    row.innerHTML =
+      '<span class="buffer-c-op">' + (op.op || '—') + '</span>' +
+      '<span>' + diaPlano + '</span>' +
+      '<span class="buffer-c-produto" title="' + (op.produto || '') + '">' + (op.produto || '') + '</span>' +
+      '<span>' + (op.calibre || '') + '</span>' +
+      '<span>' + (op.fileCliente || '') + '</span>' +
+      '<span class="buffer-c-qtd">' + Math.round(op.qtdEntrada || 0).toLocaleString('pt-PT') + '</span>' +
+      '<span>' + (op.destino || '') + '</span>' +
+      '<span class="buffer-c-obs" title="' + (op.obsPi || '') + '">' + (op.obsPi || '') + '</span>' +
+      '<span class="buffer-c-actions">' +
+        (isReadOnly() ? '' :
+          '<button class="buffer-btn-kanban" data-id="' + op.id + '" title="Mover para KANBAN">→ Kanban</button>' +
+          '<button class="buffer-btn-del" data-id="' + op.id + '" title="Apagar">×</button>'
+        ) +
+      '</span>';
+    // Handlers
+    const btnK = row.querySelector('.buffer-btn-kanban');
+    if (btnK) btnK.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = parseInt(e.target.dataset.id, 10);
+      moveBufferToKanban(id);
+    });
+    const btnD = row.querySelector('.buffer-btn-del');
+    if (btnD) btnD.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = parseInt(e.target.dataset.id, 10);
+      const t = DATA.find(o => o.id === id);
+      if (!t) return;
+      if (confirm('Apagar OP ' + (t.op || t.id) + ' do Buffer?')) deleteOpAndPersist(id, 'Apagar OP ' + t.op);
+    });
+    row.addEventListener('click', e => {
+      if (e.target.tagName === 'BUTTON') return;
+      openModal(op);
+    });
+    body.appendChild(row);
+  }
+}
+function moveBufferToKanban(id) {
+  const op = DATA.find(o => o.id === id);
+  if (!op) return;
+  op.maquina = 'KANBAN';
+  op.sortIdx = DATA.filter(o => o.maquina === 'KANBAN').length;
+  saveOneOp(op).catch(() => {});
+  rerender();
+}
+function addBufferOp() {
+  if (isReadOnly()) { showErrorToast('Sem permissão (perfil produção).'); return; }
+  // Abrir o modal existente com maquina pré-preenchida BUFFER
+  const template = { maquina: 'BUFFER', estado: 'Aberto', inicioMode: 'auto', tipo: 'DENS', qtdEntrada: 0, weekKey: '', diaIdx: 0, sortIdx: DATA.filter(o => o.maquina === 'BUFFER').length };
+  // Reutilizar openModal(null) que trata como nova OP; depois no saveOP forçar maquina=BUFFER
+  window._NEW_OP_MAQUINA = 'BUFFER';
+  openModal(null);
+}
 function updateMonthLabel() {
   const t = MONTHLY_TABS.find(t => t.key === ACTIVE_TAB);
   const el = document.getElementById('month-label');
