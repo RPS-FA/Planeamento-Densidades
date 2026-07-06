@@ -517,42 +517,29 @@
   .buffer-actions .btn.secondary { background: #fff; color: #1f2d20; border: 1px solid var(--c-primary); }
   .buffer-actions .btn.secondary:hover { background: #eef2eb; }
   .buffer-body { display: flex; flex-direction: column; gap: 6px; }
-  .buffer-panel { background: #f4f8ec; }
   .buffer-row {
     display: grid;
-    grid-template-columns: 120px minmax(90px, 100px) minmax(210px, 2fr) 65px 130px 85px 130px 55px 55px 55px minmax(150px, 1.5fr) 150px;
-    gap: 6px 10px; align-items: center;
+    grid-template-columns: 130px 110px minmax(220px, 2fr) 70px 130px 90px 140px minmax(150px, 1.5fr) 150px;
+    gap: 8px 12px; align-items: center;
     background: #fff; border: 1px solid #dfe6d6; border-radius: 8px;
-    border-left: 3px solid var(--c-primary);
-    padding: 10px 14px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 12px; color: #1f2937;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 10px 14px; font-size: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     margin-bottom: 6px;
     transition: box-shadow 0.15s, transform 0.05s;
   }
-  .buffer-row:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.10); background: #fbfcf7; }
+  .buffer-row:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.12); background: #fbfcf7; }
   .buffer-row:active { transform: translateY(1px); }
   .buffer-row.dragging { opacity: 0.4; }
   .buffer-row.header {
-    background: transparent; color: var(--c-primary); font-weight: 700;
-    font-size: 11px; text-transform: none; letter-spacing: 0.2px;
-    padding: 4px 14px; border: none;
-    box-shadow: none; border-radius: 0;
-    margin-bottom: 2px;
+    background: #eef2eb; color: var(--c-primary); font-weight: 700;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 8px 14px; border-color: var(--c-primary);
+    box-shadow: none;
   }
-  .buffer-row.header:hover { background: transparent; box-shadow: none; }
-  .buffer-row.header .sortable { cursor: pointer; user-select: none; }
-  .buffer-row.header .sortable:hover { color: var(--c-primary-dark); text-decoration: underline; }
-  .buffer-c-op { font-weight: 700; color: var(--c-primary); font-size: 13px; line-height: 1.2; }
-  .buffer-c-op .buffer-badge { display: inline-block; font-size: 9px; color: #dc2626; font-weight: 600; margin-top: 3px; }
-  .buffer-c-unidade { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; background: #365F91; color: #fff; text-align: center; letter-spacing: 0.4px; }
-  .buffer-c-unidade.ee-dsl { background: #86C47A; }
-  .buffer-c-dia { font-size: 11px; color: #374151; }
-  .buffer-c-produto { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; color: #1f2937; word-break: break-all; line-height: 1.35; font-weight: 500; }
-  .buffer-c-calibre, .buffer-c-lote, .buffer-c-cliente { font-size: 11px; color: #374151; }
-  .buffer-c-qtd { text-align: right; font-weight: 700; font-size: 12px; color: #1f2937; }
-  .buffer-c-flag { text-align: center; font-size: 11px; color: #6b7280; }
+  .buffer-row.header:hover { background: #eef2eb; box-shadow: none; }
+  .buffer-c-op { font-weight: 700; color: var(--c-primary); font-size: 13px; }
+  .buffer-c-produto { font-family: Consolas, monospace; font-size: 11px; word-break: break-all; line-height: 1.35; }
+  .buffer-c-qtd { text-align: right; font-weight: 700; font-size: 12px; }
   .buffer-c-obs { font-size: 11px; color: #7a5a00; font-style: italic; word-break: break-word; line-height: 1.3; }
   .buffer-c-obs:empty::before { content: '—'; color: var(--c-muted); font-style: normal; }
   .buffer-c-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
@@ -4358,8 +4345,6 @@ function goToCurrentMonth() {
 // Buffer — ordens à espera de planeamento (maquina='BUFFER')
 // ============================================================
 let BUFFER_SEARCH = '';
-let BUFFER_SORT = 'dia';
-function setBufferSort(k) { BUFFER_SORT = k; renderBuffer(); }
 function onSearchBuffer(v) { BUFFER_SEARCH = (v || '').trim().toLowerCase(); renderBuffer(); }
 function clearSearchBuffer() {
   BUFFER_SEARCH = '';
@@ -4368,39 +4353,12 @@ function clearSearchBuffer() {
   renderBuffer();
 }
 function renderBuffer() {
+  // (setupKanbanDropTargets refresca ao fim para apanhar col-kanban-buffer)
   const body = document.getElementById('buffer-body');
   const countEl = document.getElementById('buffer-count');
   const tabCountEl = document.getElementById('tab-count-buffer');
   if (!body) return;
-  // Chave sortável para "dia plano"
-  const _dpKey = (op) => {
-    // 1) op.dataPlano parseável como DD/MM/AAAA
-    const s = String(op.dataPlano || '').trim();
-    const md = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
-    if (md) return { rank: 0, val: new Date(parseInt(md[3]), parseInt(md[2])-1, parseInt(md[1])).getTime(), lex: s };
-    // 2) weekKey + diaIdx
-    if (op.weekKey) {
-      const monday = isoWeekToMonday(op.weekKey);
-      if (monday) {
-        const d = new Date(monday); d.setDate(monday.getDate() + (op.diaIdx || 0));
-        return { rank: 0, val: d.getTime(), lex: s };
-      }
-    }
-    // 3) String não-vazia → depois das datas
-    if (s) return { rank: 1, val: 0, lex: s.toLowerCase() };
-    // 4) Vazio → último
-    return { rank: 2, val: 0, lex: '' };
-  };
-  const _sortBy = BUFFER_SORT || 'dia';
-  const all = DATA.filter(o => o.maquina === 'BUFFER').slice().sort((a, b) => {
-    if (_sortBy === 'dia') {
-      const ka = _dpKey(a), kb = _dpKey(b);
-      if (ka.rank !== kb.rank) return ka.rank - kb.rank;
-      if (ka.val !== kb.val) return ka.val - kb.val;
-      return ka.lex.localeCompare(kb.lex);
-    }
-    return (a.sortIdx ?? 0) - (b.sortIdx ?? 0);
-  });
+  const all = DATA.filter(o => o.maquina === 'BUFFER').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   const list = BUFFER_SEARCH ? all.filter(o => matchesSearch(o, BUFFER_SEARCH)) : all;
   if (countEl) countEl.textContent = BUFFER_SEARCH ? (list.length + '/' + all.length) : all.length;
   if (tabCountEl) tabCountEl.textContent = all.length;
@@ -4435,31 +4393,14 @@ function renderBuffer() {
   const header = document.createElement('div');
   header.className = 'buffer-row header';
   header.innerHTML =
-    '<span>OP DSL</span>' +
-    '<span>Unidade</span>' +
-    '<span>Produto entrada</span>' +
+    '<span>OP</span>' +
+    '<span>Dia Plano</span>' +
+    '<span>Produto</span>' +
     '<span>Calibre</span>' +
-    '<span>Lote</span>' +
-    '<span style="text-align:right" class="sortable" onclick="setBufferSort(\'dia\')" title="Ordenar por Dia Plano">Qtd (un)</span>' +
-    '<span>Cliente</span>' +
-    '<span>QV-up</span>' +
-    '<span>QV</span>' +
-    '<span>URG</span>' +
-    '<span>Obs</span>' +
-    '<span style="text-align:right">Ações</span>';
-  // Renomear: "Dia Plano" também deve estar no header — inserir depois de "Unidade"
-  header.innerHTML =
-    '<span>OP DSL</span>' +
-    '<span>Unidade</span>' +
-    '<span>Produto entrada</span>' +
-    '<span>Calibre</span>' +
-    '<span>Lote</span>' +
+    '<span>Lote / File</span>' +
     '<span style="text-align:right">Qtd (un)</span>' +
     '<span>Cliente</span>' +
-    '<span>QV-up</span>' +
-    '<span>QV</span>' +
-    '<span>URG</span>' +
-    '<span>Obs</span>' +
+    '<span>Obs PI</span>' +
     '<span style="text-align:right">Ações</span>';
   body.appendChild(header);
   for (const op of list) {
@@ -4477,22 +4418,14 @@ function renderBuffer() {
         diaPlano = pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
       }
     }
-    // Unidade (DSL/EE-DSL/CSU) — heurística: se calibre 45x250 EE-DSL, senão DSL. Default: DSL.
-    const _unidade = (op.unidade && String(op.unidade).trim()) || 'DSL';
-    const _uniCls = _unidade.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-    // Badge "X não analisado" — mostra se sem estado explícito ou estado Aberto
-    const _badge = (!op.estado || op.estado === 'Aberto') ? '<div class="buffer-badge">X não analisado</div>' : '';
     row.innerHTML =
-      '<span class="buffer-c-op">' + (op.op || '—') + _badge + '<div class="buffer-c-dia">' + diaPlano + '</div></span>' +
-      '<span><span class="buffer-c-unidade ' + _uniCls + '">' + _unidade + '</span></span>' +
+      '<span class="buffer-c-op">' + (op.op || '—') + '</span>' +
+      '<span>' + diaPlano + '</span>' +
       '<span class="buffer-c-produto" title="' + (op.produto || '') + '">' + (op.produto || '') + '</span>' +
-      '<span class="buffer-c-calibre">' + (op.calibre || '') + '</span>' +
-      '<span class="buffer-c-lote">' + (op.fileCliente || '') + '</span>' +
+      '<span>' + (op.calibre || '') + '</span>' +
+      '<span>' + (op.fileCliente || '') + '</span>' +
       '<span class="buffer-c-qtd">' + Math.round(op.qtdEntrada || 0).toLocaleString('pt-PT') + '</span>' +
-      '<span class="buffer-c-cliente">' + (op.destino || '') + '</span>' +
-      '<span class="buffer-c-flag">' + (op.qvUp || '') + '</span>' +
-      '<span class="buffer-c-flag">' + (op.qv || '') + '</span>' +
-      '<span class="buffer-c-flag">' + (op.urg ? '🔴' : '') + '</span>' +
+      '<span>' + (op.destino || '') + '</span>' +
       '<span class="buffer-c-obs" title="' + (op.obsPi || '') + '">' + (op.obsPi || '') + '</span>' +
       '<span class="buffer-c-actions">' +
         (isReadOnly() ? '' :
