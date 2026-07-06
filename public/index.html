@@ -1086,8 +1086,8 @@ function getFreezeDate() {
   return d;
 }
 function isFrozenDate(date) {
-  if (!date) return false;
-  return date < getFreezeDate();
+  // Fechar semanas foi desactivado — planeamento fica todo livre
+  return false;
 }
 // Converte weekKey "YYYY-Www" para Date da Segunda dessa semana ISO
 function isoWeekToMonday(weekKey) {
@@ -1102,16 +1102,8 @@ function isoWeekToMonday(weekKey) {
 }
 
 function isFrozenWeek(weekKey) {
-  // Semana totalmente congelada se o Domingo (último dia) é anterior à freeze date
-  const m = /^(\d{4})-W(\d{2})$/.exec(weekKey || '');
-  if (!m) return false;
-  const yy = parseInt(m[1], 10), ww = parseInt(m[2], 10);
-  const jan4 = new Date(yy, 0, 4);
-  const dayOfJan4 = (jan4.getDay() || 7) - 1;
-  const monday1 = new Date(jan4); monday1.setDate(jan4.getDate() - dayOfJan4);
-  const weekMonday = new Date(monday1); weekMonday.setDate(monday1.getDate() + (ww - 1) * 7);
-  const nextMonday = new Date(weekMonday); nextMonday.setDate(weekMonday.getDate() + 7);
-  return nextMonday <= getFreezeDate();
+  // Fechar semanas foi desactivado — planeamento fica todo livre
+  return false;
 }
 
 function isoWeek(date) {
