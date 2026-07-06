@@ -493,15 +493,22 @@
   .tab-panel.settings { display: none; grid-template-columns: 1fr; padding: 16px 24px; overflow-y: auto; }
   .tab-panel.settings.active { display: block; }
   /* ===== Buffer ===== */
-  .tab-panel.buffer-panel { display: none; padding: 12px 16px; overflow-y: auto; }
-  .tab-panel.buffer-panel.active { display: block; }
+  .tab-panel.buffer-panel { display: none; padding: 12px 16px; overflow: hidden; }
+  .tab-panel.buffer-panel.active { display: grid; grid-template-columns: 1fr 260px; grid-template-rows: auto 1fr; gap: 10px; }
+  .buffer-toolbar { grid-column: 1 / -1; }
+  .buffer-body { overflow-y: auto; padding-right: 4px; }
+  .buffer-kanban-side { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--c-border); border-radius: 4px; overflow: hidden; }
+  .buffer-kanban-side .kanban-header { background: var(--c-primary); color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 700; display: flex; justify-content: space-between; }
+  .buffer-kanban-side .kanban-body { flex: 1; overflow-y: auto; padding: 4px; min-height: 100px; }
   .buffer-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: #f9f9f6; border: 1px solid var(--c-border); border-radius: 4px; }
   .buffer-title { font-size: 13px; color: var(--c-text); }
   .buffer-title strong { color: var(--c-primary); font-size: 14px; }
   .buffer-actions { display: flex; gap: 10px; align-items: center; }
-  .buffer-actions .btn { padding: 5px 12px; font-size: 12px; }
+  .buffer-actions .btn { padding: 5px 12px; font-size: 12px; color: #1f2d20; }
   .buffer-actions .btn-primary { background: var(--c-primary); color: #fff; border: 1px solid var(--c-primary); }
   .buffer-actions .btn-primary:hover { background: var(--c-primary-dark); }
+  .buffer-actions .btn.secondary { background: #fff; color: #1f2d20; border: 1px solid var(--c-primary); }
+  .buffer-actions .btn.secondary:hover { background: #eef2eb; }
   .buffer-body { display: flex; flex-direction: column; gap: 6px; }
   .buffer-row {
     display: grid;
@@ -871,6 +878,10 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
     </div>
   </div>
   <div class="buffer-body" id="buffer-body"></div>
+  <aside class="buffer-kanban-side">
+    <div class="kanban-header"><span>📋 KANBAN</span><span class="count" id="count-kanban-buffer">0</span></div>
+    <div class="kanban-body" id="col-kanban-buffer" data-machine="KANBAN"></div>
+  </aside>
 </div>
 
 <!-- Painéis mensais (m05..m12) são injetados dinamicamente por buildMonthlyTabs() -->
@@ -2775,10 +2786,13 @@ function _renderNormalSvg(mu, sig, lsi, lss) {
 // Render — KANBAN lateral (um por painel mensal — todos partilham o mesmo conteúdo)
 // ============================================================
 function renderKanbanAll() {
-  // KANBAN único (mview). Procura faz highlight, não filtro.
+  // KANBAN partilhado por mview e Buffer.
   const term = SEARCH.value || '';
   const allOps = DATA.filter(o => o.maquina === 'KANBAN').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   renderKanbanInto('col-kanban-mview', 'count-kanban-mview', allOps, term);
+  if (document.getElementById('col-kanban-buffer')) {
+    renderKanbanInto('col-kanban-buffer', 'count-kanban-buffer', allOps, term);
+  }
 }
 function renderKanbanInto(containerId, countId, ops, term) {
   const c = document.getElementById(containerId);
@@ -4281,10 +4295,9 @@ function rerender() {
   if (MONTHLY_TABS.some(t => t.key === ACTIVE_TAB)) {
     renderMonth(ACTIVE_TAB);
   }
-  if (ACTIVE_TAB === 'buffer' || document.getElementById('panel-buffer').classList.contains('active')) {
+  if (ACTIVE_TAB === 'buffer' || (document.getElementById('panel-buffer') && document.getElementById('panel-buffer').classList.contains('active'))) {
     renderBuffer();
   }
-  // Actualizar contador do tab
   const tcb = document.getElementById('tab-count-buffer');
   if (tcb) tcb.textContent = DATA.filter(o => o.maquina === 'BUFFER').length;
   updateMonthLabel();
@@ -4327,6 +4340,7 @@ function clearSearchBuffer() {
   renderBuffer();
 }
 function renderBuffer() {
+  // (setupKanbanDropTargets refresca ao fim para apanhar col-kanban-buffer)
   const body = document.getElementById('buffer-body');
   const countEl = document.getElementById('buffer-count');
   const tabCountEl = document.getElementById('tab-count-buffer');
@@ -4336,8 +4350,30 @@ function renderBuffer() {
   if (countEl) countEl.textContent = BUFFER_SEARCH ? (list.length + '/' + all.length) : all.length;
   if (tabCountEl) tabCountEl.textContent = all.length;
   body.innerHTML = '';
+  // Setup drop target no buffer-body (aceita drop de OPs KANBAN → volta a BUFFER)
+  if (!body._dropSetup && !isReadOnly()) {
+    body._dropSetup = true;
+    body.addEventListener('dragover', e => {
+      if (!draggedOp) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', e => { if (e.target === body) body.classList.remove('drag-over'); });
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if (!draggedOp) return;
+      if (draggedOp.maquina !== 'BUFFER') {
+        moveOpToBuffer(draggedOp);
+      }
+      draggedOp = null;
+    });
+  }
   if (list.length === 0) {
     body.innerHTML = '<div class="buffer-empty">' + (BUFFER_SEARCH ? 'Sem resultados no Buffer.' : 'Sem ordens no Buffer. Clica "+ Nova ordem" para adicionar.') + '</div>';
+    // Setup drop targets no KANBAN também (para caso a ordem venha do buffer)
+    if (typeof setupKanbanDropTargets === 'function') setupKanbanDropTargets();
     return;
   }
   // Header
@@ -4358,9 +4394,11 @@ function renderBuffer() {
     const row = document.createElement('div');
     row.className = 'buffer-row';
     row.dataset.id = op.id;
-    // Dia Plano — deriva do weekKey/diaIdx se existir, senão vazio
+    // Dia Plano — prioridade: op.dataPlano (string) → derivado de weekKey/diaIdx → '—'
     let diaPlano = '—';
-    if (op.weekKey && typeof op.diaIdx === 'number') {
+    if (op.dataPlano && String(op.dataPlano).trim()) {
+      diaPlano = String(op.dataPlano).trim();
+    } else if (op.weekKey && typeof op.diaIdx === 'number') {
       const monday = isoWeekToMonday(op.weekKey);
       if (monday) {
         const d = new Date(monday); d.setDate(monday.getDate() + (op.diaIdx || 0));
@@ -4401,8 +4439,23 @@ function renderBuffer() {
       if (e.target.tagName === 'BUTTON') return;
       openModal(op);
     });
+    // Drag from Buffer → KANBAN (ou vice-versa via setupZoneDropTarget)
+    row.draggable = !isReadOnly();
+    if (row.draggable) setupRowDragHandlers(row, op);
     body.appendChild(row);
   }
+  if (typeof setupKanbanDropTargets === 'function') setupKanbanDropTargets();
+}
+function moveOpToBuffer(op) {
+  if (!op) return;
+  const target = DATA.find(o => o.id === op.id);
+  if (!target) return;
+  target.maquina = 'BUFFER';
+  target.weekKey = '';
+  target.diaIdx = 0;
+  target.sortIdx = DATA.filter(o => o.maquina === 'BUFFER').length;
+  saveOneOp(target).catch(() => {});
+  rerender();
 }
 function moveBufferToKanban(id) {
   const op = DATA.find(o => o.id === id);
@@ -4477,6 +4530,7 @@ async function importBufferXlsx(inputEl) {
         // Converter para weekKey + diaIdx (0=Seg..6=Dom)
         weekKey = window.weekKey(dt);
         diaIdx = (dt.getDay() + 6) % 7;
+        dataPlanoText = pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1) + '/' + dt.getFullYear();
       }
       // Quantidade — assumir milhares (Excel tem 60 = 60000 rolhas). Se valor > 1000, já está em rolhas.
       let qtdNum = parseFloat(String(r[cIdx.qtd] || '0').replace(',', '.'));
@@ -4484,7 +4538,7 @@ async function importBufferXlsx(inputEl) {
       const qtdEntrada = qtdNum <= 1000 ? Math.round(qtdNum * 1000) : Math.round(qtdNum);
       const produto = String(r[cIdx.mat] || '').trim();
       const massas = String(r[cIdx.massas] || '').trim();
-      const obsPi = String(r[cIdx.obs] || '').trim() + (dataPlanoText ? (' · Data plano: ' + dataPlanoText) : '');
+      const obsPi = String(r[cIdx.obs] || '').trim();
       const destino = String(r[cIdx.destino] || '').trim();
       // Calibre — extrair do produto (formato XX x XXX)
       let calibre = '';
@@ -4506,6 +4560,7 @@ async function importBufferXlsx(inputEl) {
         hInicioP: '',
         weekKey: weekKey || '',
         diaIdx: diaIdx || 0,
+        dataPlano: dataPlanoText,
         sortIdx: DATA.filter(o => o.maquina === 'BUFFER').length + created.length,
       };
       created.push(payload);
