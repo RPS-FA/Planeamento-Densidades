@@ -3292,8 +3292,8 @@ function createWeekTable(sched, wk, machine) {
       <td title="${op.destino || ''}">${op.destino || ''}</td>
       <td class="ctr ${op.inicioMode === 'manual' && isFirstSeg ? 'inicio-manual' : ''}" title="${op.inicioMode === 'manual' ? 'Início manual ('+op.hInicioP+')' : 'Início automático'}">${_hIniP_calc}</td>
       <td class="ctr">${_hFimP_calc}</td>
-      <td class="ctr mono" title="${_dataIniR+' '+_hIniR}">${fmtRealStr(_dataIniR, _hIniR)}</td>
-      <td class="ctr mono" title="${_dataFimR+' '+_hFimR}">${fmtRealStr(_dataFimR, _hFimR)}</td>
+      <td class="ctr mono ${atrasoClass}" title="${_dataIniR+' '+_hIniR}">${fmtRealStr(_dataIniR, _hIniR)}</td>
+      <td class="ctr mono ${atrasoClass}" title="${_dataFimR+' '+_hFimR}">${fmtRealStr(_dataFimR, _hFimR)}</td>
       <td class="ctr ${atrasoClass}" title="Diferença Real - Planeado (segmento ${segIdx+1}/${totalSegs})">${atrasoStr}</td>
     `;
     const sel = tr.querySelector('.estado-select');
