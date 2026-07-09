@@ -1073,6 +1073,9 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
         </select>
       </div>
     </div>
+    <div class="row">
+      <div class="field"><label>Dia Plano <span style="font-size:10px;color:var(--c-muted)">(DD/MM/AAAA ou texto ex: "29-30/jul")</span></label><input id="m_dataPlano" type="text" placeholder="—"></div>
+    </div>
     <div class="field"><label>Obs PI</label><textarea id="m_obsPi" rows="2"></textarea></div>
 
     <div class="row">
@@ -3685,6 +3688,7 @@ function openModal(op, segDayKey) {
   get('m_op').value = op ? (op.op || '') : '';
   get('m_poPedido').value = op ? (op.poPedido || '') : '';
   get('m_fileCliente').value = op ? (op.fileCliente || '') : '';
+  get('m_dataPlano').value = op ? (op.dataPlano || '') : '';
   get('m_produto').value = op ? (op.produto || '') : '';
   get('m_calibre').value = op ? (op.calibre || '') : '';
   get('m_massas').value = op ? (op.massas || '') : '';
@@ -3821,6 +3825,7 @@ function saveOP() {
     op: get('m_op'),
     tipo: 'DENS',
     poPedido: get('m_poPedido'),
+    dataPlano: get('m_dataPlano'),
     fileCliente: get('m_fileCliente'),
     produto: get('m_produto'),
     calibre: get('m_calibre'),
@@ -3870,6 +3875,16 @@ function saveOP() {
     weekKey: weekVal,
     diaIdx: editingOP ? (editingOP.diaIdx != null ? editingOP.diaIdx : 0) : 0,
   };
+  // Se dataPlano é DD/MM/AAAA, sincronizar weekKey + diaIdx
+  const _dpStr = String(data.dataPlano || '').trim();
+  const _dpMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(_dpStr);
+  if (_dpMatch) {
+    const _dt = new Date(parseInt(_dpMatch[3], 10), parseInt(_dpMatch[2], 10) - 1, parseInt(_dpMatch[1], 10));
+    if (!isNaN(_dt)) {
+      data.weekKey = weekKey(_dt);
+      data.diaIdx = (_dt.getDay() + 6) % 7;
+    }
+  }
   if (editingOP) {
     Object.assign(editingOP, data);
     // Se o modal foi aberto sem segDayKey mas a OP tem realPorDia com chaves,
