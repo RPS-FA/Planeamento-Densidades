@@ -1039,6 +1039,7 @@ table.excel tbody tr.row-data:hover td.inicio-manual {
     <h2 id="modalTitle">Editar OP</h2>
     <div class="row">
       <div class="field"><label>OP</label><input id="m_op" type="text"></div>
+      <div class="field"><label>PO / Pedido</label><input id="m_poPedido" type="text"></div>
       <div class="field"><label>File / Cliente</label><input id="m_fileCliente" type="text"></div>
     </div>
     <div class="field"><label>Produto</label><input id="m_produto" type="text" class="mono" placeholder="N-QV2-..." oninput="onProdutoChange()"></div>
@@ -1931,7 +1932,7 @@ function weekKeysOfMonth(year, month) {
 
 function matchesSearch(op, term) {
   if (!term) return true;
-  const haystack = `${op.op || ''} ${op.fileCliente || ''} ${op.produto || ''} ${op.calibre || ''} ${op.massas || ''} ${op.loteAde || ''} ${op.colaborador || ''} ${op.obs || ''} ${op.obsPi || ''} ${op.destino || ''}`.toLowerCase();
+  const haystack = `${op.op || ''} ${op.poPedido || ''} ${op.fileCliente || ''} ${op.produto || ''} ${op.calibre || ''} ${op.massas || ''} ${op.loteAde || ''} ${op.colaborador || ''} ${op.obs || ''} ${op.obsPi || ''} ${op.destino || ''}`.toLowerCase();
   return haystack.includes(term);
 }
 
@@ -3197,7 +3198,7 @@ function createWeekTable(sched, wk, machine) {
   // Ordem: handle, #, Entrega Logística, Estado, OP, File, Produto, Calibre, Massas, Obs PI, Qtd, Destino,
   //        Início P, Fim P, Início Real, Fim Real, Atraso
   const cols = [
-    {w:18},  {w:24},  {w:100}, {w:115}, {w:90},  {w:115}, {w:175}, {w:55},
+    {w:18},  {w:24},  {w:100}, {w:115}, {w:90},  {w:80},  {w:115}, {w:175}, {w:55},
     {w:70},  {w:120}, {w:110}, {w:90},  {w:60},  {w:60},  {w:95},  {w:95},
     {w:55}
   ];
@@ -3208,7 +3209,7 @@ function createWeekTable(sched, wk, machine) {
   thead.innerHTML = `<tr>
     <th></th><th>#</th>
     <th>Entrega Logística</th><th>Estado</th>
-    <th>OP</th><th>File / Cliente</th><th>Produto</th>
+    <th>OP</th><th>PO / Pedido</th><th>File / Cliente</th><th>Produto</th>
     <th>Calibre</th>
     <th>Massas</th>
     <th>Obs PI</th><th>Qtd Entrada (rolhas)</th><th>Destino</th>
@@ -3283,6 +3284,7 @@ function createWeekTable(sched, wk, machine) {
       <td class="ctr entrega-log" title="Hora de entrega logística (1h antes do início) ou 'dia anterior' se início for antes das 09:00">${isFirstSeg ? calcEntregaLog(_hIniP_calc) : ''}</td>
       <td class="ctr"><select class="estado-select" data-est="${op.estado}" data-id="${op.id}">${estadoOpts}</select></td>
       <td class="ctr"><strong>${op.op || ''}${segLabel}</strong></td>
+      <td class="ctr" title="${op.poPedido || ''}">${op.poPedido || ''}</td>
       <td title="${op.fileCliente || ''}">${op.fileCliente || ''}</td>
       <td class="mono" title="${op.produto || ''}">${op.produto || ''}</td>
       <td class="ctr">${op.calibre || ''}</td>
@@ -3681,6 +3683,7 @@ function openModal(op, segDayKey) {
   document.getElementById('modalTitle').textContent = title;
   const get = id => document.getElementById(id);
   get('m_op').value = op ? (op.op || '') : '';
+  get('m_poPedido').value = op ? (op.poPedido || '') : '';
   get('m_fileCliente').value = op ? (op.fileCliente || '') : '';
   get('m_produto').value = op ? (op.produto || '') : '';
   get('m_calibre').value = op ? (op.calibre || '') : '';
@@ -3817,6 +3820,7 @@ function saveOP() {
   const data = {
     op: get('m_op'),
     tipo: 'DENS',
+    poPedido: get('m_poPedido'),
     fileCliente: get('m_fileCliente'),
     produto: get('m_produto'),
     calibre: get('m_calibre'),
@@ -4106,7 +4110,7 @@ function exportExcel() {
     return;
   }
 
-  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (rolhas)','Qtd Total OP (rolhas)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
+  const headers = ['Máquina','Data','Semana','Entrega Logística','Estado','OP','PO / Pedido','Parte','File / Cliente','Produto','Calibre','Massas','Qtd Segmento (rolhas)','Qtd Total OP (rolhas)','Destino','Início P','Fim P','Data Início Real','Hora Início Real','Data Fim Real','Hora Fim Real','Atraso','Obs PI','Lote ADE','Qtd ADE','Colaborador','Observações'];
   const rows = [headers];
 
   for (const { item, machine } of allItems) {
@@ -4124,6 +4128,7 @@ function exportExcel() {
       isFirstSeg ? calcEntregaLog(hIniP) : '',
       op.estado || '',
       op.op || '',
+      op.poPedido || '',
       totalSegs > 1 ? (segIdx + 1) + '/' + totalSegs : '',
       op.fileCliente || '',
       op.produto || '',
