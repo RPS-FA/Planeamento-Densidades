@@ -1703,6 +1703,10 @@ function updateUndoButton() {
 }
 async function doUndo() {
   if (UNDO_STACK.length === 0) { setConnStatus('ok', 'Nada para desfazer'); return; }
+  // Aguardar saveData/saveSettings pendentes para evitar race (saveData debounce 50ms)
+  for (let i = 0; i < 20 && (_saveDataPending || _saveToastTimer); i++) {
+    await new Promise(r => setTimeout(r, 30));
+  }
   const last = UNDO_STACK.pop();
   const oldData = last.data;
   const oldById = new Map(oldData.map(o => [o.id, o]));
@@ -1732,7 +1736,7 @@ async function doUndo() {
     // Re-fetch state do servidor para garantir consistência (IDs novos depois de recreate)
     const st = await Api.getState();
     if (st && st.ops) DATA = st.ops;
-    if (st && st.settings) SETTINGS = Object.assign(SETTINGS || {}, st.settings);
+    if (st && st.settings) applyServerSettings(st.settings);
     setConnStatus('ok', '↶ Desfeito: ' + last.label);
     rerender();
   } catch (e) {
@@ -3416,10 +3420,23 @@ function setupKanbanDropTargets() {
 }
 
 function moveOpRelativeTo(opMoved, opTarget, position) {
-  pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   if (isReadOnly()) return;
-  if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(opTarget.weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
   const targetMachine = opTarget.maquina;
+  // Validação de restrição de calibre (só quando o destino não é KANBAN)
+  if (targetMachine && targetMachine !== 'KANBAN' && !isCalibreAuthorizedOnMachine(opMoved.calibre, targetMachine)) {
+    alert('⚠ Restrição de calibre\n\n' +
+          'Calibre ' + (opMoved.calibre || '(vazio)') + ' NÃO está autorizado em ' + targetMachine + '.\n\n' +
+          'Configurações → "Calibres autorizados por máquina".');
+    return;
+  }
+  if (targetMachine && targetMachine !== 'KANBAN' && !isTipoAuthorizedOnMachine(opMoved.produto, targetMachine)) {
+    const tipo = extractTipoFromProduto(opMoved.produto);
+    alert('⚠ Restrição de tipo de produto\n\n' +
+          'Tipo ' + (tipo || '(vazio)') + ' NÃO está autorizado em ' + targetMachine + '.\n\n' +
+          'Configurações → "Tipos de produto autorizados por máquina".');
+    return;
+  }
+  pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const targetWeek = opTarget.weekKey;
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   const tIdx = peers.findIndex(o => o.id === opTarget.id);
