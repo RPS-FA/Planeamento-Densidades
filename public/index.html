@@ -2227,46 +2227,19 @@ function onDayLockToggle(dayKey) {
   if (!SETTINGS.diasBloqueados) SETTINGS.diasBloqueados = {};
   const locked = !!SETTINGS.diasBloqueados[dayKey];
   if (locked) {
-    if (!confirm('Desbloquear o dia ' + dayKey + '?\nAs OPs voltam a poder ser replaneadas.')) return;
+    if (!confirm('Desbloquear o dia ' + dayKey + '?\nAs OPs voltam a poder ser editadas.')) return;
     delete SETTINGS.diasBloqueados[dayKey];
     saveSettings();
+    if (typeof showSuccessToast === 'function') showSuccessToast('🔓 Dia desbloqueado');
     rerender();
     return;
   }
-  // Bloquear: fixar hInicioP de cada OP cujo primeiro segmento cai neste dia
-  if (!confirm('Bloquear o dia ' + dayKey + '?\nAs OPs deste dia serão convertidas para "início manual" com as horas actuais, impedindo replaneamento futuro.')) return;
-  const affected = [];
-  for (const machine of MACHINES) {
-    // Correr scheduler para saber horas actuais
-    const weeks = (typeof getWeeksInMonth === 'function') ? (function(){
-      const [y,m,d] = dayKey.split('-').map(Number);
-      const monthWeeks = getWeeksInMonth(y, m - 1);
-      const firstMon = monthWeeks[0].monday;
-      const prev = new Date(firstMon); prev.setDate(prev.getDate() - 7);
-      return [{key: weekKey(prev), monday: prev}, ...monthWeeks];
-    })() : [];
-    const sched = calcScheduleForMachineRange(machine, weeks);
-    for (const it of sched) {
-      if (!it.start || isNaN(it.start)) continue;
-      if (fmtDate(it.start) !== dayKey) continue;
-      if ((it.segIdx || 0) !== 0) continue; // só o 1º segmento define hInicioP
-      const op = it.op;
-      if (op._locked) continue;
-      op.inicioMode = 'manual';
-      op.hInicioP = fmtTime(it.start);
-      op._locked = true;
-      affected.push(op);
-    }
-  }
+  // Bloquear — apenas marca no SETTINGS. Não muta OPs (mantém as horas actuais tal como estão).
+  if (!confirm('Bloquear o dia ' + dayKey + '?\nAs OPs deste dia ficam TAL COMO ESTÃO — sem possibilidade de edição.')) return;
   SETTINGS.diasBloqueados[dayKey] = true;
   saveSettings();
-  // Persistir cada OP com _locked
-  for (const op of affected) {
-    delete op._locked;
-    Api.putOp(op.id, op, 'planeador').catch(e => console.error('putOp fail', e));
-  }
-  setConnStatus('ok', '🔒 Dia ' + dayKey + ' bloqueado · ' + affected.length + ' OPs fixadas');
-  if (typeof showSuccessToast === 'function') showSuccessToast('🔒 Dia bloqueado — ' + affected.length + ' OPs fixadas');
+  setConnStatus('ok', '🔒 Dia ' + dayKey + ' bloqueado');
+  if (typeof showSuccessToast === 'function') showSuccessToast('🔒 Dia bloqueado');
   rerender();
 }
 function isDayClosed(dayKey) {
@@ -3631,11 +3604,10 @@ function freezeSubsequentAutoOps(machine, referenceDate) {
   const changed = [];
   for (const it of sched) {
     if (!it.start || isNaN(it.start)) continue;
-    if ((it.segIdx || 0) !== 0) continue; // só 1º segmento define hInicioP
+    if ((it.segIdx || 0) !== 0) continue;
     if (referenceDate && it.start < referenceDate) continue;
     const op = it.op;
     const horaCalc = fmtTime(it.start);
-    // Se já é manual com a MESMA hora calculada, salta (nada a fazer)
     if (op.inicioMode === 'manual' && op.hInicioP === horaCalc) continue;
     op.inicioMode = 'manual';
     op.hInicioP = horaCalc;
