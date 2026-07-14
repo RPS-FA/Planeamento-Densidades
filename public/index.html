@@ -3922,13 +3922,27 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
 function moveOpToKanban(opMoved) {
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey)) { alert('Esta OP está em semana fechada.'); return; }
+  // Congelar OPs subsequentes na máquina origem (evita cascade)
+  let _frozen = [];
+  if (opMoved.maquina && opMoved.maquina !== 'KANBAN' && opMoved.weekKey) {
+    const monday = isoWeekToMonday(opMoved.weekKey);
+    if (monday) {
+      const refDate = new Date(monday); refDate.setDate(monday.getDate() + (opMoved.diaIdx || 0)); refDate.setHours(0,0,0,0);
+      _frozen = freezeSubsequentAutoOps(opMoved.maquina, refDate);
+    }
+  }
   const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   opMoved.maquina = 'KANBAN';
   opMoved.weekKey = '';
   opMoved.estado = 'Aberto';
   peers.push(opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
-  saveData(); rerender();
+  // Persistir freezes primeiro
+  if (_frozen.length > 0) {
+    Promise.allSettled(_frozen.map(fop => Api.putOp(fop.id, fop, 'planeador'))).then(() => { saveData(); rerender(); });
+  } else {
+    saveData(); rerender();
+  }
 }
 
 // Navegação mensal removida — cada tab é um mês fixo (Mai..Dez 2026).
@@ -4809,12 +4823,25 @@ function moveOpToBuffer(op) {
   if (!op) return;
   const target = DATA.find(o => o.id === op.id);
   if (!target) return;
+  // Congelar OPs subsequentes na máquina origem
+  let _frozen = [];
+  if (target.maquina && target.maquina !== 'KANBAN' && target.maquina !== 'BUFFER' && target.weekKey) {
+    const monday = isoWeekToMonday(target.weekKey);
+    if (monday) {
+      const refDate = new Date(monday); refDate.setDate(monday.getDate() + (target.diaIdx || 0)); refDate.setHours(0,0,0,0);
+      _frozen = freezeSubsequentAutoOps(target.maquina, refDate);
+    }
+  }
   target.maquina = 'BUFFER';
   target.weekKey = '';
   target.diaIdx = 0;
   target.sortIdx = DATA.filter(o => o.maquina === 'BUFFER').length;
-  saveOneOp(target).catch(() => {});
-  rerender();
+  if (_frozen.length > 0) {
+    Promise.allSettled(_frozen.map(fop => Api.putOp(fop.id, fop, 'planeador'))).then(() => { saveOneOp(target).catch(() => {}); rerender(); });
+  } else {
+    saveOneOp(target).catch(() => {});
+    rerender();
+  }
 }
 function moveBufferToKanban(id) {
   const op = DATA.find(o => o.id === id);
