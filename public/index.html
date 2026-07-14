@@ -3652,6 +3652,8 @@ function freezeSubsequentAutoOps(machine, referenceDate) {
 // Descongela OPs em modo manual cujo scheduler quer arrancar DEPOIS da hInicioP
 // (i.e., foram empurradas por OP inserida antes → volta a auto para cascatar).
 function unfreezeIfOverflown(machine) {
+  // Detecta sobreposição cronológica: se uma OP em modo manual arranca antes do fim (+ setup)
+  // da OP anterior cronologicamente, foi "empurrada" pela inserção — converte para auto.
   if (!machine || machine === 'KANBAN') return [];
   const wks = Array.from(new Set(DATA.filter(o => o.maquina === machine && o.weekKey).map(o => o.weekKey))).sort();
   if (wks.length === 0) return [];
@@ -3659,23 +3661,29 @@ function unfreezeIfOverflown(machine) {
   const monday0 = weeksArr[0].monday;
   const prev = new Date(monday0); prev.setDate(prev.getDate() - 7);
   const weeksExt = [{ key: weekKey(prev), monday: prev }, ...weeksArr];
-  const sched = calcScheduleForMachineRange(machine, weeksExt);
+  const setupMs = (SETTINGS.setupMin || 10) * 60000;
+  // Iterar até convergir (max 5 iterações — cada unfreeze pode ter efeito em cascata)
   const changed = [];
-  for (const it of sched) {
-    if (!it.start || isNaN(it.start)) continue;
-    if ((it.segIdx || 0) !== 0) continue;
-    const op = it.op;
-    if (op.inicioMode !== 'manual' || !op.hInicioP || !/^\d{2}:\d{2}$/.test(op.hInicioP)) continue;
-    // Comparar it.start (hora calculada) com hInicioP (hora fixa desejada)
-    const [hh, mm] = op.hInicioP.split(':').map(Number);
-    const wanted = new Date(it.start);
-    wanted.setHours(hh, mm, 0, 0);
-    // Se o scheduler quer arrancar DEPOIS da hInicioP desejada, foi empurrada → auto
-    if (it.start.getTime() > wanted.getTime() + 60000) { // margem 1 min
-      op.inicioMode = 'auto';
-      op.hInicioP = '';
-      changed.push(op);
+  for (let iter = 0; iter < 5; iter++) {
+    const sched = calcScheduleForMachineRange(machine, weeksExt);
+    const primary = sched.filter(it => (it.segIdx || 0) === 0)
+                         .filter(it => it.start && !isNaN(it.start))
+                         .sort((a, b) => a.start - b.start);
+    let mutated = false;
+    for (let i = 1; i < primary.length; i++) {
+      const cur = primary[i];
+      const prevIt = primary[i - 1];
+      if (cur.op.inicioMode !== 'manual') continue;
+      const prevEndPlusSetup = prevIt.end.getTime() + setupMs;
+      if (prevEndPlusSetup > cur.start.getTime() + 60000) {
+        // Sobreposição — OP manual foi empurrada, volta a auto
+        cur.op.inicioMode = 'auto';
+        cur.op.hInicioP = '';
+        changed.push(cur.op);
+        mutated = true;
+      }
     }
+    if (!mutated) break;
   }
   return changed;
 }
