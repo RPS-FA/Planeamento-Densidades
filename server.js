@@ -112,6 +112,15 @@ app.post('/api/ops', async (req, res) => {
     if (typeof body !== 'object' || Array.isArray(body)) {
       return res.status(400).json({ ok: false, error: 'Body inválido.' });
     }
+    // Validação: OP e Produto obrigatórios (evita OPs fantasma)
+    const _opField = (body.op || '').toString().trim();
+    const _produtoField = (body.produto || '').toString().trim();
+    if (!_opField || _opField.toUpperCase() === 'VAZIO') {
+      return res.status(400).json({ ok: false, error: 'Campo OP obrigatório.' });
+    }
+    if (!_produtoField) {
+      return res.status(400).json({ ok: false, error: 'Campo Produto obrigatório.' });
+    }
     const op = await db.createOp(body, profile);
     res.json({ ok: true, op });
   } catch (e) { sendError(res, e, 'POST /api/ops falhou'); }
