@@ -2156,7 +2156,7 @@ async function deleteOpAndPersist(id, label) {
       if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado — OP não pode ser apagada.'); return; }
     }
   }
-  // Congelar OPs subsequentes na máquina desta OP — evita cascade
+  // 1) Congelar OPs subsequentes na máquina — antes de mutar DATA
   let _frozen = [];
   if (_op && _op.maquina && _op.maquina !== 'KANBAN' && _op.weekKey) {
     const monday = isoWeekToMonday(_op.weekKey);
@@ -2166,20 +2166,27 @@ async function deleteOpAndPersist(id, label) {
     }
   }
   pushUndo(label || ('Apagar OP id ' + id));
+  // 2) Persistir freeze ANTES de qualquer coisa (mesmo antes de remover a OP)
+  if (_frozen.length > 0 && !VC_MODE) {
+    const results = await Promise.allSettled(_frozen.map(fop => Api.putOp(fop.id, fop, 'planeador')));
+    let ok = 0, fail = 0;
+    for (const r of results) { if (r.status === 'fulfilled') ok++; else { fail++; console.error('freeze put fail', r.reason); } }
+    console.log('[delete-freeze]', ok, 'OK,', fail, 'FAIL', '·', _frozen.map(o => o.op + '→' + o.hInicioP).join(', '));
+    if (fail > 0) showErrorToast('Aviso: ' + fail + ' OP(s) freeze não persistiram');
+  }
+  // 3) Remover a OP local e re-render
   DATA = DATA.filter(o => o.id !== id);
   rerender();
-  // Persistir OPs congeladas (aguardar para evitar race com Api.deleteOp seguinte)
-  if (_frozen.length > 0 && !VC_MODE) {
-    await Promise.all(_frozen.map(fop => Api.putOp(fop.id, fop, 'planeador').catch(e => console.error('freeze put fail', e))));
-  }
-  try {
-    await Api.deleteOp(id);
-    setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
-  } catch (e) {
-    setConnStatus('error', 'Falha ao apagar');
-    showErrorToast('Erro ao apagar OP: ' + e.message);
-    // Re-fetch para repor estado consistente
-    try { const st = await Api.getState(); if (st && st.ops) { DATA = st.ops; rerender(); } } catch (_) {}
+  // 4) DELETE no server
+  if (!VC_MODE) {
+    try {
+      await Api.deleteOp(id);
+      setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
+    } catch (e) {
+      setConnStatus('error', 'Falha ao apagar');
+      showErrorToast('Erro ao apagar OP: ' + e.message);
+      try { const st = await Api.getState(); if (st && st.ops) { DATA = st.ops; rerender(); } } catch (_) {}
+    }
   }
 }
 
