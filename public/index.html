@@ -3593,6 +3593,8 @@ function setupKanbanDropTargets() {
 // replaneamento em cascata quando se altera uma OP anterior.
 // ============================================================
 function freezeSubsequentAutoOps(machine, referenceDate) {
+  // Congela APENAS a primeira OP após referenceDate — as restantes ficam em auto
+  // e cascatam naturalmente.
   if (!machine || machine === 'KANBAN') return [];
   const wks = Array.from(new Set(DATA.filter(o => o.maquina === machine && o.weekKey).map(o => o.weekKey))).sort();
   if (wks.length === 0) return [];
@@ -3608,10 +3610,43 @@ function freezeSubsequentAutoOps(machine, referenceDate) {
     if (referenceDate && it.start < referenceDate) continue;
     const op = it.op;
     const horaCalc = fmtTime(it.start);
-    if (op.inicioMode === 'manual' && op.hInicioP === horaCalc) continue;
-    op.inicioMode = 'manual';
-    op.hInicioP = horaCalc;
-    changed.push(op);
+    if (op.inicioMode !== 'manual' || op.hInicioP !== horaCalc) {
+      op.inicioMode = 'manual';
+      op.hInicioP = horaCalc;
+      changed.push(op);
+    }
+    break; // só a primeira — as restantes ficam em auto
+  }
+  return changed;
+}
+
+// Descongela OPs em modo manual cujo scheduler quer arrancar DEPOIS da hInicioP
+// (i.e., foram empurradas por OP inserida antes → volta a auto para cascatar).
+function unfreezeIfOverflown(machine) {
+  if (!machine || machine === 'KANBAN') return [];
+  const wks = Array.from(new Set(DATA.filter(o => o.maquina === machine && o.weekKey).map(o => o.weekKey))).sort();
+  if (wks.length === 0) return [];
+  const weeksArr = wks.map(k => ({ key: k, monday: isoWeekToMonday(k) }));
+  const monday0 = weeksArr[0].monday;
+  const prev = new Date(monday0); prev.setDate(prev.getDate() - 7);
+  const weeksExt = [{ key: weekKey(prev), monday: prev }, ...weeksArr];
+  const sched = calcScheduleForMachineRange(machine, weeksExt);
+  const changed = [];
+  for (const it of sched) {
+    if (!it.start || isNaN(it.start)) continue;
+    if ((it.segIdx || 0) !== 0) continue;
+    const op = it.op;
+    if (op.inicioMode !== 'manual' || !op.hInicioP || !/^\d{2}:\d{2}$/.test(op.hInicioP)) continue;
+    // Comparar it.start (hora calculada) com hInicioP (hora fixa desejada)
+    const [hh, mm] = op.hInicioP.split(':').map(Number);
+    const wanted = new Date(it.start);
+    wanted.setHours(hh, mm, 0, 0);
+    // Se o scheduler quer arrancar DEPOIS da hInicioP desejada, foi empurrada → auto
+    if (it.start.getTime() > wanted.getTime() + 60000) { // margem 1 min
+      op.inicioMode = 'auto';
+      op.hInicioP = '';
+      changed.push(op);
+    }
   }
   return changed;
 }
@@ -3671,6 +3706,9 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   if (opTarget.diaIdx != null) opMoved.diaIdx = opTarget.diaIdx;
   peers.splice(insertIdx, 0, opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
+  // Descongelar OPs manual que foram empurradas
+  const _unfrozen = unfreezeIfOverflown(targetMachine);
+  for (const uop of _unfrozen) { Api.putOp(uop.id, uop, 'planeador').catch(() => {}); }
   saveData(); rerender();
 }
 // ============================================================
@@ -3889,6 +3927,9 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
   if (opMoved.estado === 'KANBAN') opMoved.estado = 'Aberto';
   peers.push(opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
+  // Descongelar OPs manual que foram empurradas na máquina destino
+  const _unfrozen = unfreezeIfOverflown(machine);
+  for (const uop of _unfrozen) { Api.putOp(uop.id, uop, 'planeador').catch(() => {}); }
   saveData(); rerender();
 }
 function moveOpToKanban(opMoved) {
