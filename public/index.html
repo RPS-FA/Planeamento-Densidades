@@ -3372,8 +3372,9 @@ function createWeekTable(sched, wk, machine) {
   sched.forEach((item, idx) => {
     // Linha de gap se houver espaço vazio entre o fim da OP anterior e o início desta
     if (_prevEnd && item.start && (item.start - _prevEnd) > GAP_THRESHOLD_MS) {
-      // Desconta o setup (changeover) — só o excedente conta como VAZIO planeável
-      const gapMs = (item.start - _prevEnd) - _setupMs_gap;
+      // Há OP a seguir → descontar 2 setups (antes + depois da OP a inserir).
+      // Assim a capacidade disponível é o tempo produtivo líquido para uma nova OP.
+      const gapMs = (item.start - _prevEnd) - 2 * _setupMs_gap;
       const gapH = gapMs / 3600000;
       const gapRolhas = Math.max(0, Math.round(gapH * _krH_gap));
       const _fmtHm = (d) => pad(d.getHours()) + ':' + pad(d.getMinutes());
@@ -3382,7 +3383,7 @@ function createWeekTable(sched, wk, machine) {
       const gapTr = document.createElement('tr');
       gapTr.className = 'row-gap';
       gapTr.innerHTML = '<td colspan="' + _colspanTotal + '">' +
-        '⏸ <b>VAZIO</b> · ' + _fmtHm(new Date(_prevEnd.getTime() + _setupMs_gap)) + ' → ' + _fmtHm(item.start) + ' · ' + _durTxt +
+        '⏸ <b>VAZIO</b> · ' + _fmtHm(new Date(_prevEnd.getTime() + _setupMs_gap)) + ' → ' + _fmtHm(new Date(item.start.getTime() - _setupMs_gap)) + ' · ' + _durTxt +
         (gapRolhas > 0 ? '<span class="gap-livre">' + gapRolhas.toLocaleString('pt-PT') + ' rolhas disponíveis</span>' : '') +
       '</td>';
       tbody.appendChild(gapTr);
