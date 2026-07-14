@@ -779,6 +779,7 @@ table.excel tbody tr.row-gap td {
 table.excel tbody tr.row-gap td b { color: #1e4a80; }
 table.excel tbody tr.row-gap td .gap-livre { color: #1a4020; font-weight: 700; margin-left: 8px; }
 table.excel tbody tr.row-gap:hover td { background: #cee0f3 !important; }
+table.excel tbody tr.row-gap.drop-into-gap td { background: #86efac !important; outline: 2px dashed #16a34a; }
 
 /* ===== Scope das refeições (a que máquinas se aplica) ===== */
 .day-block-header .dh-turno .dh-scope {
@@ -3386,6 +3387,24 @@ function createWeekTable(sched, wk, machine) {
         '⏸ <b>VAZIO</b> · ' + _fmtHm(new Date(_prevEnd.getTime() + _setupMs_gap)) + ' → ' + _fmtHm(new Date(item.start.getTime() - _setupMs_gap)) + ' · ' + _durTxt +
         (gapRolhas > 0 ? '<span class="gap-livre">' + gapRolhas.toLocaleString('pt-PT') + ' rolhas disponíveis</span>' : '') +
       '</td>';
+      // Drop target — largar aqui insere ANTES da OP `item` (via moveOpRelativeTo before)
+      if (!isReadOnly()) {
+        const _nextOp = item.op;
+        gapTr.addEventListener('dragover', e => {
+          if (!draggedOp || draggedOp.id === _nextOp.id) return;
+          e.preventDefault(); e.stopPropagation();
+          e.dataTransfer.dropEffect = 'move';
+          gapTr.classList.add('drop-into-gap');
+        });
+        gapTr.addEventListener('dragleave', () => gapTr.classList.remove('drop-into-gap'));
+        gapTr.addEventListener('drop', e => {
+          e.preventDefault(); e.stopPropagation();
+          gapTr.classList.remove('drop-into-gap');
+          if (!draggedOp || draggedOp.id === _nextOp.id) return;
+          moveOpRelativeTo(draggedOp, _nextOp, 'before');
+          draggedOp = null;
+        });
+      }
       tbody.appendChild(gapTr);
     }
     if (item.end) _prevEnd = item.end;
