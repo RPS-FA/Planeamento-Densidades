@@ -253,6 +253,16 @@
     position: sticky; top: 0; z-index: 6;
   }
   .day-block-header.fds { background: linear-gradient(180deg, #b58a2c, #d4a017); }
+  .day-block-header .dh-lock-btn {
+    background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.4);
+    padding: 3px 10px; font-size: 11px; border-radius: 3px; cursor: pointer;
+    font-family: inherit; font-weight: 600; margin-left: 6px;
+  }
+  .day-block-header .dh-lock-btn:hover { background: rgba(255,255,255,0.28); }
+  .day-block-header .dh-lock-btn.locked { background: rgba(220, 38, 38, 0.7); border-color: rgba(220, 38, 38, 0.9); }
+  .day-block-header .dh-lock-btn.locked:hover { background: rgba(220, 38, 38, 0.85); }
+  .day-block.day-locked { opacity: 0.92; }
+  .day-block.day-locked .day-block-header { background: linear-gradient(180deg, #5b1717, #7f2323); }
   .day-block-header .dh-date strong { letter-spacing: 0.4px; }
   .day-block-header .dh-meta { font-size: 11px; opacity: 0.95; }
   .day-block-header .dh-dur { font-size: 10px; opacity: 0.85; margin-left: 4px; }
@@ -2121,6 +2131,15 @@ function saveData() {
 // a OP "apagada" reaparece no próximo GET porque continua na BD.
 async function deleteOpAndPersist(id, label) {
   if (typeof id !== 'number') return;
+  const _op = DATA.find(o => o.id === id);
+  if (_op && _op.weekKey && typeof _op.diaIdx === 'number') {
+    const monday = isoWeekToMonday(_op.weekKey);
+    if (monday) {
+      const dt = new Date(monday); dt.setDate(monday.getDate() + (_op.diaIdx || 0));
+      const dk = fmtDate(dt);
+      if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado — OP não pode ser apagada.'); return; }
+    }
+  }
   pushUndo(label || ('Apagar OP id ' + id));
   DATA = DATA.filter(o => o.id !== id);
   rerender();
@@ -2159,6 +2178,61 @@ function isReadOnly() { return isProducao(); }
 // Dia fechado — marca dia como sem disponibilidade (feriado, manutenção, etc.)
 // Estado guardado em SETTINGS.turnosPorDia[dayKey].fechado
 // ============================================================
+// ============================================================
+// Dia bloqueado — histórico protegido (planeador apenas)
+// SETTINGS.diasBloqueados[dayKey] = true
+// Ao bloquear: OPs desse dia ficam com inicioMode=manual e hInicioP fixo.
+// ============================================================
+function isDayLocked(dayKey) {
+  return !!(SETTINGS.diasBloqueados && SETTINGS.diasBloqueados[dayKey]);
+}
+function onDayLockToggle(dayKey) {
+  if (isProducao()) { showErrorToast('Sem permissão (perfil produção).'); return; }
+  if (!SETTINGS.diasBloqueados) SETTINGS.diasBloqueados = {};
+  const locked = !!SETTINGS.diasBloqueados[dayKey];
+  if (locked) {
+    if (!confirm('Desbloquear o dia ' + dayKey + '?\nAs OPs voltam a poder ser replaneadas.')) return;
+    delete SETTINGS.diasBloqueados[dayKey];
+    saveSettings();
+    rerender();
+    return;
+  }
+  // Bloquear: fixar hInicioP de cada OP cujo primeiro segmento cai neste dia
+  if (!confirm('Bloquear o dia ' + dayKey + '?\nAs OPs deste dia serão convertidas para "início manual" com as horas actuais, impedindo replaneamento futuro.')) return;
+  const affected = [];
+  for (const machine of MACHINES) {
+    // Correr scheduler para saber horas actuais
+    const weeks = (typeof getWeeksInMonth === 'function') ? (function(){
+      const [y,m,d] = dayKey.split('-').map(Number);
+      const monthWeeks = getWeeksInMonth(y, m - 1);
+      const firstMon = monthWeeks[0].monday;
+      const prev = new Date(firstMon); prev.setDate(prev.getDate() - 7);
+      return [{key: weekKey(prev), monday: prev}, ...monthWeeks];
+    })() : [];
+    const sched = calcScheduleForMachineRange(machine, weeks);
+    for (const it of sched) {
+      if (!it.start || isNaN(it.start)) continue;
+      if (fmtDate(it.start) !== dayKey) continue;
+      if ((it.segIdx || 0) !== 0) continue; // só o 1º segmento define hInicioP
+      const op = it.op;
+      if (op._locked) continue;
+      op.inicioMode = 'manual';
+      op.hInicioP = fmtTime(it.start);
+      op._locked = true;
+      affected.push(op);
+    }
+  }
+  SETTINGS.diasBloqueados[dayKey] = true;
+  saveSettings();
+  // Persistir cada OP com _locked
+  for (const op of affected) {
+    delete op._locked;
+    Api.putOp(op.id, op, 'planeador').catch(e => console.error('putOp fail', e));
+  }
+  setConnStatus('ok', '🔒 Dia ' + dayKey + ' bloqueado · ' + affected.length + ' OPs fixadas');
+  if (typeof showSuccessToast === 'function') showSuccessToast('🔒 Dia bloqueado — ' + affected.length + ' OPs fixadas');
+  rerender();
+}
 function isDayClosed(dayKey) {
   const t = SETTINGS.turnosPorDia && SETTINGS.turnosPorDia[dayKey];
   return !!(t && t.fechado);
@@ -2207,6 +2281,7 @@ function markDayTurnoDirty(dayKey) {
 
 // Aplica turno específico para uma máquina/dia (override do turno global)
 function applyMachineTurno(dayKey, machine) {
+  if (isDayLocked(dayKey)) { alert('🔒 Dia ' + dayKey + ' está bloqueado — turno não pode ser alterado.'); return; }
   pushUndo('Turno máquina ' + machine + ' ' + dayKey);
   const span = document.querySelector('.dms-turno[data-day="' + dayKey + '"][data-machine="' + machine + '"]');
   if (!span) return;
@@ -2952,7 +3027,7 @@ function renderDayBlock(dayKey, byMachine) {
   else if (_diffDays === -1) _tempClass = ' db-past-1';
   else if (_diffDays <= -2) _tempClass = ' db-past-2plus';
   else if (_diffDays >= 1) _tempClass = ' db-future';
-  block.className = 'day-block' + _tempClass;
+  block.className = 'day-block' + _tempClass + (isDayLocked(dayKey) ? ' day-locked' : '');
   block.dataset.dayKey = dayKey;
 
   // Mapeia getDay() (0=Dom..6=Sáb) para nosso índice (0=Seg..6=Dom)
@@ -3012,6 +3087,10 @@ function renderDayBlock(dayKey, byMachine) {
   const closedBtn = isClosed
     ? `<button class="dh-close-btn closed" title="Dia fechado — clique para reabrir" onclick="onDayClosedToggle('${dayKey}')">🔒 Dia fechado</button>`
     : `<button class="dh-close-btn" title="Marcar dia como fechado (sem produção)" onclick="onDayClosedToggle('${dayKey}')">🔓</button>`;
+  const isLocked = isDayLocked(dayKey);
+  const lockBtn = isProducao() ? '' : (isLocked
+    ? `<button class="dh-lock-btn locked" title="Dia bloqueado — clique para desbloquear" onclick="onDayLockToggle('${dayKey}')">🔒 Bloqueado</button>`
+    : `<button class="dh-lock-btn" title="Bloquear dia para impedir replaneamento retroactivo" onclick="onDayLockToggle('${dayKey}')">🔐 Bloquear</button>`);
   const continuaStr = opsContinuam > 0
     ? `<span class="dh-continua" title="${opsContinuam} OP(s) deste dia não cabem no turno e continuam no dia seguinte. Total que transita: ${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas">⏭ ${opsContinuam} OP${opsContinuam > 1 ? 's' : ''} continua${opsContinuam > 1 ? 'm' : ''} amanhã (${krQueContinua.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas)</span>`
     : `Livre <strong>${livreKr.toLocaleString('pt-PT', {maximumFractionDigits: 0})} rolhas</strong>`;
@@ -3024,6 +3103,7 @@ function renderDayBlock(dayKey, byMachine) {
     <span class="dh-date">📅 ${diaNome} <strong>${dataStr}</strong></span>
 
     ${closedBtn}
+    ${lockBtn}
     ${dispStr}
     <span class="dh-meta">${totalOpsDia} OPs</span>
   `;
@@ -3436,6 +3516,20 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
           'Configurações → "Tipos de produto autorizados por máquina".');
     return;
   }
+  // Bloqueio de dia
+  const _mKey = (op) => {
+    if (!op.weekKey || typeof op.diaIdx !== 'number') return null;
+    const monday = isoWeekToMonday(op.weekKey);
+    if (!monday) return null;
+    const dt = new Date(monday); dt.setDate(monday.getDate() + (op.diaIdx || 0));
+    return fmtDate(dt);
+  };
+  const _movedDay = _mKey(opMoved);
+  const _targetDay = _mKey(opTarget);
+  if ((_movedDay && isDayLocked(_movedDay)) || (_targetDay && isDayLocked(_targetDay))) {
+    alert('🔒 Dia bloqueado\n\nNão é possível mover OPs de/para dias bloqueados.');
+    return;
+  }
   pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const targetWeek = opTarget.weekKey;
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
@@ -3641,6 +3735,15 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
           'Tipo ' + (tipo || '(vazio)') + ' NÃO está autorizado em ' + machine + '.\n\n' +
           'Para mover esta OP, vá a Configurações → "Tipos de produto autorizados por máquina" e adicione o tipo.');
     return;
+  }
+  // Bloqueio de dia destino
+  if (typeof diaIdx === 'number' && weekKey) {
+    const monday = isoWeekToMonday(weekKey);
+    if (monday) {
+      const dt = new Date(monday); dt.setDate(monday.getDate() + diaIdx);
+      const dk = fmtDate(dt);
+      if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado.'); return; }
+    }
   }
   pushUndo('Mover OP ' + (opMoved.op || opMoved.id) + ' → ' + machine);
   if (isReadOnly()) return;
@@ -3900,6 +4003,23 @@ function saveOP() {
     if (!isNaN(_dt)) {
       data.weekKey = weekKey(_dt);
       data.diaIdx = (_dt.getDay() + 6) % 7;
+    }
+  }
+  // Bloqueio de dia — se a OP editada tem dia inicial bloqueado, impedir alteração de campos "planeamento"
+  if (editingOP) {
+    const _opDayKey = (function() {
+      if (!editingOP.weekKey) return null;
+      const monday = isoWeekToMonday(editingOP.weekKey);
+      if (!monday) return null;
+      const dt = new Date(monday); dt.setDate(monday.getDate() + (editingOP.diaIdx || 0));
+      return fmtDate(dt);
+    })();
+    if (_opDayKey && isDayLocked(_opDayKey) && !editingSegDayKey) {
+      // Permitir só se estivermos a editar um segmento específico (registo de reais/atraso ok)
+      // Verificar se algum campo de planeamento mudou
+      const _plCampos = ['op','poPedido','fileCliente','produto','calibre','massas','qtdEntrada','destino','estado','inicioMode','hInicioP','maquina','weekKey','diaIdx','dataPlano'];
+      const _mudou = _plCampos.some(k => JSON.stringify(editingOP[k] || '') !== JSON.stringify(data[k] || ''));
+      if (_mudou) { alert('🔒 Dia ' + _opDayKey + ' está bloqueado — só é possível actualizar valores reais (Início Real, Fim Real, Atraso, Colaborador, Obs).'); return; }
     }
   }
   if (editingOP) {
