@@ -2170,7 +2170,7 @@ async function deleteOpAndPersist(id, label) {
   }
   pushUndo(label || ('Apagar OP id ' + id));
   // 2) Persistir freeze ANTES de qualquer coisa (mesmo antes de remover a OP)
-  if (_frozen.length > 0 && !VC_MODE) {
+  if (_frozen.length > 0) {
     const results = await Promise.allSettled(_frozen.map(fop => Api.putOp(fop.id, fop, 'planeador')));
     let ok = 0, fail = 0;
     for (const r of results) { if (r.status === 'fulfilled') ok++; else { fail++; console.error('freeze put fail', r.reason); } }
@@ -2181,7 +2181,7 @@ async function deleteOpAndPersist(id, label) {
   DATA = DATA.filter(o => o.id !== id);
   rerender();
   // 4) DELETE no server
-  if (!VC_MODE) {
+  {
     try {
       await Api.deleteOp(id);
       setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
