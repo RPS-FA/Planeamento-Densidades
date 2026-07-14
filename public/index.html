@@ -766,6 +766,19 @@ table.excel tbody tr.row-data td.inicio-manual {
 table.excel tbody tr.row-data:hover td.inicio-manual {
   background: #fff44d !important;
 }
+/* Linha de gap (VAZIO entre OPs) */
+table.excel tbody tr.row-gap td {
+  background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px) !important;
+  padding: 5px 8px !important;
+  color: #365F91;
+  font-size: 10.5px;
+  text-align: center;
+  border-top: 1px dashed #b7cbe1;
+  border-bottom: 1px dashed #b7cbe1;
+}
+table.excel tbody tr.row-gap td b { color: #1e4a80; }
+table.excel tbody tr.row-gap td .gap-livre { color: #1a4020; font-weight: 700; margin-left: 8px; }
+table.excel tbody tr.row-gap:hover td { background: #cee0f3 !important; }
 
 /* ===== Scope das refeições (a que máquinas se aplica) ===== */
 .day-block-header .dh-turno .dh-scope {
@@ -3378,7 +3391,28 @@ function createWeekTable(sched, wk, machine) {
   const tbody = document.createElement('tbody');
   // Dentro de uma sub-zona de dia específico, NÃO inserir separadores de dia interiores
   // (todas as OPs estão no mesmo dia; o cabeçalho do day-block já indica a data).
+  const GAP_THRESHOLD_MS = 60 * 1000; // ignora gaps < 1 min
+  const _krH_gap = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
+  const _colspanTotal = 18; // total de <col> definidas em cols
+  let _prevEnd = null;
   sched.forEach((item, idx) => {
+    // Linha de gap se houver espaço vazio entre o fim da OP anterior e o início desta
+    if (_prevEnd && item.start && (item.start - _prevEnd) > GAP_THRESHOLD_MS) {
+      const gapMs = item.start - _prevEnd;
+      const gapH = gapMs / 3600000;
+      const gapRolhas = Math.max(0, Math.round(gapH * _krH_gap));
+      const _fmtHm = (d) => pad(d.getHours()) + ':' + pad(d.getMinutes());
+      const totalMin = Math.round(gapMs / 60000);
+      const _durTxt = totalMin >= 60 ? (Math.floor(totalMin / 60) + 'h ' + (totalMin % 60) + 'min') : (totalMin + ' min');
+      const gapTr = document.createElement('tr');
+      gapTr.className = 'row-gap';
+      gapTr.innerHTML = '<td colspan="' + _colspanTotal + '">' +
+        '⏸ <b>VAZIO</b> · ' + _fmtHm(_prevEnd) + ' → ' + _fmtHm(item.start) + ' · ' + _durTxt +
+        (gapRolhas > 0 ? '<span class="gap-livre">' + gapRolhas.toLocaleString('pt-PT') + ' rolhas disponíveis</span>' : '') +
+      '</td>';
+      tbody.appendChild(gapTr);
+    }
+    if (item.end) _prevEnd = item.end;
     const op = item.op;
     const segIdx = item.segIdx || 0;
     const totalSegs = item.totalSegs || 1;
