@@ -4103,7 +4103,19 @@ function onInicioModeChange() {
 function closeModal() { document.getElementById('modal').classList.remove('show'); editingOP = null; editingSegDayKey = null; }
 
 function saveOP() {
-  // Validação obrigatória: Massas é obrigatório
+  // Validação obrigatória: OP + Produto + Massas
+  const _opVal = (document.getElementById('m_op').value || '').trim();
+  if (!_opVal || _opVal.toUpperCase() === 'VAZIO') {
+    alert('O campo OP é obrigatório.\n\nPreencha antes de gravar.');
+    document.getElementById('m_op').focus();
+    return;
+  }
+  const _produtoVal = (document.getElementById('m_produto').value || '').trim();
+  if (!_produtoVal) {
+    alert('O campo Produto é obrigatório.\n\nPreencha antes de gravar.');
+    document.getElementById('m_produto').focus();
+    return;
+  }
   const _massasVal = (document.getElementById('m_massas').value || '').trim();
   if (!_massasVal) {
     alert('O campo Massas é obrigatório.\n\nPreencha antes de gravar.');
