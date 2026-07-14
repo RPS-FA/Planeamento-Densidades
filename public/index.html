@@ -2144,18 +2144,21 @@ async function deleteOpAndPersist(id, label) {
     }
   }
   // Congelar OPs subsequentes na máquina desta OP — evita cascade
+  let _frozen = [];
   if (_op && _op.maquina && _op.maquina !== 'KANBAN' && _op.weekKey) {
     const monday = isoWeekToMonday(_op.weekKey);
     if (monday) {
       const refDate = new Date(monday); refDate.setDate(monday.getDate() + (_op.diaIdx || 0)); refDate.setHours(0,0,0,0);
-      const _frozen = freezeSubsequentAutoOps(_op.maquina, refDate);
-      // Persistir estas OPs congeladas (fora do delete)
-      for (const fop of _frozen) { Api.putOp(fop.id, fop, 'planeador').catch(() => {}); }
+      _frozen = freezeSubsequentAutoOps(_op.maquina, refDate);
     }
   }
   pushUndo(label || ('Apagar OP id ' + id));
   DATA = DATA.filter(o => o.id !== id);
   rerender();
+  // Persistir OPs congeladas (aguardar para evitar race com Api.deleteOp seguinte)
+  if (_frozen.length > 0 && !VC_MODE) {
+    await Promise.all(_frozen.map(fop => Api.putOp(fop.id, fop, 'planeador').catch(e => console.error('freeze put fail', e))));
+  }
   try {
     await Api.deleteOp(id);
     setConnStatus('ok', 'Apagada · ' + new Date().toLocaleTimeString('pt-PT'));
@@ -3587,9 +3590,11 @@ function freezeSubsequentAutoOps(machine, referenceDate) {
     if ((it.segIdx || 0) !== 0) continue; // só 1º segmento define hInicioP
     if (referenceDate && it.start < referenceDate) continue;
     const op = it.op;
-    if (op.inicioMode === 'manual' && op.hInicioP) continue;
+    const horaCalc = fmtTime(it.start);
+    // Se já é manual com a MESMA hora calculada, salta (nada a fazer)
+    if (op.inicioMode === 'manual' && op.hInicioP === horaCalc) continue;
     op.inicioMode = 'manual';
-    op.hInicioP = fmtTime(it.start);
+    op.hInicioP = horaCalc;
     changed.push(op);
   }
   return changed;
