@@ -3235,18 +3235,8 @@ function renderDayMachineSubzone(dayKey, machine, items) {
       const last = items[items.length - 1];
       inicio = last.end ? new Date(last.end.getTime() + (SETTINGS.setupMin || 10) * 60000) : null;
     }
-    // Procurar próxima OP futura na mesma máquina (schedByMachine global)
-    let fim = null;
-    const sched = (window._SCHED_BY_MACHINE || {})[machine] || [];
-    if (inicio) {
-      for (const it of sched) {
-        if (!it.start || isNaN(it.start)) continue;
-        if ((it.segIdx || 0) !== 0) continue;
-        if (it.start.getTime() > inicio.getTime() + 1000) { fim = it.start; break; }
-      }
-    }
-    // Fallback — fim do turno ou fim da semana
-    if (!fim && _shift) fim = _shift.end;
+    // Limitar ao fim do turno do dia (não expande para múltiplos dias)
+    let fim = _shift ? _shift.end : null;
     // Formatação
     const _fmtDT = (d) => d ? (String(d.getFullYear()) + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())) : '—';
     const _fmtDur = (ms) => {
