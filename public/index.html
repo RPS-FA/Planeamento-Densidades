@@ -2159,11 +2159,13 @@ async function deleteOpAndPersist(id, label) {
   // 1) Congelar OPs subsequentes na máquina — antes de mutar DATA
   let _frozen = [];
   if (_op && _op.maquina && _op.maquina !== 'KANBAN' && _op.weekKey) {
-    const monday = isoWeekToMonday(_op.weekKey);
-    if (monday) {
-      const refDate = new Date(monday); refDate.setDate(monday.getDate() + (_op.diaIdx || 0)); refDate.setHours(0,0,0,0);
-      _frozen = freezeSubsequentAutoOps(_op.maquina, refDate);
+    // refDate = início efectivo da OP a apagar (não o início do dia)
+    let refDate = _findOpItemStart(_op.maquina, _op.id);
+    if (!refDate) {
+      const monday = isoWeekToMonday(_op.weekKey);
+      if (monday) { refDate = new Date(monday); refDate.setDate(monday.getDate() + (_op.diaIdx || 0)); refDate.setHours(0,0,0,0); }
     }
+    if (refDate) _frozen = freezeSubsequentAutoOps(_op.maquina, refDate);
   }
   pushUndo(label || ('Apagar OP id ' + id));
   // 2) Persistir freeze ANTES de qualquer coisa (mesmo antes de remover a OP)
@@ -3582,6 +3584,23 @@ function setupKanbanDropTargets() {
 // para OPs cujo início cronológico é >= referência, evitando
 // replaneamento em cascata quando se altera uma OP anterior.
 // ============================================================
+function _findOpItemStart(machine, opId) {
+  // Retorna o Date do início do 1º segmento da OP com id opId, ou null.
+  if (!machine || machine === 'KANBAN') return null;
+  const wks = Array.from(new Set(DATA.filter(o => o.maquina === machine && o.weekKey).map(o => o.weekKey))).sort();
+  if (wks.length === 0) return null;
+  const weeksArr = wks.map(k => ({ key: k, monday: isoWeekToMonday(k) }));
+  const monday0 = weeksArr[0].monday;
+  const prev = new Date(monday0); prev.setDate(prev.getDate() - 7);
+  const weeksExt = [{ key: weekKey(prev), monday: prev }, ...weeksArr];
+  const sched = calcScheduleForMachineRange(machine, weeksExt);
+  for (const it of sched) {
+    if (!it.start || isNaN(it.start)) continue;
+    if ((it.segIdx || 0) !== 0) continue;
+    if (it.op.id === opId) return it.start;
+  }
+  return null;
+}
 function freezeSubsequentAutoOps(machine, referenceDate) {
   // Congela APENAS a primeira OP após referenceDate — as restantes ficam em auto
   // e cascatam naturalmente.
@@ -3597,7 +3616,7 @@ function freezeSubsequentAutoOps(machine, referenceDate) {
   for (const it of sched) {
     if (!it.start || isNaN(it.start)) continue;
     if ((it.segIdx || 0) !== 0) continue;
-    if (referenceDate && it.start < referenceDate) continue;
+    if (referenceDate && it.start <= referenceDate) continue;  // estritamente APÓS refDate
     const op = it.op;
     const horaCalc = fmtTime(it.start);
     if (op.inicioMode !== 'manual' || op.hInicioP !== horaCalc) {
@@ -3672,16 +3691,14 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
     alert('🔒 Dia bloqueado\n\nNão é possível mover OPs de/para dias bloqueados.');
     return;
   }
-  // Congelar OPs subsequentes na máquina origem (a partir do início da opMoved)
+  // Congelar próxima OP na máquina origem (após opMoved)
   const _origemMachine = opMoved.maquina;
-  const _origemMonday = opMoved.weekKey ? isoWeekToMonday(opMoved.weekKey) : null;
-  const _origemRefDate = _origemMonday ? (function(){ const d = new Date(_origemMonday); d.setDate(_origemMonday.getDate() + (opMoved.diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
+  const _origemRefDate = _findOpItemStart(_origemMachine, opMoved.id);
   const _frozenOrigem = _origemRefDate ? freezeSubsequentAutoOps(_origemMachine, _origemRefDate) : [];
-  // Congelar OPs subsequentes na máquina destino (a partir do início do target)
+  // Congelar próxima OP na máquina destino (após opTarget)
   const _destinoMachine = opTarget.maquina;
-  const _destinoMonday = opTarget.weekKey ? isoWeekToMonday(opTarget.weekKey) : null;
-  const _destinoRefDate = _destinoMonday ? (function(){ const d = new Date(_destinoMonday); d.setDate(_destinoMonday.getDate() + (opTarget.diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
-  const _frozenDestino = (_destinoMachine && _destinoMachine !== _origemMachine) && _destinoRefDate ? freezeSubsequentAutoOps(_destinoMachine, _destinoRefDate) : [];
+  const _destinoRefDate = _findOpItemStart(_destinoMachine, opTarget.id);
+  const _frozenDestino = (_destinoMachine && _destinoMachine !== _origemMachine && _destinoRefDate) ? freezeSubsequentAutoOps(_destinoMachine, _destinoRefDate) : [];
   pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const targetWeek = opTarget.weekKey;
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
@@ -3900,13 +3917,12 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
       if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado.'); return; }
     }
   }
-  // Congelar OPs subsequentes na origem (opMoved sai) e no destino (novo cursor a partir do dia)
-  const _origMonday = opMoved.weekKey ? isoWeekToMonday(opMoved.weekKey) : null;
-  const _origRefDate = _origMonday ? (function(){ const d = new Date(_origMonday); d.setDate(_origMonday.getDate() + (opMoved.diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
+  // Congelar próxima OP na máquina origem (após opMoved)
+  const _origRefDate = _findOpItemStart(opMoved.maquina, opMoved.id);
   const _frozOrig = _origRefDate ? freezeSubsequentAutoOps(opMoved.maquina, _origRefDate) : [];
-  const _destMonday = weekKey ? isoWeekToMonday(weekKey) : null;
-  const _destRefDate = _destMonday ? (function(){ const d = new Date(_destMonday); d.setDate(_destMonday.getDate() + (diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
-  const _frozDest = (machine !== opMoved.maquina) && _destRefDate ? freezeSubsequentAutoOps(machine, _destRefDate) : [];
+  // Não congelar na máquina destino — a OP inserida vai afectar o cascade e o freeze
+  // seria confuso. Se o utilizador quiser congelar destino, mover manualmente.
+  const _frozDest = [];
   pushUndo('Mover OP ' + (opMoved.op || opMoved.id) + ' → ' + machine);
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
@@ -3928,11 +3944,12 @@ function moveOpToKanban(opMoved) {
   // Congelar OPs subsequentes na máquina origem (evita cascade)
   let _frozen = [];
   if (opMoved.maquina && opMoved.maquina !== 'KANBAN' && opMoved.weekKey) {
-    const monday = isoWeekToMonday(opMoved.weekKey);
-    if (monday) {
-      const refDate = new Date(monday); refDate.setDate(monday.getDate() + (opMoved.diaIdx || 0)); refDate.setHours(0,0,0,0);
-      _frozen = freezeSubsequentAutoOps(opMoved.maquina, refDate);
+    let refDate = _findOpItemStart(opMoved.maquina, opMoved.id);
+    if (!refDate) {
+      const monday = isoWeekToMonday(opMoved.weekKey);
+      if (monday) { refDate = new Date(monday); refDate.setDate(monday.getDate() + (opMoved.diaIdx || 0)); refDate.setHours(0,0,0,0); }
     }
+    if (refDate) _frozen = freezeSubsequentAutoOps(opMoved.maquina, refDate);
   }
   const peers = DATA.filter(o => o.maquina === 'KANBAN' && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   opMoved.maquina = 'KANBAN';
@@ -4829,11 +4846,12 @@ function moveOpToBuffer(op) {
   // Congelar OPs subsequentes na máquina origem
   let _frozen = [];
   if (target.maquina && target.maquina !== 'KANBAN' && target.maquina !== 'BUFFER' && target.weekKey) {
-    const monday = isoWeekToMonday(target.weekKey);
-    if (monday) {
-      const refDate = new Date(monday); refDate.setDate(monday.getDate() + (target.diaIdx || 0)); refDate.setHours(0,0,0,0);
-      _frozen = freezeSubsequentAutoOps(target.maquina, refDate);
+    let refDate = _findOpItemStart(target.maquina, target.id);
+    if (!refDate) {
+      const monday = isoWeekToMonday(target.weekKey);
+      if (monday) { refDate = new Date(monday); refDate.setDate(monday.getDate() + (target.diaIdx || 0)); refDate.setHours(0,0,0,0); }
     }
+    if (refDate) _frozen = freezeSubsequentAutoOps(target.maquina, refDate);
   }
   target.maquina = 'BUFFER';
   target.weekKey = '';
