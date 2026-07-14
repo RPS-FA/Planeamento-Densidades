@@ -381,15 +381,18 @@
     margin: 4px 8px 6px;
     background: repeating-linear-gradient(135deg, #f4f8fc 0 8px, #e4edf7 8px 16px);
     border: 1px dashed #b7cbe1; border-radius: 3px;
-    padding: 6px; text-align: center;
-    color: #6a80a0; font-size: 11px; font-weight: 700;
-    letter-spacing: 0.4px; text-transform: uppercase;
+    padding: 6px 8px; text-align: center;
+    color: #365F91; font-size: 11px;
     cursor: default;
+    display: flex; flex-direction: column; gap: 3px; align-items: center;
   }
-  .dms-plan-here .dms-plan-livre {
-    color: #365F91; font-weight: 700; font-size: 12px;
-    text-transform: none; letter-spacing: 0; margin-left: 6px;
-  }
+  .dms-plan-here .dph-line1 { font-weight: 700; }
+  .dms-plan-here .dph-vazio { text-transform: uppercase; letter-spacing: 0.4px; color: #6a80a0; }
+  .dms-plan-here .dph-range { color: #1e4a80; font-family: Consolas, monospace; }
+  .dms-plan-here .dph-dur { color: #365F91; font-weight: 600; }
+  .dms-plan-here .dph-livre { color: #1a4020; font-weight: 700; }
+  .dms-plan-here .dph-line2 { font-size: 10px; color: #6a80a0; font-style: italic; }
+  .dms-plan-here.drag-over { background: #cee0f3; border-color: #365F91; }
   .day-machine-subzone.empty-zone.drag-target {
     background: #cee0f3 !important; border-color: #365F91;
     color: #1e4a80; font-weight: 600;
@@ -2140,6 +2143,16 @@ async function deleteOpAndPersist(id, label) {
       if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado — OP não pode ser apagada.'); return; }
     }
   }
+  // Congelar OPs subsequentes na máquina desta OP — evita cascade
+  if (_op && _op.maquina && _op.maquina !== 'KANBAN' && _op.weekKey) {
+    const monday = isoWeekToMonday(_op.weekKey);
+    if (monday) {
+      const refDate = new Date(monday); refDate.setDate(monday.getDate() + (_op.diaIdx || 0)); refDate.setHours(0,0,0,0);
+      const _frozen = freezeSubsequentAutoOps(_op.maquina, refDate);
+      // Persistir estas OPs congeladas (fora do delete)
+      for (const fop of _frozen) { Api.putOp(fop.id, fop, 'planeador').catch(() => {}); }
+    }
+  }
   pushUndo(label || ('Apagar OP id ' + id));
   DATA = DATA.filter(o => o.id !== id);
   rerender();
@@ -2282,6 +2295,13 @@ function markDayTurnoDirty(dayKey) {
 // Aplica turno específico para uma máquina/dia (override do turno global)
 function applyMachineTurno(dayKey, machine) {
   if (isDayLocked(dayKey)) { alert('🔒 Dia ' + dayKey + ' está bloqueado — turno não pode ser alterado.'); return; }
+  // Congelar OPs subsequentes na máquina — evita replaneamento em cascade após alteração de turno
+  try {
+    const [y, m, d] = dayKey.split('-').map(Number);
+    const refDate = new Date(y, m - 1, d); refDate.setHours(0, 0, 0, 0);
+    const _frozen = freezeSubsequentAutoOps(machine, refDate);
+    for (const fop of _frozen) { Api.putOp(fop.id, fop, 'planeador').catch(() => {}); }
+  } catch (e) {}
   pushUndo('Turno máquina ' + machine + ' ' + dayKey);
   const span = document.querySelector('.dms-turno[data-day="' + dayKey + '"][data-machine="' + machine + '"]');
   if (!span) return;
@@ -2942,6 +2962,7 @@ function renderMonth(tabKey) {
     return [{ key: weekKey(prev), monday: prev }, ...weeks];
   })();
   const schedByMachine = {};
+  window._SCHED_BY_MACHINE = schedByMachine;
   const wkByKey = {};
   for (const wk of weeksExt) wkByKey[wk.key] = wk;
   for (const machine of MACHINES) {
@@ -3205,6 +3226,61 @@ function renderDayMachineSubzone(dayKey, machine, items) {
     zone.dataset.frozen = '1';
   }
 
+  // Helper — computar intervalo vazio e capacidade disponível
+  function _buildPlanHere() {
+    const plan = document.createElement('div');
+    plan.className = 'dms-plan-here';
+    // Determinar intervalo cronológico do vazio nesta máquina
+    const _shift = getShiftRangeForDate(refDate, machine);
+    let inicio = null;
+    if (items.length === 0) {
+      inicio = _shift ? _shift.start : null;
+    } else {
+      const last = items[items.length - 1];
+      inicio = last.end ? new Date(last.end.getTime() + (SETTINGS.setupMin || 10) * 60000) : null;
+    }
+    // Procurar próxima OP futura na mesma máquina (schedByMachine global)
+    let fim = null;
+    const sched = (window._SCHED_BY_MACHINE || {})[machine] || [];
+    if (inicio) {
+      for (const it of sched) {
+        if (!it.start || isNaN(it.start)) continue;
+        if ((it.segIdx || 0) !== 0) continue;
+        if (it.start.getTime() > inicio.getTime() + 1000) { fim = it.start; break; }
+      }
+    }
+    // Fallback — fim do turno ou fim da semana
+    if (!fim && _shift) fim = _shift.end;
+    // Formatação
+    const _fmtDT = (d) => d ? (String(d.getFullYear()) + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())) : '—';
+    const _fmtDur = (ms) => {
+      if (ms <= 0) return '0';
+      const totalMin = Math.floor(ms / 60000);
+      const dias = Math.floor(totalMin / (24 * 60));
+      const horasRest = Math.floor((totalMin % (24 * 60)) / 60);
+      const min = totalMin % 60;
+      if (dias > 0) return dias + 'd ' + horasRest + 'h';
+      if (horasRest > 0) return horasRest + 'h ' + min + 'min';
+      return min + 'min';
+    };
+    const durMs = (inicio && fim) ? Math.max(0, fim - inicio) : 0;
+    const durStr = _fmtDur(durMs);
+    // Capacidade em rolhas — durMs (produtivo) × krH (aprox — sem descontar refeições ao longo do intervalo)
+    const _krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
+    const _capRolhas = Math.round((durMs / 3600000) * _krH);
+    const _livre = Math.max(0, _capRolhas);
+    const rangeStr = (inicio && fim) ? (_fmtDT(inicio) + ' → ' + _fmtDT(fim)) : '';
+    plan.innerHTML =
+      '<div class="dph-line1">' +
+        '<span class="dph-vazio">VAZIO</span>' +
+        (rangeStr ? ' · <span class="dph-range">' + rangeStr + '</span>' : '') +
+        (durStr && durMs > 0 ? ' · <span class="dph-dur">' + durStr + '</span>' : '') +
+        (_livre > 0 ? ' · <span class="dph-livre">' + _livre.toLocaleString('pt-PT') + ' rolhas disponíveis</span>' : '') +
+      '</div>' +
+      '<div class="dph-line2">⤵ arraste uma OP para aqui</div>';
+    return plan;
+  }
+
   if (items.length === 0) {
     zone.classList.add('empty-zone');
     if (isDayClosed(dayKey)) {
@@ -3213,20 +3289,12 @@ function renderDayMachineSubzone(dayKey, machine, items) {
       empty.textContent = '🔒 Dia fechado';
       zone.appendChild(empty);
     } else {
-      // Mostrar faixa PLANEAR AQUI também quando a sub-zona está vazia
-      const plan = document.createElement('div');
-      plan.className = 'dms-plan-here';
-      plan.innerHTML = 'PLANEAR AQUI<span class="dms-plan-livre">livre ' + Math.round(livreMaq).toLocaleString('pt-PT') + ' un</span>';
-      zone.appendChild(plan);
+      zone.appendChild(_buildPlanHere());
     }
   } else {
     zone.appendChild(createWeekTable(items, wkRef, machine));
-    // Faixa PLANEAR AQUI no fim (se há livre e dia aberto)
     if (!isDayClosed(dayKey) && livreMaq > 0) {
-      const plan = document.createElement('div');
-      plan.className = 'dms-plan-here';
-      plan.innerHTML = 'PLANEAR AQUI<span class="dms-plan-livre">livre ' + Math.round(livreMaq).toLocaleString('pt-PT') + ' un</span>';
-      zone.appendChild(plan);
+      zone.appendChild(_buildPlanHere());
     }
   }
 
@@ -3499,6 +3567,34 @@ function setupKanbanDropTargets() {
   });
 }
 
+// ============================================================
+// Congelar OPs subsequentes: converte auto→manual (fixa hInicioP)
+// para OPs cujo início cronológico é >= referência, evitando
+// replaneamento em cascata quando se altera uma OP anterior.
+// ============================================================
+function freezeSubsequentAutoOps(machine, referenceDate) {
+  if (!machine || machine === 'KANBAN') return [];
+  const wks = Array.from(new Set(DATA.filter(o => o.maquina === machine && o.weekKey).map(o => o.weekKey))).sort();
+  if (wks.length === 0) return [];
+  const weeksArr = wks.map(k => ({ key: k, monday: isoWeekToMonday(k) }));
+  const monday0 = weeksArr[0].monday;
+  const prev = new Date(monday0); prev.setDate(prev.getDate() - 7);
+  const weeksExt = [{ key: weekKey(prev), monday: prev }, ...weeksArr];
+  const sched = calcScheduleForMachineRange(machine, weeksExt);
+  const changed = [];
+  for (const it of sched) {
+    if (!it.start || isNaN(it.start)) continue;
+    if ((it.segIdx || 0) !== 0) continue; // só 1º segmento define hInicioP
+    if (referenceDate && it.start < referenceDate) continue;
+    const op = it.op;
+    if (op.inicioMode === 'manual' && op.hInicioP) continue;
+    op.inicioMode = 'manual';
+    op.hInicioP = fmtTime(it.start);
+    changed.push(op);
+  }
+  return changed;
+}
+
 function moveOpRelativeTo(opMoved, opTarget, position) {
   if (isReadOnly()) return;
   const targetMachine = opTarget.maquina;
@@ -3530,6 +3626,16 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
     alert('🔒 Dia bloqueado\n\nNão é possível mover OPs de/para dias bloqueados.');
     return;
   }
+  // Congelar OPs subsequentes na máquina origem (a partir do início da opMoved)
+  const _origemMachine = opMoved.maquina;
+  const _origemMonday = opMoved.weekKey ? isoWeekToMonday(opMoved.weekKey) : null;
+  const _origemRefDate = _origemMonday ? (function(){ const d = new Date(_origemMonday); d.setDate(_origemMonday.getDate() + (opMoved.diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
+  const _frozenOrigem = _origemRefDate ? freezeSubsequentAutoOps(_origemMachine, _origemRefDate) : [];
+  // Congelar OPs subsequentes na máquina destino (a partir do início do target)
+  const _destinoMachine = opTarget.maquina;
+  const _destinoMonday = opTarget.weekKey ? isoWeekToMonday(opTarget.weekKey) : null;
+  const _destinoRefDate = _destinoMonday ? (function(){ const d = new Date(_destinoMonday); d.setDate(_destinoMonday.getDate() + (opTarget.diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
+  const _frozenDestino = (_destinoMachine && _destinoMachine !== _origemMachine) && _destinoRefDate ? freezeSubsequentAutoOps(_destinoMachine, _destinoRefDate) : [];
   pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const targetWeek = opTarget.weekKey;
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
@@ -3745,6 +3851,13 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
       if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado.'); return; }
     }
   }
+  // Congelar OPs subsequentes na origem (opMoved sai) e no destino (novo cursor a partir do dia)
+  const _origMonday = opMoved.weekKey ? isoWeekToMonday(opMoved.weekKey) : null;
+  const _origRefDate = _origMonday ? (function(){ const d = new Date(_origMonday); d.setDate(_origMonday.getDate() + (opMoved.diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
+  const _frozOrig = _origRefDate ? freezeSubsequentAutoOps(opMoved.maquina, _origRefDate) : [];
+  const _destMonday = weekKey ? isoWeekToMonday(weekKey) : null;
+  const _destRefDate = _destMonday ? (function(){ const d = new Date(_destMonday); d.setDate(_destMonday.getDate() + (diaIdx || 0)); d.setHours(0,0,0,0); return d; })() : null;
+  const _frozDest = (machine !== opMoved.maquina) && _destRefDate ? freezeSubsequentAutoOps(machine, _destRefDate) : [];
   pushUndo('Mover OP ' + (opMoved.op || opMoved.id) + ' → ' + machine);
   if (isReadOnly()) return;
   if (isFrozenWeek(opMoved.weekKey) || isFrozenWeek(weekKey)) { alert('Não é possível alterar posições em semanas fechadas.'); return; }
