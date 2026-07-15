@@ -3144,17 +3144,15 @@ function renderDayMachineSubzone(dayKey, machine, items) {
   zone.className = 'day-machine-subzone';
   zone.dataset.dayKey = dayKey;
   zone.dataset.machine = machine;
-  // weekKey deriva do 1º item (necessário para drop / moveOpToWeek). Se não houver itens, calcula a partir do dia.
-  let wkKey = items.length > 0 && items[0]._wk ? items[0]._wk.key : '';
-  let wkRef = items.length > 0 && items[0]._wk ? items[0]._wk : null;
-  if (!wkRef) {
-    const [y, m, d] = dayKey.split('-').map(Number);
-    const refDate = new Date(y, m - 1, d);
-    const monday = mondayOfWeek(refDate);
-    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-    wkRef = { key: weekKey(refDate), weekNum: isoWeek(refDate), year: isoWeekYear(refDate), monday, sunday };
-    wkKey = wkRef.key;
-  }
+  // weekKey DERIVA SEMPRE do dayKey visual da sub-zona (não dos items, que podem
+  // vir de outra semana por cascade — antes esse bug fazia drops apontarem para
+  // sextas de semanas anteriores).
+  const [_zy, _zm, _zd] = dayKey.split('-').map(Number);
+  const _zoneDate = new Date(_zy, _zm - 1, _zd);
+  const _zoneMonday = mondayOfWeek(_zoneDate);
+  const _zoneSunday = new Date(_zoneMonday); _zoneSunday.setDate(_zoneMonday.getDate() + 6);
+  const wkRef = { key: weekKey(_zoneDate), weekNum: isoWeek(_zoneDate), year: isoWeekYear(_zoneDate), monday: _zoneMonday, sunday: _zoneSunday };
+  const wkKey = wkRef.key;
   zone.dataset.weekKey = wkKey;
   const wkFrozen = isFrozenWeek(wkKey);
   zone.dataset.frozen = wkFrozen ? '1' : '';
