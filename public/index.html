@@ -4514,15 +4514,12 @@ function exportExcel() {
     .sort()
     .map(k => ({ key: k, monday: isoWeekToMonday(k) }));
 
-  // Para cada máquina, calcular schedule contínuo sobre todas as semanas
-  // (BUFFER e KANBAN são explicitamente excluídos)
+  // Para cada máquina de produção, calcular schedule contínuo sobre todas as semanas
   const allItems = [];
   for (const machine of MACHINES) {
-    if (machine === 'BUFFER' || machine === 'KANBAN') continue;
     const sched = calcScheduleForMachineRange(machine, allWeeks);
     for (const item of sched) {
       if (!item.start || isNaN(item.start)) continue;
-      if (item.op && (item.op.maquina === 'BUFFER' || item.op.maquina === 'KANBAN')) continue;
       allItems.push({ item, machine });
     }
   }
@@ -4595,13 +4592,55 @@ function exportExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Planeamento Completo');
 
+  // Folha Buffer — OPs em maquina=BUFFER (à espera de planeamento)
+  const bufferOps = DATA.filter(o => o.maquina === 'BUFFER').sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
+  if (bufferOps.length > 0) {
+    const bHeaders = ['OP', 'PO / Pedido', 'Dia Plano', 'File / Cliente', 'Produto', 'Calibre', 'Massas', 'Qtd Entrada (rolhas)', 'Destino', 'Estado', 'Obs PI', 'Observações'];
+    const bRows = [bHeaders];
+    for (const op of bufferOps) {
+      // Dia Plano: string se existir, senão deriva de weekKey/diaIdx, senão vazio
+      let diaPlano = op.dataPlano || '';
+      if (!diaPlano && op.weekKey && typeof op.diaIdx === 'number') {
+        const monday = isoWeekToMonday(op.weekKey);
+        if (monday) {
+          const d = new Date(monday); d.setDate(monday.getDate() + (op.diaIdx || 0));
+          diaPlano = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear();
+        }
+      }
+      bRows.push([
+        op.op || '',
+        op.poPedido || '',
+        diaPlano,
+        op.fileCliente || '',
+        op.produto || '',
+        op.calibre || '',
+        op.massas || '',
+        Math.round(op.qtdEntrada || 0),
+        op.destino || '',
+        op.estado || '',
+        op.obsPi || '',
+        op.obs || '',
+      ]);
+    }
+    const bWs = XLSX.utils.aoa_to_sheet(bRows);
+    bWs['!cols'] = bHeaders.map((h, i) => {
+      let maxLen = h.length;
+      for (let r = 1; r < bRows.length; r++) {
+        const v = bRows[r][i];
+        if (v != null) { const len = String(v).length; if (len > maxLen) maxLen = len; }
+      }
+      return { wch: Math.min(40, maxLen + 2) };
+    });
+    XLSX.utils.book_append_sheet(wb, bWs, 'Buffer');
+  }
+
   // Range de datas para o nome do ficheiro
   const firstD = allItems[0].item.start;
   const lastD = allItems[allItems.length - 1].item.start;
   const _fd = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   const filename = `Planeamento_DENSIDADES_${_fd(firstD)}_${_fd(lastD)}.xlsx`;
   XLSX.writeFile(wb, filename);
-  setConnStatus('ok', '✓ Excel exportado: ' + filename + ' (' + (allItems.length) + ' linhas)');
+  setConnStatus('ok', '✓ Excel exportado: ' + filename + ' (' + (allItems.length) + ' plan + ' + bufferOps.length + ' buffer)');
 }
 
 function exportJSON() {
