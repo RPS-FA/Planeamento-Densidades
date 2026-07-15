@@ -3742,22 +3742,22 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
   const _destinoMachine = opTarget.maquina;
   const _destinoRefDate = _findOpItemStart(_destinoMachine, opTarget.id);
   const _frozenDestino = (_destinoMachine && _destinoMachine !== _origemMachine && _destinoRefDate) ? freezeSubsequentAutoOps(_destinoMachine, _destinoRefDate) : [];
-  // Proteção contra mover para o passado (evita OPs "regredirem" para semanas antigas)
-  const _targetPast = _isDateInPast(opTarget.weekKey, opTarget.diaIdx);
-  if (_targetPast) {
-    const _dstr = pad(_targetPast.getDate()) + '/' + pad(_targetPast.getMonth()+1) + '/' + _targetPast.getFullYear();
-    if (!confirm('⚠ Mover para o passado\n\nO alvo está em ' + _dstr + ', anterior a hoje.\n\nEsta acção vai colocar a OP numa data passada. Continuar?')) return;
-  }
-  pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
+  // Derivar targetWeek/targetDiaIdx PRIMEIRO (do dropCtx quando disponível)
   let targetWeek = opTarget.weekKey;
   let targetDiaIdx = opTarget.diaIdx;
   if (dropCtx && dropCtx.dayKey) {
-    // Derivar weekKey e diaIdx do dayKey visual da sub-zona
     const [_dy, _dm, _dd] = dropCtx.dayKey.split('-').map(Number);
     const _dt = new Date(_dy, _dm - 1, _dd);
     targetWeek = weekKey(_dt);
     targetDiaIdx = (_dt.getDay() + 6) % 7;
   }
+  // Proteção contra mover para o passado (usa os valores derivados, não do opTarget)
+  const _targetPast = _isDateInPast(targetWeek, targetDiaIdx);
+  if (_targetPast) {
+    const _dstr = pad(_targetPast.getDate()) + '/' + pad(_targetPast.getMonth()+1) + '/' + _targetPast.getFullYear();
+    if (!confirm('⚠ Mover para o passado\n\nO alvo está em ' + _dstr + ', anterior a hoje.\n\nContinuar?')) return;
+  }
+  pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   const tIdx = peers.findIndex(o => o.id === opTarget.id);
   const insertIdx = position === 'before' ? tIdx : (tIdx >= 0 ? tIdx + 1 : peers.length);
