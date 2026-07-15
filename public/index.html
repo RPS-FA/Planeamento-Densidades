@@ -3399,7 +3399,9 @@ function createWeekTable(sched, wk, machine) {
           e.preventDefault(); e.stopPropagation();
           gapTr.classList.remove('drop-into-gap');
           if (!draggedOp || draggedOp.id === _nextOp.id) return;
-          moveOpRelativeTo(draggedOp, _nextOp, 'before');
+          const zone = gapTr.closest('[data-day-key]');
+          const dropCtx = zone ? { dayKey: zone.dataset.dayKey, weekKey: zone.dataset.weekKey, machine: zone.dataset.machine } : null;
+          moveOpRelativeTo(draggedOp, _nextOp, 'before', dropCtx);
           draggedOp = null;
         });
       }
@@ -3543,7 +3545,10 @@ function setupRowDragHandlers(el, op) {
     if (!draggedOp || draggedOp.id === op.id) return;
     const rect = el.getBoundingClientRect();
     const above = (e.clientY - rect.top) < rect.height / 2;
-    moveOpRelativeTo(draggedOp, op, above ? 'before' : 'after');
+    // Passar o dayKey/weekKey da sub-zona VISUAL (evita copiar semana antiga de OP cascade)
+    const zone = el.closest('[data-day-key]');
+    const dropCtx = zone ? { dayKey: zone.dataset.dayKey, weekKey: zone.dataset.weekKey, machine: zone.dataset.machine } : null;
+    moveOpRelativeTo(draggedOp, op, above ? 'before' : 'after', dropCtx);
     draggedOp = null;
   });
 }
@@ -3696,9 +3701,11 @@ function _isDateInPast(weekKey, diaIdx) {
   const today = new Date(); today.setHours(0,0,0,0);
   return (dt < today) ? dt : null;
 }
-function moveOpRelativeTo(opMoved, opTarget, position) {
+function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
   if (isReadOnly()) return;
-  const targetMachine = opTarget.maquina;
+  // Se veio contexto do drop (sub-zona visual), usa-o em vez das propriedades do opTarget
+  // (opTarget pode ser cascade de outra semana e a sua weekKey estar desalinhada)
+  const targetMachine = (dropCtx && dropCtx.machine) || opTarget.maquina;
   // Validação de restrição de calibre (só quando o destino não é KANBAN)
   if (targetMachine && targetMachine !== 'KANBAN' && !isCalibreAuthorizedOnMachine(opMoved.calibre, targetMachine)) {
     alert('⚠ Restrição de calibre\n\n' +
@@ -3742,17 +3749,25 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
     if (!confirm('⚠ Mover para o passado\n\nO alvo está em ' + _dstr + ', anterior a hoje.\n\nEsta acção vai colocar a OP numa data passada. Continuar?')) return;
   }
   pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
-  const targetWeek = opTarget.weekKey;
+  let targetWeek = opTarget.weekKey;
+  let targetDiaIdx = opTarget.diaIdx;
+  if (dropCtx && dropCtx.dayKey) {
+    // Derivar weekKey e diaIdx do dayKey visual da sub-zona
+    const [_dy, _dm, _dd] = dropCtx.dayKey.split('-').map(Number);
+    const _dt = new Date(_dy, _dm - 1, _dd);
+    targetWeek = weekKey(_dt);
+    targetDiaIdx = (_dt.getDay() + 6) % 7;
+  }
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   const tIdx = peers.findIndex(o => o.id === opTarget.id);
-  const insertIdx = position === 'before' ? tIdx : tIdx + 1;
+  const insertIdx = position === 'before' ? tIdx : (tIdx >= 0 ? tIdx + 1 : peers.length);
   if (opMoved.maquina !== targetMachine || opMoved.weekKey !== targetWeek) {
     opMoved.maquina = targetMachine;
     opMoved.weekKey = targetWeek;
     if (opMoved.estado === 'KANBAN') opMoved.estado = 'Aberto';
   }
-  // Acertar o diaIdx para o mesmo do target (estavam visualmente na mesma sub-zona de dia)
-  if (opTarget.diaIdx != null) opMoved.diaIdx = opTarget.diaIdx;
+  // Acertar o diaIdx para o dia visual onde foi largada (via dropCtx) ou fallback ao target
+  if (targetDiaIdx != null) opMoved.diaIdx = targetDiaIdx;
   peers.splice(insertIdx, 0, opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
   // Descongelar OPs manual que foram empurradas
