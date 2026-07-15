@@ -3688,6 +3688,16 @@ function unfreezeIfOverflown(machine) {
   return changed;
 }
 
+// Verifica se weekKey+diaIdx corresponde a data anterior a hoje.
+// Devolve a Date se sim (para msg), null se for hoje ou futuro.
+function _isDateInPast(weekKey, diaIdx) {
+  if (!weekKey || typeof diaIdx !== 'number') return null;
+  const monday = isoWeekToMonday(weekKey);
+  if (!monday) return null;
+  const dt = new Date(monday); dt.setDate(monday.getDate() + diaIdx); dt.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  return (dt < today) ? dt : null;
+}
 function moveOpRelativeTo(opMoved, opTarget, position) {
   if (isReadOnly()) return;
   const targetMachine = opTarget.maquina;
@@ -3727,6 +3737,12 @@ function moveOpRelativeTo(opMoved, opTarget, position) {
   const _destinoMachine = opTarget.maquina;
   const _destinoRefDate = _findOpItemStart(_destinoMachine, opTarget.id);
   const _frozenDestino = (_destinoMachine && _destinoMachine !== _origemMachine && _destinoRefDate) ? freezeSubsequentAutoOps(_destinoMachine, _destinoRefDate) : [];
+  // Proteção contra mover para o passado (evita OPs "regredirem" para semanas antigas)
+  const _targetPast = _isDateInPast(opTarget.weekKey, opTarget.diaIdx);
+  if (_targetPast) {
+    const _dstr = pad(_targetPast.getDate()) + '/' + pad(_targetPast.getMonth()+1) + '/' + _targetPast.getFullYear();
+    if (!confirm('⚠ Mover para o passado\n\nO alvo está em ' + _dstr + ', anterior a hoje.\n\nEsta acção vai colocar a OP numa data passada. Continuar?')) return;
+  }
   pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const targetWeek = opTarget.weekKey;
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
@@ -3944,6 +3960,12 @@ function moveOpToWeek(opMoved, machine, weekKey, diaIdx) {
       const dk = fmtDate(dt);
       if (isDayLocked(dk)) { alert('🔒 Dia ' + dk + ' está bloqueado.'); return; }
     }
+  }
+  // Proteção contra mover para o passado
+  const _mwPast = _isDateInPast(weekKey, diaIdx);
+  if (_mwPast) {
+    const _dstr = pad(_mwPast.getDate()) + '/' + pad(_mwPast.getMonth()+1) + '/' + _mwPast.getFullYear();
+    if (!confirm('⚠ Mover para o passado\n\nO destino é ' + _dstr + ', anterior a hoje.\n\nContinuar?')) return;
   }
   // Congelar próxima OP na máquina origem (após opMoved)
   const _origRefDate = _findOpItemStart(opMoved.maquina, opMoved.id);
