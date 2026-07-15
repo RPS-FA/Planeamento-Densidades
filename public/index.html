@@ -4515,11 +4515,14 @@ function exportExcel() {
     .map(k => ({ key: k, monday: isoWeekToMonday(k) }));
 
   // Para cada máquina, calcular schedule contínuo sobre todas as semanas
+  // (BUFFER e KANBAN são explicitamente excluídos)
   const allItems = [];
   for (const machine of MACHINES) {
+    if (machine === 'BUFFER' || machine === 'KANBAN') continue;
     const sched = calcScheduleForMachineRange(machine, allWeeks);
     for (const item of sched) {
       if (!item.start || isNaN(item.start)) continue;
+      if (item.op && (item.op.maquina === 'BUFFER' || item.op.maquina === 'KANBAN')) continue;
       allItems.push({ item, machine });
     }
   }
