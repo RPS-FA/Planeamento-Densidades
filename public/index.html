@@ -4266,16 +4266,8 @@ function saveOP() {
     weekKey: weekVal,
     diaIdx: editingOP ? (editingOP.diaIdx != null ? editingOP.diaIdx : 0) : 0,
   };
-  // Se dataPlano é DD/MM/AAAA, sincronizar weekKey + diaIdx
-  const _dpStr = String(data.dataPlano || '').trim();
-  const _dpMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(_dpStr);
-  if (_dpMatch) {
-    const _dt = new Date(parseInt(_dpMatch[3], 10), parseInt(_dpMatch[2], 10) - 1, parseInt(_dpMatch[1], 10));
-    if (!isNaN(_dt)) {
-      data.weekKey = weekKey(_dt);
-      data.diaIdx = (_dt.getDay() + 6) % 7;
-    }
-  }
+  // dataPlano é MERAMENTE INDICATIVO — não sincroniza weekKey/diaIdx.
+  // O planeamento é definido apenas pela posição na tabela (drag-and-drop).
   // Bloqueio de dia — se a OP editada tem dia inicial bloqueado, impedir alteração de campos "planeamento"
   if (editingOP) {
     const _opDayKey = (function() {
