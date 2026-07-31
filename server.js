@@ -473,33 +473,6 @@ app.get('/api/backups', async (req, res) => {
   } catch (e) { sendError(res, e, 'GET /api/backups falhou'); }
 });
 
-// POST /api/backups/:id/restore — restaura o snapshot (só Planeador)
-app.post('/api/backups/:id(\\d+)/restore', async (req, res) => {
-  if (!requireDb(res)) return;
-  try {
-    const profile = profileOf(req);
-    if (profile !== 'planeador') {
-      return res.status(403).json({ ok: false, error: 'Apenas o perfil planeador pode restaurar backups.' });
-    }
-    const id = parseInt(req.params.id, 10);
-    const row = await db.getBackupJson(id);
-    if (!row) return res.status(404).json({ ok: false, error: 'Backup não encontrado.' });
-    if (row.key === 'ops') {
-      if (!Array.isArray(row.data)) return res.status(400).json({ ok: false, error: 'Snapshot ops inválido.' });
-      const n = await db.restoreOpsFromArray(row.data, 'restore#' + id);
-      return res.json({ ok: true, restored: 'ops', count: n });
-    }
-    if (row.key === 'settings') {
-      if (!row.data || typeof row.data !== 'object' || Array.isArray(row.data)) {
-        return res.status(400).json({ ok: false, error: 'Snapshot settings inválido.' });
-      }
-      const settings = await db.restoreSettingsFromObject(row.data);
-      return res.json({ ok: true, restored: 'settings', keys: Object.keys(settings).length });
-    }
-    res.status(400).json({ ok: false, error: 'Chave desconhecida: ' + row.key });
-  } catch (e) { sendError(res, e, 'POST /api/backups/:id/restore falhou'); }
-});
-
 // GET /api/backups/:id — download JSON
 app.get('/api/backups/:id(\\d+)', async (req, res) => {
   if (!requireDb(res)) return;

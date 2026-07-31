@@ -250,40 +250,6 @@ async function getBackupXlsx(id) {
   return r.rows[0] || null;
 }
 
-// Restore de OPs a partir de um backup JSON — substitui TODAS as OPs pelas do snapshot.
-// Usado pelo endpoint POST /api/backups/:id/restore quando a chave é 'ops'.
-async function restoreOpsFromArray(opsArray, updatedBy = 'restore') {
-  if (!pool) throw new Error('Sem ligação à BD.');
-  if (!Array.isArray(opsArray)) throw new Error('Snapshot inválido: esperava array de OPs.');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('DELETE FROM ops');
-    for (const op of opsArray) {
-      const clean = stripId(op);
-      const d = deriveColumns(clean);
-      await client.query(
-        `INSERT INTO ops (op, payload, maquina, week_key, sort_idx, dia_idx, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [clean.op || '', JSON.stringify(clean), d.maquina, d.week_key, d.sort_idx, d.dia_idx, updatedBy]
-      );
-    }
-    await client.query('COMMIT');
-    return opsArray.length;
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-}
-
-// Restore de Settings a partir de um backup JSON
-async function restoreSettingsFromObject(obj) {
-  if (!pool) throw new Error('Sem ligação à BD.');
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('Snapshot inválido: esperava objecto de settings.');
-  return putSettings(obj);
-}
 
 // ------------------------------------------------------------
 // Migração — remove prefixo "PI " dos estados antigos
@@ -578,6 +544,4 @@ module.exports = {
   pruneBackupsXlsxByHours,
   listBackupsXlsx,
   getBackupXlsx,
-  restoreOpsFromArray,
-  restoreSettingsFromObject,
 };

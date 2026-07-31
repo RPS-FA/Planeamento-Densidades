@@ -4690,9 +4690,19 @@ function exportJSON() {
 // ============================================================
 const BACKUP_KEY_LABELS = { 'ops': 'OPs', 'settings': 'Settings' };
 
+function _isPlaneador() {
+  return (typeof getProfile === 'function') && getProfile() === 'planeador';
+}
+
 async function refreshBackupsList() {
-  refreshBackupsXlsxList();
   const tbody = document.querySelector('#cfg-backups-table tbody');
+  const tbodyX = document.querySelector('#cfg-backups-xlsx-table tbody');
+  if (!_isPlaneador()) {
+    if (tbody)  tbody.innerHTML  = '<tr><td colspan="6" style="color:var(--c-muted)">Requer perfil Planeador.</td></tr>';
+    if (tbodyX) tbodyX.innerHTML = '<tr><td colspan="4" style="color:var(--c-muted)">Requer perfil Planeador.</td></tr>';
+    return;
+  }
+  refreshBackupsXlsxList();
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="6">A carregar…</td></tr>';
   const key = (document.getElementById('cfg-backup-filter') || {}).value || '';
@@ -4719,8 +4729,7 @@ async function refreshBackupsList() {
         <td>${kb}</td>
         <td>${b.count != null ? b.count : '—'}</td>
         <td>
-          <button style="padding:2px 8px;font-size:11px;margin-right:4px;cursor:pointer" onclick="downloadBackup(${b.id}, '${b.key}', '${b.snapshot_at}')">⬇ JSON</button>
-          <button style="padding:2px 8px;font-size:11px;cursor:pointer" onclick="restoreBackup(${b.id}, '${b.key}')">↺ Restaurar</button>
+          <button style="padding:2px 8px;font-size:11px;cursor:pointer" onclick="downloadBackup(${b.id}, '${b.key}', '${b.snapshot_at}')">⬇ JSON</button>
         </td>`;
       tbody.appendChild(tr);
     });
@@ -4760,12 +4769,13 @@ async function refreshBackupsXlsxList() {
 }
 
 async function triggerBackupNow(ev) {
+  if (!_isPlaneador()) { alert('Requer perfil Planeador.'); return; }
   const btn = ev && ev.target;
   if (btn) { btn.disabled = true; btn.textContent = '⏳ A fazer…'; }
   try {
     const r = await fetch('/api/backups/trigger', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Profile': (typeof getProfile === 'function' ? getProfile() : 'planeador') },
+      headers: { 'Content-Type': 'application/json', 'X-Profile': getProfile() },
       body: JSON.stringify({ note: 'via UI' }),
     });
     const body = await r.json();
@@ -4795,26 +4805,6 @@ async function downloadBackup(id, key, snapshotAt) {
   } catch (e) { alert('Falhou: ' + e.message); }
 }
 
-async function restoreBackup(id, key) {
-  const label = BACKUP_KEY_LABELS[key] || key;
-  const resp = prompt(
-    `⚠ RESTAURAR BACKUP\n\nBlob: ${label}\n\n` +
-    `Isto SUBSTITUI o estado actual pelo do snapshot ${id}.\n` +
-    (key === 'ops' ? 'Todas as OPs actuais serão APAGADAS e substituídas.\n' : '') +
-    `\nEscreve exactamente:  SIM RESTAURAR   para confirmar.`
-  );
-  if (resp !== 'SIM RESTAURAR') return;
-  try {
-    const r = await fetch(`/api/backups/${id}/restore`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Profile': (typeof getProfile === 'function' ? getProfile() : 'planeador') },
-    });
-    const body = await r.json();
-    if (!body.ok) throw new Error(body.error || 'erro');
-    alert(`✅ ${label} restaurado.\nA página vai recarregar para reflectir o estado.`);
-    location.reload();
-  } catch (e) { alert('Falhou: ' + e.message); }
-}
 function importJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
