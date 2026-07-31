@@ -126,6 +126,163 @@ async function initSchema() {
   const sql = fs.readFileSync(sqlPath, 'utf-8');
   await pool.query(sql);
   console.log('[db] Schema inicializado.');
+  // Backup tables — criadas em paralelo com o schema principal
+  await ensureBackupSchema();
+}
+
+// ============================================================
+// Backups automáticos — JSON (retenção por dias) + Excel (retenção por horas)
+// ============================================================
+async function ensureBackupSchema() {
+  if (!pool) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_backups (
+      id            SERIAL PRIMARY KEY,
+      key           TEXT NOT NULL,
+      data          JSONB NOT NULL,
+      snapshot_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      triggered_by  TEXT NOT NULL DEFAULT 'auto',
+      note          TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_app_backups_key_time ON app_backups (key, snapshot_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_app_backups_time ON app_backups (snapshot_at DESC);
+
+    CREATE TABLE IF NOT EXISTS app_backups_xlsx (
+      id            SERIAL PRIMARY KEY,
+      xlsx_data     BYTEA NOT NULL,
+      size_bytes    INTEGER NOT NULL,
+      snapshot_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      triggered_by  TEXT NOT NULL DEFAULT 'auto'
+    );
+    CREATE INDEX IF NOT EXISTS idx_app_backups_xlsx_time ON app_backups_xlsx (snapshot_at DESC);
+  `);
+  console.log('[db] Backup schema OK (app_backups + app_backups_xlsx).');
+}
+
+async function insertBackupJson(key, data, triggeredBy = 'auto', note = null) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `INSERT INTO app_backups (key, data, triggered_by, note)
+     VALUES ($1, $2::jsonb, $3, $4)
+     RETURNING id, snapshot_at`,
+    [key, JSON.stringify(data), triggeredBy, note]
+  );
+  return r.rows[0];
+}
+
+async function pruneBackupsJson(days = 30) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `DELETE FROM app_backups WHERE snapshot_at < NOW() - ($1 || ' days')::interval`,
+    [String(days)]
+  );
+  return r.rowCount;
+}
+
+async function listBackupsJson(key = null, limit = 100) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const lim = Math.min(parseInt(limit, 10) || 100, 500);
+  const params = [];
+  let where = '';
+  if (key) { params.push(key); where = 'WHERE key = $1'; }
+  const r = await pool.query(
+    `SELECT id, key, snapshot_at, triggered_by, note,
+            pg_column_size(data) AS bytes,
+            jsonb_typeof(data) AS type,
+            CASE
+              WHEN jsonb_typeof(data)='array'  THEN jsonb_array_length(data)
+              WHEN jsonb_typeof(data)='object' THEN (SELECT count(*) FROM jsonb_object_keys(data))::int
+              ELSE NULL
+            END AS count
+     FROM app_backups ${where}
+     ORDER BY snapshot_at DESC LIMIT ${lim}`,
+    params
+  );
+  return r.rows;
+}
+
+async function getBackupJson(id) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `SELECT id, key, data, snapshot_at, triggered_by, note FROM app_backups WHERE id = $1`,
+    [id]
+  );
+  return r.rows[0] || null;
+}
+
+async function insertBackupXlsx(buf, triggeredBy = 'auto') {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `INSERT INTO app_backups_xlsx (xlsx_data, size_bytes, triggered_by)
+     VALUES ($1, $2, $3)
+     RETURNING id, snapshot_at`,
+    [buf, buf.length, triggeredBy]
+  );
+  return r.rows[0];
+}
+
+// Retenção Excel por horas (default 24h — user pediu 24h)
+async function pruneBackupsXlsxByHours(hours = 24) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `DELETE FROM app_backups_xlsx WHERE snapshot_at < NOW() - ($1 || ' hours')::interval`,
+    [String(hours)]
+  );
+  return r.rowCount;
+}
+
+async function listBackupsXlsx(limit = 20) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const lim = Math.min(parseInt(limit, 10) || 20, 100);
+  const r = await pool.query(
+    `SELECT id, snapshot_at, size_bytes, triggered_by
+       FROM app_backups_xlsx ORDER BY snapshot_at DESC LIMIT ${lim}`
+  );
+  return r.rows;
+}
+
+async function getBackupXlsx(id) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `SELECT id, xlsx_data, snapshot_at, triggered_by FROM app_backups_xlsx WHERE id = $1`,
+    [id]
+  );
+  return r.rows[0] || null;
+}
+
+// Restore de OPs a partir de um backup JSON — substitui TODAS as OPs pelas do snapshot.
+// Usado pelo endpoint POST /api/backups/:id/restore quando a chave é 'ops'.
+async function restoreOpsFromArray(opsArray, updatedBy = 'restore') {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  if (!Array.isArray(opsArray)) throw new Error('Snapshot inválido: esperava array de OPs.');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM ops');
+    for (const op of opsArray) {
+      const clean = stripId(op);
+      const d = deriveColumns(clean);
+      await client.query(
+        `INSERT INTO ops (op, payload, maquina, week_key, sort_idx, dia_idx, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [clean.op || '', JSON.stringify(clean), d.maquina, d.week_key, d.sort_idx, d.dia_idx, updatedBy]
+      );
+    }
+    await client.query('COMMIT');
+    return opsArray.length;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Restore de Settings a partir de um backup JSON
+async function restoreSettingsFromObject(obj) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('Snapshot inválido: esperava objecto de settings.');
+  return putSettings(obj);
 }
 
 // ------------------------------------------------------------
@@ -411,4 +568,16 @@ module.exports = {
   putSettings,
   resetOps,
   SEED_OPS,
+  // Backups
+  ensureBackupSchema,
+  insertBackupJson,
+  pruneBackupsJson,
+  listBackupsJson,
+  getBackupJson,
+  insertBackupXlsx,
+  pruneBackupsXlsxByHours,
+  listBackupsXlsx,
+  getBackupXlsx,
+  restoreOpsFromArray,
+  restoreSettingsFromObject,
 };

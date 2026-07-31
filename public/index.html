@@ -1053,6 +1053,41 @@ table.excel tbody tr.row-gap.drop-into-gap td { background: #86efac !important; 
       <button class="settings-add-btn" onclick="addStopRow('Maq 3 - Linha 9')">+ Adicionar paragem</button>
     </div>
 
+    <div class="settings-section full">
+      <h3>💾 Backups Automáticos <span class="badge">2h · 08–18</span></h3>
+      <p class="desc">
+        Snapshots automáticos das OPs e Settings, guardados no Postgres.
+        JSON: retenção 30 dias. Excel: retenção 24 horas.
+        Cron todos os dias às 08, 10, 12, 14, 16, 18 (hora Lisboa).
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+        <button class="settings-add-btn" onclick="triggerBackupNow(event)">📸 Fazer backup agora</button>
+        <button class="settings-add-btn" onclick="refreshBackupsList()">🔄 Atualizar lista</button>
+        <select id="cfg-backup-filter" onchange="refreshBackupsList()" style="padding:4px 8px;border:1px solid var(--c-border);border-radius:4px">
+          <option value="">Todos os blobs</option>
+          <option value="ops">OPs</option>
+          <option value="settings">Settings</option>
+        </select>
+      </div>
+      <table class="settings-table" id="cfg-backups-table">
+        <thead>
+          <tr>
+            <th>Snapshot</th><th>Blob</th><th>Origem</th>
+            <th>Tamanho</th><th>#Itens</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="6" style="color:var(--c-muted)">(clica em "Atualizar lista")</td></tr></tbody>
+      </table>
+
+      <h4 style="margin:14px 0 6px;font-size:13px">📊 Excel snapshots — últimas 24h</h4>
+      <table class="settings-table" id="cfg-backups-xlsx-table">
+        <thead>
+          <tr><th>Snapshot</th><th>Tamanho</th><th>Origem</th><th>Ações</th></tr>
+        </thead>
+        <tbody><tr><td colspan="4" style="color:var(--c-muted)">(clica em "Atualizar lista")</td></tr></tbody>
+      </table>
+    </div>
+
   </div>
   <div class="settings-actions">
     <button class="btn btn-primary" id="cfg-save-btn" onclick="saveSettingsExplicit()" disabled>💾 Guardar alterações</button>
@@ -4648,6 +4683,137 @@ function exportJSON() {
   a.href = url; a.download = 'planeamento_densidades.json';
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// Backups Automáticos — UI
+// ============================================================
+const BACKUP_KEY_LABELS = { 'ops': 'OPs', 'settings': 'Settings' };
+
+async function refreshBackupsList() {
+  refreshBackupsXlsxList();
+  const tbody = document.querySelector('#cfg-backups-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6">A carregar…</td></tr>';
+  const key = (document.getElementById('cfg-backup-filter') || {}).value || '';
+  const qs = key ? `?key=${encodeURIComponent(key)}&limit=100` : '?limit=100';
+  try {
+    const r = await fetch('/api/backups' + qs);
+    const body = await r.json();
+    if (!body.ok) throw new Error(body.error || 'erro');
+    if (!body.backups.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--c-muted)">(sem backups)</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    body.backups.forEach(b => {
+      const d = new Date(b.snapshot_at);
+      const stamp = d.toLocaleString('pt-PT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const label = BACKUP_KEY_LABELS[b.key] || b.key;
+      const kb = b.bytes ? (b.bytes < 1024 ? b.bytes + ' B' : (b.bytes / 1024).toFixed(0) + ' KB') : '?';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${stamp}</td>
+        <td>${label}<br><small style="color:var(--c-muted)">${b.key}</small></td>
+        <td>${b.triggered_by || ''}</td>
+        <td>${kb}</td>
+        <td>${b.count != null ? b.count : '—'}</td>
+        <td>
+          <button style="padding:2px 8px;font-size:11px;margin-right:4px;cursor:pointer" onclick="downloadBackup(${b.id}, '${b.key}', '${b.snapshot_at}')">⬇ JSON</button>
+          <button style="padding:2px 8px;font-size:11px;cursor:pointer" onclick="restoreBackup(${b.id}, '${b.key}')">↺ Restaurar</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:#c2410c">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+async function refreshBackupsXlsxList() {
+  const tbody = document.querySelector('#cfg-backups-xlsx-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4">A carregar…</td></tr>';
+  try {
+    const r = await fetch('/api/backups/xlsx');
+    const body = await r.json();
+    if (!body.ok) throw new Error(body.error || 'erro');
+    if (!body.backups.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--c-muted)">(sem Excel snapshots ainda)</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    body.backups.forEach(b => {
+      const d = new Date(b.snapshot_at);
+      const stamp = d.toLocaleString('pt-PT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const kb = b.size_bytes ? (b.size_bytes < 1024 ? b.size_bytes + ' B' : (b.size_bytes / 1024).toFixed(0) + ' KB') : '?';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${stamp}</td>
+        <td>${kb}</td>
+        <td>${b.triggered_by || ''}</td>
+        <td><a href="/api/backups/xlsx/${b.id}" style="text-decoration:none">📊 Descarregar Excel</a></td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" style="color:#c2410c">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+async function triggerBackupNow(ev) {
+  const btn = ev && ev.target;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ A fazer…'; }
+  try {
+    const r = await fetch('/api/backups/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': (typeof getProfile === 'function' ? getProfile() : 'planeador') },
+      body: JSON.stringify({ note: 'via UI' }),
+    });
+    const body = await r.json();
+    if (!body.ok) throw new Error(body.error || 'erro');
+    alert('Backup feito.\n' + body.results.map(x => `${x.key}: ${x.ok ? 'OK' : 'FAIL ' + x.reason}`).join('\n'));
+    refreshBackupsList();
+  } catch (e) {
+    alert('Falhou: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📸 Fazer backup agora'; }
+  }
+}
+
+async function downloadBackup(id, key, snapshotAt) {
+  try {
+    const r = await fetch('/api/backups/' + id);
+    const body = await r.json();
+    if (!body.ok) throw new Error(body.error || 'erro');
+    const stamp = (snapshotAt || '').replace(/[^0-9]/g, '').slice(0, 14);
+    const fname = `backup_${key}_${stamp}.json`;
+    const blob = new Blob([JSON.stringify(body.data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) { alert('Falhou: ' + e.message); }
+}
+
+async function restoreBackup(id, key) {
+  const label = BACKUP_KEY_LABELS[key] || key;
+  const resp = prompt(
+    `⚠ RESTAURAR BACKUP\n\nBlob: ${label}\n\n` +
+    `Isto SUBSTITUI o estado actual pelo do snapshot ${id}.\n` +
+    (key === 'ops' ? 'Todas as OPs actuais serão APAGADAS e substituídas.\n' : '') +
+    `\nEscreve exactamente:  SIM RESTAURAR   para confirmar.`
+  );
+  if (resp !== 'SIM RESTAURAR') return;
+  try {
+    const r = await fetch(`/api/backups/${id}/restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': (typeof getProfile === 'function' ? getProfile() : 'planeador') },
+    });
+    const body = await r.json();
+    if (!body.ok) throw new Error(body.error || 'erro');
+    alert(`✅ ${label} restaurado.\nA página vai recarregar para reflectir o estado.`);
+    location.reload();
+  } catch (e) { alert('Falhou: ' + e.message); }
 }
 function importJSON(event) {
   const file = event.target.files[0];
