@@ -957,12 +957,12 @@ table.excel tbody tr.row-gap.drop-into-gap td { background: #86efac !important; 
       <table class="settings-table">
         <thead><tr><th style="width:45%">Máquina</th><th>rolhas/8h</th><th>rolhas/h</th></tr></thead>
         <tbody id="cfg-capacidades">
-          <tr><td>Maq 1 - Linha 10</td>
-              <td><input type="number" data-key="Maq 1 - Linha 10" data-field="kr8h" min="0" max="500000" step="100" value="100000" onchange="onSettingsChange()"></td>
-              <td><input type="number" data-key="Maq 1 - Linha 10" data-field="krH" min="0" max="50000" step="100" value="14600" onchange="onSettingsChange()"></td></tr>
-          <tr><td>Maq 3 - Linha 9</td>
-              <td><input type="number" data-key="Maq 3 - Linha 9" data-field="kr8h" min="0" max="500000" step="100" value="36000" onchange="onSettingsChange()"></td>
-              <td><input type="number" data-key="Maq 3 - Linha 9" data-field="krH" min="0" max="50000" step="100" value="4500" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Maq 1 - Linha 9</td>
+              <td><input type="number" data-key="Maq 1 - Linha 9" data-field="kr8h" min="0" max="500000" step="100" value="100000" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="Maq 1 - Linha 9" data-field="krH" min="0" max="50000" step="100" value="14600" onchange="onSettingsChange()"></td></tr>
+          <tr><td>Maq 3 - Linha 10</td>
+              <td><input type="number" data-key="Maq 3 - Linha 10" data-field="kr8h" min="0" max="500000" step="100" value="36000" onchange="onSettingsChange()"></td>
+              <td><input type="number" data-key="Maq 3 - Linha 10" data-field="krH" min="0" max="50000" step="100" value="4500" onchange="onSettingsChange()"></td></tr>
         </tbody>
       </table>
     </div>
@@ -1034,23 +1034,23 @@ table.excel tbody tr.row-gap.drop-into-gap td { background: #86efac !important; 
     </div>
 
     <div class="settings-section full">
-      <h3>📅 Paragens · Maq 1 - Linha 10</h3>
-      <p class="desc">Feriados e paragens previstas para Maq 1 - Linha 10. As OPs cascateadas saltam estes períodos.<br>Para paragens parciais (ex. almoço, manutenção curta), preencher Hora Início e Hora Fim. Para dia completo, deixar em branco.</p>
+      <h3>📅 Paragens · Maq 1 - Linha 9</h3>
+      <p class="desc">Feriados e paragens previstas para Maq 1 - Linha 9. As OPs cascateadas saltam estes períodos.<br>Para paragens parciais (ex. almoço, manutenção curta), preencher Hora Início e Hora Fim. Para dia completo, deixar em branco.</p>
       <table class="settings-table" id="cfg-stops-m1">
         <thead><tr><th style="width:110px">Data</th><th>Descrição</th><th style="width:50px">Dias</th><th style="width:75px">Hora Início</th><th style="width:75px">Hora Fim</th><th style="width:30px"></th></tr></thead>
         <tbody></tbody>
       </table>
-      <button class="settings-add-btn" onclick="addStopRow('Maq 1 - Linha 10')">+ Adicionar paragem</button>
+      <button class="settings-add-btn" onclick="addStopRow('Maq 1 - Linha 9')">+ Adicionar paragem</button>
     </div>
 
     <div class="settings-section full">
-      <h3>📅 Paragens · Maq 3 - Linha 9</h3>
-      <p class="desc">Feriados e paragens previstas para Maq 3 - Linha 9.</p>
+      <h3>📅 Paragens · Maq 3 - Linha 10</h3>
+      <p class="desc">Feriados e paragens previstas para Maq 3 - Linha 10.</p>
       <table class="settings-table" id="cfg-stops-m3">
         <thead><tr><th style="width:110px">Data</th><th>Descrição</th><th style="width:50px">Dias</th><th style="width:75px">Hora Início</th><th style="width:75px">Hora Fim</th><th style="width:30px"></th></tr></thead>
         <tbody></tbody>
       </table>
-      <button class="settings-add-btn" onclick="addStopRow('Maq 3 - Linha 9')">+ Adicionar paragem</button>
+      <button class="settings-add-btn" onclick="addStopRow('Maq 3 - Linha 10')">+ Adicionar paragem</button>
     </div>
 
     <div class="settings-section full">
@@ -1314,33 +1314,33 @@ const DENS_DEFAULT_DATA = [
   // (folhas JUL e AGO ainda em branco no Excel; protótipo reflecte isso)
   // ============================================================
   // 2026-W23
-  { id: 1, op: '13404239', tipo: 'DENS', fileCliente: '10486', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS-TA', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 66.3, obsPi: '', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '13:23', duracaoP: '05:23', hInicioR: '', hFimR: '13:20', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 0, diaIdx: 0 },
-  { id: 2, op: '13404262', tipo: 'DENS', fileCliente: '13913 ENC', produto: 'N-QV2-NAT-45X242-1111-ADE-SDS-TA', calibre: '45x24', massas: '2,9 - 3,9', qtdEntrada: 40.0, obsPi: 'ENCOMENDA - Continua a 02/06', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '13:28', hFimP: '16:45', duracaoP: '03:17', hInicioR: '13:25', hFimR: '16:45', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 1, diaIdx: 0 },
-  { id: 3, op: '13404260', tipo: 'DENS', fileCliente: '13385 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 15.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '10:25', duracaoP: '03:25', hInicioR: '09:15', hFimR: '12:30', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 0, diaIdx: 0 },
-  { id: 4, op: '13404263', tipo: 'DENS', fileCliente: '11704', produto: 'N-QV2-NAT-49X242-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 20.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '10:30', hFimP: '16:01', duracaoP: '04:31', hInicioR: '14:20', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 1, diaIdx: 0 },
-  { id: 5, op: '13404259', tipo: 'DENS', fileCliente: '10882 ENC', produto: 'N-QV2-NAT-49X242-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 30.8, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '09:32', duracaoP: '02:32', hInicioR: '08:20', hFimR: '11:30', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 2, diaIdx: 1 },
-  { id: 6, op: '13404264', tipo: 'DENS', fileCliente: 'CSP2 AI', produto: 'N-QV2-323-49X240-1010-ADE-CRU', calibre: '49x24', massas: '3,1 - 4,6', qtdEntrada: 12.8, obsPi: 'CSP2 AI', destino: 'CSP2 AI', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'CSP2-AI por liberar', hInicioP: '09:37', hFimP: '10:44', duracaoP: '01:06', hInicioR: '11:35', hFimR: '13:20', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 3, diaIdx: 1 },
-  { id: 7, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 50.0, obsPi: 'ENCOMENDA - Continua a 03/06', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '10:49', hFimP: '15:54', duracaoP: '04:05', hInicioR: '13:40', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 4, diaIdx: 1 },
-  { id: 8, op: '13404227', tipo: 'DENS', fileCliente: '11257 Righetti', produto: 'N-QV2-NAT-45X260-0202-ADE-SDS', calibre: '45x26', massas: '3,4-4,5', qtdEntrada: 36.4, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '16:10', duracaoP: '08:10', hInicioR: '08:10', hFimR: '15:45', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 2, diaIdx: 1 },
-  { id: 9, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 87.2, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '15:03', duracaoP: '07:03', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 5, diaIdx: 2 },
-  { id: 10, op: '13404265', tipo: 'DENS', fileCliente: '19784 ENC', produto: 'N-QV2-NAT-49X250-0101-ADE-SDS', calibre: '49x25', massas: '3,5 - 4,8', qtdEntrada: 10.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '15:08', hFimP: '16:01', duracaoP: '00:53', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 6, diaIdx: 2 },
-  { id: 11, op: '13404267', tipo: 'DENS', fileCliente: '18342 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 3.5, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '16:06', hFimP: '16:28', duracaoP: '00:21', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 7, diaIdx: 2 },
-  { id: 12, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 35.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '15:51', duracaoP: '07:51', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 3, diaIdx: 2 },
-  { id: 13, op: '13404228', tipo: 'DENS', fileCliente: '11257 Righetti', produto: 'N-QV2-NAT-45X260-0202-ADE-SDS', calibre: '45x26', massas: '3,4-4,5', qtdEntrada: 5.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '15:56', hFimP: '17:08', duracaoP: '01:11', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 4, diaIdx: 2 },
+  { id: 1, op: '13404239', tipo: 'DENS', fileCliente: '10486', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS-TA', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 66.3, obsPi: '', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '13:23', duracaoP: '05:23', hInicioR: '', hFimR: '13:20', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 0, diaIdx: 0 },
+  { id: 2, op: '13404262', tipo: 'DENS', fileCliente: '13913 ENC', produto: 'N-QV2-NAT-45X242-1111-ADE-SDS-TA', calibre: '45x24', massas: '2,9 - 3,9', qtdEntrada: 40.0, obsPi: 'ENCOMENDA - Continua a 02/06', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '13:28', hFimP: '16:45', duracaoP: '03:17', hInicioR: '13:25', hFimR: '16:45', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 1, diaIdx: 0 },
+  { id: 3, op: '13404260', tipo: 'DENS', fileCliente: '13385 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 15.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '10:25', duracaoP: '03:25', hInicioR: '09:15', hFimR: '12:30', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 0, diaIdx: 0 },
+  { id: 4, op: '13404263', tipo: 'DENS', fileCliente: '11704', produto: 'N-QV2-NAT-49X242-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 20.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '10:30', hFimP: '16:01', duracaoP: '04:31', hInicioR: '14:20', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 1, diaIdx: 0 },
+  { id: 5, op: '13404259', tipo: 'DENS', fileCliente: '10882 ENC', produto: 'N-QV2-NAT-49X242-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 30.8, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '09:32', duracaoP: '02:32', hInicioR: '08:20', hFimR: '11:30', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 2, diaIdx: 1 },
+  { id: 6, op: '13404264', tipo: 'DENS', fileCliente: 'CSP2 AI', produto: 'N-QV2-323-49X240-1010-ADE-CRU', calibre: '49x24', massas: '3,1 - 4,6', qtdEntrada: 12.8, obsPi: 'CSP2 AI', destino: 'CSP2 AI', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'CSP2-AI por liberar', hInicioP: '09:37', hFimP: '10:44', duracaoP: '01:06', hInicioR: '11:35', hFimR: '13:20', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 3, diaIdx: 1 },
+  { id: 7, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 50.0, obsPi: 'ENCOMENDA - Continua a 03/06', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '10:49', hFimP: '15:54', duracaoP: '04:05', hInicioR: '13:40', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 4, diaIdx: 1 },
+  { id: 8, op: '13404227', tipo: 'DENS', fileCliente: '11257 Righetti', produto: 'N-QV2-NAT-45X260-0202-ADE-SDS', calibre: '45x26', massas: '3,4-4,5', qtdEntrada: 36.4, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '16:10', duracaoP: '08:10', hInicioR: '08:10', hFimR: '15:45', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 2, diaIdx: 1 },
+  { id: 9, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 87.2, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '15:03', duracaoP: '07:03', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 5, diaIdx: 2 },
+  { id: 10, op: '13404265', tipo: 'DENS', fileCliente: '19784 ENC', produto: 'N-QV2-NAT-49X250-0101-ADE-SDS', calibre: '49x25', massas: '3,5 - 4,8', qtdEntrada: 10.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '15:08', hFimP: '16:01', duracaoP: '00:53', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 6, diaIdx: 2 },
+  { id: 11, op: '13404267', tipo: 'DENS', fileCliente: '18342 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 3.5, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '16:06', hFimP: '16:28', duracaoP: '00:21', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 7, diaIdx: 2 },
+  { id: 12, op: '13404237', tipo: 'DENS', fileCliente: '11307 ENC', produto: 'N-QV2-NAT-45X240-0101-ADE-SDS', calibre: '45x24', massas: '2,9-4,1', qtdEntrada: 35.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '15:51', duracaoP: '07:51', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 3, diaIdx: 2 },
+  { id: 13, op: '13404228', tipo: 'DENS', fileCliente: '11257 Righetti', produto: 'N-QV2-NAT-45X260-0202-ADE-SDS', calibre: '45x26', massas: '3,4-4,5', qtdEntrada: 5.0, obsPi: 'ENCOMENDA', destino: 'KB LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '15:56', hFimP: '17:08', duracaoP: '01:11', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W23', sortIdx: 4, diaIdx: 2 },
   // 2026-W24
-  { id: 14, op: '13404267', tipo: 'DENS', fileCliente: '18342 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 60.0, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '11:53', duracaoP: '04:53', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 0, diaIdx: 0 },
-  { id: 15, op: '13404266', tipo: 'DENS', fileCliente: '20080 LEGACY', produto: 'N-QV2-L03-49X240-1212-CDE-SDS-LEG', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 10.6, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '11:58', hFimP: '13:53', duracaoP: '00:55', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 1, diaIdx: 0 },
-  { id: 16, op: '13404268', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 25.0, obsPi: 'ENCOMENDA - Continua a 09/06', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '13:58', hFimP: '16:03', duracaoP: '02:05', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 2, diaIdx: 0 },
-  { id: 17, op: '13404269', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 37.8, obsPi: 'ENCOMENDA - Continua a 09/06', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '16:29', duracaoP: '08:29', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 0, diaIdx: 0 },
-  { id: 18, op: '13404268', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 76.2, obsPi: 'ENCOMENDA', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '14:10', duracaoP: '06:10', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 3, diaIdx: 1 },
-  { id: 19, op: '13404269', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 40.0, obsPi: 'ENCOMENDA', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '16:58', duracaoP: '08:58', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 1, diaIdx: 1 },
+  { id: 14, op: '13404267', tipo: 'DENS', fileCliente: '18342 ENC', produto: 'N-QV2-NAT-49X240-0101-ADE-SDS-TA', calibre: '49x24', massas: '3,2-4,6', qtdEntrada: 60.0, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '11:53', duracaoP: '04:53', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 0, diaIdx: 0 },
+  { id: 15, op: '13404266', tipo: 'DENS', fileCliente: '20080 LEGACY', produto: 'N-QV2-L03-49X240-1212-CDE-SDS-LEG', calibre: '49x24', massas: '3,2-4,3', qtdEntrada: 10.6, obsPi: 'ENCOMENDA', destino: 'KANBAN VOCUS', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '11:58', hFimP: '13:53', duracaoP: '00:55', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 1, diaIdx: 0 },
+  { id: 16, op: '13404268', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 25.0, obsPi: 'ENCOMENDA - Continua a 09/06', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '13:58', hFimP: '16:03', duracaoP: '02:05', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 2, diaIdx: 0 },
+  { id: 17, op: '13404269', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 37.8, obsPi: 'ENCOMENDA - Continua a 09/06', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '16:29', duracaoP: '08:29', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 0, diaIdx: 0 },
+  { id: 18, op: '13404268', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 76.2, obsPi: 'ENCOMENDA', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 1 - Linha 9', estado: 'Por liberar', hInicioP: '07:00', hFimP: '14:10', duracaoP: '06:10', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 3, diaIdx: 1 },
+  { id: 19, op: '13404269', tipo: 'DENS', fileCliente: '10461 ANT', produto: 'N-QV2-NAT-49X240-0202-ADE-SDS-LT4-ANT', calibre: '49x24', massas: '3,2-4,0', qtdEntrada: 40.0, obsPi: 'ENCOMENDA', destino: 'KANBAN LAV', loteAde: '', qtdEntradaAde: 0, qtdFinalAde: 0, pctAde: 0, ode: 0, rdhRhh: 0, rdlRll: 0, qtdReprocReal: 0, qtdReprocEstimada: 0, colaborador: '', maquina: 'Maq 3 - Linha 10', estado: 'Por liberar', hInicioP: '07:00', hFimP: '16:58', duracaoP: '08:58', hInicioR: '', hFimR: '', tempoAtraso: '', horaExtra: '', obs: '', weekKey: '2026-W24', sortIdx: 1, diaIdx: 1 },
 ];
 
 // ============================================================
 // Estado global de UI
 // ============================================================
 // Tabs mensais: m05..m12 (Mai a Dez de 2026). Cada tab mostra as semanas desse mês,
-// com duas zonas empilhadas (Maq 1 - Linha 10 + Maq 3 - Linha 9) por bloco semanal.
+// com duas zonas empilhadas (Maq 1 - Linha 9 + Maq 3 - Linha 10) por bloco semanal.
 const MONTHLY_TABS = [
   { key: 'm05', label: 'Maio 2026',     month: 4  },
   { key: 'm06', label: 'Junho 2026',    month: 5  },
@@ -1352,7 +1352,7 @@ const MONTHLY_TABS = [
   { key: 'm12', label: 'Dezembro 2026', month: 11 },
 ];
 const MONTHLY_YEAR = 2026;
-const MACHINES = ['Maq 1 - Linha 10', 'Maq 3 - Linha 9'];
+const MACHINES = ['Maq 1 - Linha 9', 'Maq 3 - Linha 10'];
 const DENS_ESTADOS = ['Aberto', 'Em Processo', 'Liberada', 'Entregue Logística', 'CSP2-AI por liberar', 'CSP2-AI liberada', 'Terminada', 'Concluída Planeamento'];
 // Pesquisa partilhada entre tabs mensais (uma string global)
 const SEARCH = { value: '' };
@@ -1594,16 +1594,16 @@ const DEFAULT_SETTINGS = {
   abastecMin: 60,           // abastecimento Logística
   horaLimiteLog: '09:00',   // hora limite Logística
   capacidades: {
-    'Maq 1 - Linha 10': { kr8h: 100000, krH: 14600 },
-    'Maq 3 - Linha 9':  { kr8h: 36000,  krH: 4500  },
+    'Maq 1 - Linha 9': { kr8h: 100000, krH: 14600 },
+    'Maq 3 - Linha 10':  { kr8h: 36000,  krH: 4500  },
   },
   calibresPorMaquina: {
-    'Maq 1 - Linha 10': ['38x240','45x240','45x250','45x260','49x240','49x250','49x260','54x240'],
-    'Maq 3 - Linha 9':  ['38x240','45x240','45x250','45x260','49x240','49x250','49x260','54x240'],
+    'Maq 1 - Linha 9': ['38x240','45x240','45x250','45x260','49x240','49x250','49x260','54x240'],
+    'Maq 3 - Linha 10':  ['38x240','45x240','45x250','45x260','49x240','49x250','49x260','54x240'],
   },
   tiposPorMaquina: {
-    'Maq 1 - Linha 10': [],   // [] = sem restrição (todos autorizados)
-    'Maq 3 - Linha 9':  [],
+    'Maq 1 - Linha 9': [],   // [] = sem restrição (todos autorizados)
+    'Maq 3 - Linha 10':  [],
   },
   ade: {
     massa_le1:      { pct: 50, tol: 5 },
@@ -1612,13 +1612,13 @@ const DEFAULT_SETTINGS = {
     cliente_terlano:{ pct: 30, tol: 5 },
   },
   stops: {
-    'Maq 1 - Linha 10': [
+    'Maq 1 - Linha 9': [
       { date: '2026-04-25', label: 'Feriado', days: 1 },
       { date: '2026-05-01', label: 'Feriado', days: 1 },
       { date: '2026-06-04', label: 'Corpo Deus', days: 1 },
       { date: '2026-06-10', label: 'Feriado', days: 1 },
     ],
-    'Maq 3 - Linha 9': [
+    'Maq 3 - Linha 10': [
       { date: '2026-04-25', label: 'Feriado', days: 1 },
       { date: '2026-05-01', label: 'Feriado', days: 1 },
       { date: '2026-06-04', label: 'Corpo Deus', days: 1 },
@@ -1856,8 +1856,8 @@ function applySettingsToUI() {
   });
   renderCalibresUI();
   renderTiposUI();
-  renderStopsTable('Maq 1 - Linha 10');
-  renderStopsTable('Maq 3 - Linha 9');
+  renderStopsTable('Maq 1 - Linha 9');
+  renderStopsTable('Maq 3 - Linha 10');
   updateGlobalCapacityStatus();
 }
 
@@ -1924,7 +1924,7 @@ function updateGlobalCapacityStatus() {
 }
 
 function renderStopsTable(machine) {
-  const tabId = machine === 'Maq 1 - Linha 10' ? 'cfg-stops-m1' : 'cfg-stops-m3';
+  const tabId = machine === 'Maq 1 - Linha 9' ? 'cfg-stops-m1' : 'cfg-stops-m3';
   const tbody = document.querySelector(`#${tabId} tbody`);
   if (!tbody) return;
   tbody.innerHTML = '';
@@ -2016,8 +2016,8 @@ function formatHitsPill(term) {
   const active = getActiveMonth();
   const activeKeys = active ? weekKeysOfMonth(active.year, active.month) : new Set();
   const counts = [
-    ['Maq 1 - Linha 10', DATA.filter(o => o.maquina === 'Maq 1 - Linha 10' && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
-    ['Maq 3 - Linha 9', DATA.filter(o => o.maquina === 'Maq 3 - Linha 9' && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
+    ['Maq 1 - Linha 9', DATA.filter(o => o.maquina === 'Maq 1 - Linha 9' && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
+    ['Maq 3 - Linha 10', DATA.filter(o => o.maquina === 'Maq 3 - Linha 10' && activeKeys.has(o.weekKey) && matchesSearch(o, t)).length],
     ['KANBAN',   DATA.filter(o => o.maquina === 'KANBAN' && matchesSearch(o, t)).length],
   ];
   // Detalhe dos meses onde há matches fora do activo (para o utilizador saber onde navegar)
@@ -2081,56 +2081,55 @@ function loadData() {
 }
 
 // loadStateFromServer — carrega tudo do backend (ops + settings)
+// Mapeamento canónico de máquinas — inclui o swap Linha 10↔9 (2026-08).
+// Cada linha: [nomes antigos possíveis, nome canónico actual]
+const _MACHINE_NAME_MAP = {
+  'Linha 10':          'Maq 1 - Linha 9',
+  'Máquina 1':         'Maq 1 - Linha 9',
+  'Maq 1 - Linha 10':  'Maq 1 - Linha 9',   // swap
+  'Linha 9':           'Maq 3 - Linha 10',
+  'Máquina 3':         'Maq 3 - Linha 10',
+  'Maq 3 - Linha 9':   'Maq 3 - Linha 10',  // swap
+};
+function _canonMachine(name) {
+  if (name == null) return name;
+  return Object.prototype.hasOwnProperty.call(_MACHINE_NAME_MAP, name) ? _MACHINE_NAME_MAP[name] : name;
+}
+
 function migrateMachineNames(arr) {
   if (!Array.isArray(arr)) return;
   for (const o of arr) {
     if (!o) continue;
-    if (o.maquina === 'Linha 10' || o.maquina === 'Maq 2' || o.maquina === 'Máquina 1') o.maquina = 'Maq 1 - Linha 10';
-    else if (o.maquina === 'Linha 9' || o.maquina === 'Máquina 3') o.maquina = 'Maq 3 - Linha 9';
+    if (o.maquina === 'Maq 2') { o.maquina = 'Maq 1 - Linha 9'; continue; }  // legacy dedup
+    o.maquina = _canonMachine(o.maquina);
   }
 }
 
 function migrateSettingsMachineNames(settings) {
   if (!settings || typeof settings !== 'object') return;
-  // capacidades
-  if (settings.capacidades) {
-    if (settings.capacidades['Linha 10']) {
-      if (!settings.capacidades['Maq 1 - Linha 10']) settings.capacidades['Maq 1 - Linha 10'] = settings.capacidades['Linha 10'];
-      delete settings.capacidades['Linha 10'];
+  const keysToMigrate = ['capacidades', 'stops', 'turnosPorMaquina', 'calibresPorMaquina', 'tiposPorMaquina'];
+  for (const k of keysToMigrate) {
+    const bag = settings[k];
+    if (!bag || typeof bag !== 'object' || Array.isArray(bag)) continue;
+    // Passo 1: mapa old→new usando placeholder para evitar colisão no swap
+    const oldKeys = Object.keys(bag);
+    // Move todas as chaves antigas para nomes temporários, para depois assentar nos canónicos.
+    // Só actua em chaves que precisem migrar.
+    for (const oldName of oldKeys) {
+      const newName = _canonMachine(oldName);
+      if (newName === oldName) continue;
+      if (bag['__tmp__' + newName] == null) bag['__tmp__' + newName] = bag[oldName];
+      delete bag[oldName];
     }
-    if (settings.capacidades['Máquina 1']) {
-      if (!settings.capacidades['Maq 1 - Linha 10']) settings.capacidades['Maq 1 - Linha 10'] = settings.capacidades['Máquina 1'];
-      delete settings.capacidades['Máquina 1'];
+    // Passo 2: assenta os placeholders no nome canónico (só se ainda não existir chave real)
+    for (const key of Object.keys(bag)) {
+      if (!key.startsWith('__tmp__')) continue;
+      const canonical = key.slice('__tmp__'.length);
+      if (bag[canonical] == null) bag[canonical] = bag[key];
+      delete bag[key];
     }
-    if (settings.capacidades['Linha 9']) {
-      if (!settings.capacidades['Maq 3 - Linha 9']) settings.capacidades['Maq 3 - Linha 9'] = settings.capacidades['Linha 9'];
-      delete settings.capacidades['Linha 9'];
-    }
-    if (settings.capacidades['Máquina 3']) {
-      if (!settings.capacidades['Maq 3 - Linha 9']) settings.capacidades['Maq 3 - Linha 9'] = settings.capacidades['Máquina 3'];
-      delete settings.capacidades['Máquina 3'];
-    }
-    if (settings.capacidades['Maq 2']) delete settings.capacidades['Maq 2'];
-  }
-  // stops
-  if (settings.stops) {
-    if (settings.stops['Linha 10']) {
-      if (!settings.stops['Maq 1 - Linha 10']) settings.stops['Maq 1 - Linha 10'] = settings.stops['Linha 10'];
-      delete settings.stops['Linha 10'];
-    }
-    if (settings.stops['Máquina 1']) {
-      if (!settings.stops['Maq 1 - Linha 10']) settings.stops['Maq 1 - Linha 10'] = settings.stops['Máquina 1'];
-      delete settings.stops['Máquina 1'];
-    }
-    if (settings.stops['Linha 9']) {
-      if (!settings.stops['Maq 3 - Linha 9']) settings.stops['Maq 3 - Linha 9'] = settings.stops['Linha 9'];
-      delete settings.stops['Linha 9'];
-    }
-    if (settings.stops['Máquina 3']) {
-      if (!settings.stops['Maq 3 - Linha 9']) settings.stops['Maq 3 - Linha 9'] = settings.stops['Máquina 3'];
-      delete settings.stops['Máquina 3'];
-    }
-    if (settings.stops['Maq 2']) delete settings.stops['Maq 2'];
+    // Passo 3: limpa "Maq 2" legacy
+    if (bag['Maq 2']) delete bag['Maq 2'];
   }
 }
 
@@ -2975,7 +2974,7 @@ function renderKanbanInto(containerId, countId, ops, term) {
 }
 
 // ============================================================
-// Render — Mês activo: blocos por dia com 2 sub-zonas (Maq 1 - Linha 10 + Maq 3 - Linha 9)
+// Render — Mês activo: blocos por dia com 2 sub-zonas (Maq 1 - Linha 9 + Maq 3 - Linha 10)
 // ============================================================
 function renderMonth(tabKey) {
   const tabDef = MONTHLY_TABS.find(t => t.key === tabKey);
@@ -3012,7 +3011,7 @@ function renderMonth(tabKey) {
   //      (cascata por OPs anteriores) — mas o utilizador continua a ver o diaIdx que escolheu.
 
   // 2) Agrupar OPs do mês actual por dia (chave ISO yyyy-mm-dd)
-  const byDay = {}; // { '2026-06-01': { 'Maq 1 - Linha 10': [...], 'Maq 3 - Linha 9': [...] }, ... }
+  const byDay = {}; // { '2026-06-01': { 'Maq 1 - Linha 9': [...], 'Maq 3 - Linha 10': [...] }, ... }
   for (const machine of MACHINES) {
     for (const item of schedByMachine[machine]) {
       if (!item.start || isNaN(item.start)) continue;
