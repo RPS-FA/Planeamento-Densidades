@@ -2660,14 +2660,26 @@ function _calcScheduleCore(machine, weeks) {
       cursor = new Date(startPoint.getTime() + SETUP_MS);
       continue;
     }
-    // durH_pura = tempo produtivo total esperado (SEM atraso) — usado para distribuir qtdEntrada
+    // durH_pura = tempo produtivo total esperado (SEM atraso) — usado para distribuir qtdEntrada.
+    // Regra "atraso desloca produção":
+    //   O tempo cronológico de cada segmento inclui atraso (se o dia tiver atraso registado
+    //   em realPorDia[dayKey].tempoAtraso). Ao calcular qtdSeg, subtraímos o atraso desse dia
+    //   ao prodMs — as rolhas "perdidas" nesse dia passam naturalmente para o segmento
+    //   seguinte porque o cursor avançou mais no tempo cronológico.
     const durMsPuro = durH * HOUR_MS;
     for (let s = 0; s < segs.length; s++) {
       const seg = segs[s];
-      const segMs = seg.end - seg.start;                  // tempo cronológico (para mostrar)
-      const prodMs = (seg.prodMs != null) ? seg.prodMs : segMs; // tempo produtivo (para qtdSeg)
-      // Fracção sobre o tempo PRODUTIVO puro — soma exacta = qtdEntrada
-      const fraction = durMsPuro > 0 ? (prodMs / durMsPuro) : (1 / segs.length);
+      const segMs = seg.end - seg.start;                        // tempo cronológico
+      const prodMs = (seg.prodMs != null) ? seg.prodMs : segMs; // tempo dentro dos turnos (inclui atraso)
+      // Se este segmento tem atraso associado ao seu dia, subtraí-lo (não conta como produtivo)
+      const _segDayKey = fmtDate(seg.start);
+      const _rpdOfDay  = _rpd && _rpd[_segDayKey];
+      const _atrasoSegMin = _rpdOfDay ? _parseAtraso(_rpdOfDay.tempoAtraso || '') : 0;
+      // Se não há realPorDia mas há legacy tempoAtraso, imputá-lo ao primeiro segmento
+      const _atrasoSegLegacy = (!_hasRpd && s === 0) ? _parseAtraso(op.tempoAtraso || '') : 0;
+      const _atrasoSegMs = (_atrasoSegMin + _atrasoSegLegacy) * 60 * 1000;
+      const prodMsReal = Math.max(0, prodMs - _atrasoSegMs);
+      const fraction = durMsPuro > 0 ? (prodMsReal / durMsPuro) : (1 / segs.length);
       result.push({
         op,
         start: seg.start,
