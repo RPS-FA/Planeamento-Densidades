@@ -128,6 +128,107 @@ async function initSchema() {
   console.log('[db] Schema inicializado.');
   // Backup tables — criadas em paralelo com o schema principal
   await ensureBackupSchema();
+  // Notifications
+  await ensureNotificationsSchema();
+}
+
+// ============================================================
+// Notificações — avisos entre perfis (Produção → Planeador, etc.)
+// ============================================================
+async function ensureNotificationsSchema() {
+  if (!pool) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id          SERIAL PRIMARY KEY,
+      title       TEXT NOT NULL,
+      message     TEXT,
+      severity    TEXT NOT NULL DEFAULT 'info',   -- info | warning | error
+      recipient   TEXT NOT NULL DEFAULT 'planeador',
+      ref_op_id   INTEGER,
+      source      TEXT,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      acked_at    TIMESTAMPTZ,
+      acked_by    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_notif_recipient_unread ON notifications (recipient, acked_at) WHERE acked_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_notif_recipient_time ON notifications (recipient, created_at DESC);
+  `);
+  console.log('[db] Notifications schema OK.');
+}
+
+async function createNotification(n) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `INSERT INTO notifications (title, message, severity, recipient, ref_op_id, source)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, created_at`,
+    [
+      String(n.title || '').slice(0, 200),
+      n.message ? String(n.message).slice(0, 1000) : null,
+      ['info', 'warning', 'error'].includes(n.severity) ? n.severity : 'info',
+      String(n.recipient || 'planeador'),
+      n.ref_op_id != null ? parseInt(n.ref_op_id, 10) : null,
+      n.source ? String(n.source).slice(0, 50) : null,
+    ]
+  );
+  return r.rows[0];
+}
+
+async function listNotifications(recipient, limit = 100) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const lim = Math.min(parseInt(limit, 10) || 100, 500);
+  const r = await pool.query(
+    `SELECT id, title, message, severity, recipient, ref_op_id, source, created_at, acked_at, acked_by
+     FROM notifications
+     WHERE recipient = $1
+     ORDER BY created_at DESC LIMIT ${lim}`,
+    [recipient]
+  );
+  return r.rows;
+}
+
+async function listUnreadNotifications(recipient, limit = 100) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const lim = Math.min(parseInt(limit, 10) || 100, 500);
+  const r = await pool.query(
+    `SELECT id, title, message, severity, recipient, ref_op_id, source, created_at
+     FROM notifications
+     WHERE recipient = $1 AND acked_at IS NULL
+     ORDER BY created_at DESC LIMIT ${lim}`,
+    [recipient]
+  );
+  return r.rows;
+}
+
+async function ackNotificationById(id, ackedBy) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `UPDATE notifications SET acked_at = NOW(), acked_by = $2
+      WHERE id = $1 AND acked_at IS NULL
+      RETURNING id`,
+    [id, String(ackedBy || 'unknown').slice(0, 50)]
+  );
+  return r.rowCount > 0;
+}
+
+async function ackAllNotificationsFor(recipient, ackedBy) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `UPDATE notifications SET acked_at = NOW(), acked_by = $2
+      WHERE recipient = $1 AND acked_at IS NULL`,
+    [recipient, String(ackedBy || 'unknown').slice(0, 50)]
+  );
+  return r.rowCount;
+}
+
+// Pruning — manter apenas 30 dias
+async function pruneNotifications(days = 30) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(
+    `DELETE FROM notifications WHERE created_at < NOW() - ($1 || ' days')::interval`,
+    [String(days)]
+  );
+  return r.rowCount;
 }
 
 // ------------------------------------------------------------
@@ -657,4 +758,12 @@ module.exports = {
   pruneBackupsXlsxByHours,
   listBackupsXlsx,
   getBackupXlsx,
+  // Notifications
+  ensureNotificationsSchema,
+  createNotification,
+  listNotifications,
+  listUnreadNotifications,
+  ackNotificationById,
+  ackAllNotificationsFor,
+  pruneNotifications,
 };

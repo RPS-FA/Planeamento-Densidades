@@ -143,6 +143,34 @@ app.post('/api/ops', async (req, res) => {
   } catch (e) { sendError(res, e, 'POST /api/ops falhou'); }
 });
 
+// Helper — soma total de atraso (legacy + realPorDia) em minutos.
+// Usado para detectar aumentos de atraso provocados pela Produção → gera notificação.
+function _parseAtrasoMinutes(s) {
+  if (!s || typeof s !== 'string') return 0;
+  const m = /^(-?)(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!m) return 0;
+  return (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10));
+}
+function _totalAtrasoMin(op) {
+  if (!op) return 0;
+  let total = 0;
+  total += _parseAtrasoMinutes(op.tempoAtraso);
+  const rpd = op.realPorDia;
+  if (rpd && typeof rpd === 'object') {
+    for (const k of Object.keys(rpd)) {
+      total += _parseAtrasoMinutes((rpd[k] || {}).tempoAtraso);
+    }
+  }
+  return total;
+}
+function _fmtMinutesHM(min) {
+  const sign = min < 0 ? '-' : '';
+  const abs = Math.abs(min);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${sign}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 // PUT /api/ops/:id — Planeador (todos os campos) ou Produção (whitelist)
 app.put('/api/ops/:id', async (req, res) => {
   if (!requireDb(res)) return;
@@ -155,11 +183,13 @@ app.put('/api/ops/:id', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Body inválido.' });
     }
 
+    // Snapshot do estado anterior — necessário para detectar aumentos de atraso
+    const previous = await db.getOp(id);
+    if (!previous) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
+
     let merged;
     if (profile === 'producao') {
-      const current = await db.getOp(id);
-      if (!current) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
-      merged = Object.assign({}, current);
+      merged = Object.assign({}, previous);
       for (const f of PRODUCAO_FIELDS) {
         if (Object.prototype.hasOwnProperty.call(body, f)) {
           merged[f] = body[f];
@@ -173,6 +203,34 @@ app.put('/api/ops/:id', async (req, res) => {
 
     const updated = await db.updateOp(id, merged, profile);
     if (!updated) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
+
+    // Gatilho de notificação: Produção aumentou atraso → avisa Planeador
+    if (profile === 'producao') {
+      try {
+        const oldMin = _totalAtrasoMin(previous);
+        const newMin = _totalAtrasoMin(updated);
+        if (newMin > oldMin) {
+          const delta = newMin - oldMin;
+          const opLabel = updated.op || `#${id}`;
+          const cliente = updated.fileCliente || '';
+          const produto = updated.produto || '';
+          await db.createNotification({
+            title: `⚠ Atraso registado em OP ${opLabel}`,
+            message: `Produção registou +${_fmtMinutesHM(delta)} de atraso na OP ${opLabel}` +
+                     (cliente ? ` (${cliente})` : '') +
+                     (produto ? ` · ${produto}` : '') +
+                     `. Atraso total agora: ${_fmtMinutesHM(newMin)}. Verifica impacto no plano.`,
+            severity: 'warning',
+            recipient: 'planeador',
+            ref_op_id: id,
+            source: 'putOP-atraso',
+          });
+        }
+      } catch (e) {
+        console.warn('[notify] falha a criar notificação de atraso:', e.message);
+      }
+    }
+    // Fim do gatilho — continua resposta normal abaixo
     res.json({ ok: true, op: updated });
   } catch (e) { sendError(res, e, 'PUT /api/ops/:id falhou'); }
 });
@@ -481,6 +539,54 @@ app.get('/api/backups/:id(\\d+)', async (req, res) => {
     if (!row) return res.status(404).json({ ok: false, error: 'Backup não encontrado.' });
     res.json({ ok: true, ...row });
   } catch (e) { sendError(res, e, 'GET /api/backups/:id falhou'); }
+});
+
+// ------------------------------------------------------------
+// Endpoints — Notificações
+// ------------------------------------------------------------
+
+// GET /api/notifications/unread?recipient=X — lista as não lidas
+app.get('/api/notifications/unread', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const recipient = String(req.query.recipient || 'planeador');
+    const rows = await db.listUnreadNotifications(recipient, 100);
+    res.json({ ok: true, notifications: rows });
+  } catch (e) { sendError(res, e, 'GET /api/notifications/unread falhou'); }
+});
+
+// POST /api/notifications/ack-all — marca todas como lidas para um recipient
+app.post('/api/notifications/ack-all', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const body = req.body || {};
+    const recipient = String(body.recipient || 'planeador');
+    const ackedBy = String(body.acked_by || profileOf(req));
+    const n = await db.ackAllNotificationsFor(recipient, ackedBy);
+    res.json({ ok: true, acked: n });
+  } catch (e) { sendError(res, e, 'POST /api/notifications/ack-all falhou'); }
+});
+
+// POST /api/notifications/:id/ack — marca uma como lida
+app.post('/api/notifications/:id(\\d+)/ack', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const id = parseInt(req.params.id, 10);
+    const ackedBy = String((req.body || {}).acked_by || profileOf(req));
+    const ok = await db.ackNotificationById(id, ackedBy);
+    if (!ok) return res.status(404).json({ ok: false, error: 'Notificação não encontrada ou já lida.' });
+    res.json({ ok: true, id });
+  } catch (e) { sendError(res, e, 'POST /api/notifications/:id/ack falhou'); }
+});
+
+// GET /api/notifications?recipient=X&limit=N — histórico
+app.get('/api/notifications', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const recipient = String(req.query.recipient || 'planeador');
+    const rows = await db.listNotifications(recipient, req.query.limit || 100);
+    res.json({ ok: true, notifications: rows });
+  } catch (e) { sendError(res, e, 'GET /api/notifications falhou'); }
 });
 
 // ------------------------------------------------------------

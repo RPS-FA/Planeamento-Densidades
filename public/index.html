@@ -874,6 +874,7 @@ table.excel tbody tr.row-gap.drop-into-gap td { background: #86efac !important; 
       <option value="producao">👷 Produção</option>
     </select>
     <span id="connStatus" class="conn-chip loading" title="Estado da ligação ao servidor">… A ligar</span>
+    <button class="btn secondary" id="notifBellBtn" onclick="openNotificationsModal()" title="Notificações" style="position:relative;padding-right:12px">🔔<span id="notifBellBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:12px;min-width:20px;height:20px;font-size:11px;font-weight:700;align-items:center;justify-content:center;padding:0 5px;border:2px solid var(--c-primary)">0</span></button>
     <button class="btn secondary" id="addOpBtn" onclick="addOP()">+ Nova OP DENS</button>
     <button class="btn secondary" id="swapOpsBtn" onclick="openSwapModal()">🔄 Trocar OPs</button>
     <button class="btn secondary" id="undoBtn" onclick="doUndo()" title="Desfazer última acção" disabled>↶ Undo</button>
@@ -881,6 +882,34 @@ table.excel tbody tr.row-gap.drop-into-gap td { background: #86efac !important; 
     <button class="btn secondary" onclick="exportExcel()">📊 Exportar Excel</button>
   </div>
 </header>
+
+<!-- Toast container (notificações) -->
+<div id="toastContainer" style="position:fixed;top:70px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px"></div>
+
+<!-- Modal de notificações -->
+<div class="modal-bg" id="modalNotif" style="display:none">
+  <div class="modal" style="max-width:720px">
+    <h2>🔔 Notificações</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <button class="btn secondary" id="notifTabUnreadBtn" onclick="setNotifTab('unread')" style="padding:4px 12px;font-weight:700">Não lidas (<span id="notifTabUnreadCount">0</span>)</button>
+        <button class="btn secondary" id="notifTabHistoryBtn" onclick="setNotifTab('history')" style="padding:4px 12px;font-weight:400">Histórico</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn secondary" onclick="refreshNotifications()" style="padding:4px 12px">🔄 Actualizar</button>
+        <button class="btn" id="notifAckAllBtn" onclick="ackAllNotifications()" style="padding:4px 12px">✓ Marcar todas lidas</button>
+      </div>
+    </div>
+    <div id="notifList" style="max-height:60vh;overflow-y:auto;border:1px solid var(--c-border);border-radius:6px"><div style="padding:24px;text-align:center;color:var(--c-muted)">A carregar…</div></div>
+    <div class="modal-actions" style="margin-top:12px;text-align:right">
+      <button class="btn btn-primary" onclick="closeNotificationsModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+</style>
 
 
 <div class="tabs" id="tabs-bar">
@@ -4814,6 +4843,193 @@ async function downloadBackup(id, key, snapshotAt) {
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   } catch (e) { alert('Falhou: ' + e.message); }
+}
+
+// ============================================================
+// Notificações — poller, modal, toast, som
+// ============================================================
+const _notifSeenIds = new Set();
+let _notifTimer = null;
+let _notifCurrentTab = 'unread';
+const BROWSER_TITLE_BASE = document.title;
+
+function notifRecipient() {
+  // Produção vê avisos destinados a 'producao'; Planeador vê avisos de 'planeador'.
+  if (typeof getProfile === 'function' && getProfile() === 'producao') return 'producao';
+  return 'planeador';
+}
+
+function playNotifSound() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.25);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.5);
+  } catch (e) { /* ignorar */ }
+}
+
+function updateBellBadge(count) {
+  const badge = document.getElementById('notifBellBadge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+  try {
+    document.title = count > 0 ? `🔴 (${count}) ${BROWSER_TITLE_BASE}` : BROWSER_TITLE_BASE;
+  } catch (e) {}
+}
+
+function showNotifToast(n) {
+  const c = document.getElementById('toastContainer');
+  if (!c) return;
+  const sevBg   = n.severity === 'warning' ? '#7f1d1d' : n.severity === 'error' ? '#7f1d1d' : '#1e40af';
+  const sevText = '#fef2f2';
+  const el = document.createElement('div');
+  el.style.cssText = `pointer-events:auto;background:${sevBg};color:${sevText};padding:12px 14px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.3);min-width:300px;animation:toastIn .3s ease-out;cursor:pointer`;
+  el.innerHTML =
+    `<div style="font-weight:700;font-size:13px;margin-bottom:4px">${n.title || 'Notificação'}</div>` +
+    `<div style="font-size:12px;line-height:1.4;opacity:.95">${n.message || ''}</div>` +
+    `<div style="font-size:10px;opacity:.7;margin-top:6px">Clica para ver todas · ${new Date(n.created_at).toLocaleTimeString('pt-PT', { hour:'2-digit', minute:'2-digit' })}</div>`;
+  el.onclick = () => { openNotificationsModal(); el.remove(); };
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 8000);
+}
+
+async function pollNotifications() {
+  try {
+    const r = await fetch('/api/notifications/unread?recipient=' + encodeURIComponent(notifRecipient()));
+    const body = await r.json();
+    if (!body.ok) return;
+    const list = body.notifications || [];
+    updateBellBadge(list.length);
+    // Toast + som para as novas (ainda não vistas neste browser)
+    let newOnes = 0;
+    for (const n of list) {
+      if (!_notifSeenIds.has(n.id)) {
+        _notifSeenIds.add(n.id);
+        // Não toast para quem gerou a notificação (ex: Produção não vê os seus próprios para o Planeador)
+        if (notifRecipient() === n.recipient) {
+          showNotifToast(n);
+          newOnes++;
+        }
+      }
+    }
+    if (newOnes > 0) playNotifSound();
+  } catch (e) { /* silencioso */ }
+}
+
+function startNotificationsPoller() {
+  if (_notifTimer) clearInterval(_notifTimer);
+  pollNotifications();
+  _notifTimer = setInterval(pollNotifications, 15000);
+}
+
+function openNotificationsModal() {
+  const m = document.getElementById('modalNotif');
+  if (!m) return;
+  m.style.display = 'flex';
+  setNotifTab('unread');
+}
+function closeNotificationsModal() {
+  const m = document.getElementById('modalNotif');
+  if (m) m.style.display = 'none';
+}
+
+function setNotifTab(tab) {
+  _notifCurrentTab = tab;
+  const btnU = document.getElementById('notifTabUnreadBtn');
+  const btnH = document.getElementById('notifTabHistoryBtn');
+  if (btnU) btnU.style.fontWeight = tab === 'unread' ? '700' : '400';
+  if (btnH) btnH.style.fontWeight = tab === 'history' ? '700' : '400';
+  const ackBtn = document.getElementById('notifAckAllBtn');
+  if (ackBtn) ackBtn.style.display = tab === 'unread' ? '' : 'none';
+  refreshNotifications();
+}
+
+async function refreshNotifications() {
+  const list = document.getElementById('notifList');
+  if (!list) return;
+  list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--c-muted)">A carregar…</div>';
+  try {
+    const path = _notifCurrentTab === 'unread' ? '/api/notifications/unread' : '/api/notifications';
+    const r = await fetch(path + '?recipient=' + encodeURIComponent(notifRecipient()) + '&limit=100');
+    const body = await r.json();
+    if (!body.ok) throw new Error(body.error || 'erro');
+    const items = body.notifications || [];
+    // Actualiza o contador de não lidas no botão
+    try {
+      const u = await fetch('/api/notifications/unread?recipient=' + encodeURIComponent(notifRecipient())).then(r => r.json());
+      const unreadEl = document.getElementById('notifTabUnreadCount');
+      if (unreadEl) unreadEl.textContent = ((u.notifications || []).length);
+    } catch (e) {}
+    if (items.length === 0) {
+      list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--c-muted)">Sem notificações ${_notifCurrentTab === 'unread' ? 'não lidas' : 'no histórico'}.</div>`;
+      return;
+    }
+    list.innerHTML = '';
+    items.forEach(n => {
+      const sevIcon  = n.severity === 'warning' ? '⚠' : n.severity === 'error' ? '✖' : 'ℹ';
+      const sevColor = n.severity === 'warning' ? '#f59e0b' : n.severity === 'error' ? '#ef4444' : '#3b82f6';
+      const when = new Date(n.created_at).toLocaleString('pt-PT', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+      const isAcked = !!n.acked_at;
+      const row = document.createElement('div');
+      row.style.cssText = `padding:12px 14px;border-bottom:1px solid var(--c-border);display:flex;gap:10px;align-items:flex-start;${isAcked ? 'opacity:.55' : ''}`;
+      row.innerHTML =
+        `<div style="color:${sevColor};font-size:20px;line-height:1">${sevIcon}</div>` +
+        `<div style="flex:1">` +
+          `<div style="font-weight:700;font-size:13px">${n.title || ''}</div>` +
+          `<div style="font-size:12px;color:var(--c-muted);margin-top:3px;line-height:1.4">${n.message || ''}</div>` +
+          `<div style="font-size:10px;color:var(--c-muted);margin-top:6px">${when}${isAcked ? ' · lida ' + new Date(n.acked_at).toLocaleString('pt-PT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) + (n.acked_by ? ' por ' + n.acked_by : '') : ''}</div>` +
+        `</div>` +
+        (!isAcked ? `<button class="btn secondary" style="padding:2px 10px;font-size:11px" onclick="ackNotification(${n.id})">✓ Lida</button>` : '');
+      list.appendChild(row);
+    });
+  } catch (e) {
+    list.innerHTML = `<div style="padding:16px;color:#c2410c">Erro: ${e.message}</div>`;
+  }
+}
+
+async function ackNotification(id) {
+  try {
+    await fetch('/api/notifications/' + id + '/ack', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acked_by: notifRecipient() })
+    });
+    pollNotifications();
+    refreshNotifications();
+  } catch (e) { alert('Falhou: ' + e.message); }
+}
+
+async function ackAllNotifications() {
+  if (!confirm('Marcar TODAS as notificações como lidas?')) return;
+  try {
+    await fetch('/api/notifications/ack-all', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient: notifRecipient(), acked_by: notifRecipient() })
+    });
+    pollNotifications();
+    refreshNotifications();
+  } catch (e) { alert('Falhou: ' + e.message); }
+}
+
+// Arranca o poller após carregamento
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startNotificationsPoller);
+} else {
+  startNotificationsPoller();
 }
 
 function importJSON(event) {
