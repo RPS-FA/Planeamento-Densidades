@@ -34,6 +34,23 @@
     margin: 0; padding: 0; font-family: Arial, "Segoe UI", system-ui, sans-serif;
     background: var(--c-bg); color: var(--c-text); font-size: 12px; height: 100%;
   }
+  /* Logo Cork Supply em marca-d'água de fundo (fixa, não interfere com conteúdo) */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('/cork-supply-logo.png') no-repeat center center;
+    background-size: min(55vw, 700px) auto;
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Garantir que o conteúdo fica acima da marca-d'água */
+  header, .tabs, .controls, .main-area, .content, .modal-bg, .toast-container,
+  #toastContainer, main, section, article, .settings-grid, .settings-section {
+    position: relative;
+    z-index: 1;
+  }
   header {
     background: var(--c-primary); color: #fff;
     padding: 10px 16px; display: flex; align-items: center; gap: 16px;
