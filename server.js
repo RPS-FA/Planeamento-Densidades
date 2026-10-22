@@ -171,7 +171,49 @@ function _fmtMinutesHM(min) {
   return `${sign}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-// PUT /api/ops/:id — Planeador (todos os campos) ou Produção (whitelist)
+// Helper — gatilho de notificação quando a Produção aumenta o atraso.
+// Chamado após qualquer PUT/PATCH que o perfil Produção faça.
+async function _maybeNotifyAtraso(previous, updated, profile, id, source) {
+  if (profile !== 'producao') return;
+  try {
+    const oldMin = _totalAtrasoMin(previous);
+    const newMin = _totalAtrasoMin(updated);
+    if (newMin > oldMin) {
+      const delta = newMin - oldMin;
+      const opLabel = updated.op || `#${id}`;
+      const cliente = updated.fileCliente || '';
+      const produto = updated.produto || '';
+      await db.createNotification({
+        title: `⚠ Atraso registado em OP ${opLabel}`,
+        message: `Produção registou +${_fmtMinutesHM(delta)} de atraso na OP ${opLabel}` +
+                 (cliente ? ` (${cliente})` : '') +
+                 (produto ? ` · ${produto}` : '') +
+                 `. Atraso total agora: ${_fmtMinutesHM(newMin)}. Verifica impacto no plano.`,
+        severity: 'warning',
+        recipient: 'planeador',
+        ref_op_id: id,
+        source: source || 'putOP-atraso',
+      });
+    }
+  } catch (e) {
+    console.warn('[notify] falha a criar notificação de atraso:', e.message);
+  }
+}
+
+// Lê `_ts` do corpo ou do header X-Base-Ts (optimistic locking opcional).
+// Se o cliente não fornecer, verificação é bypassed (backward compat).
+function _baseTsFromReq(req) {
+  const body = req.body || {};
+  if (body && typeof body._ts === 'string') return body._ts;
+  if (body && typeof body.ts === 'string') return body.ts;
+  const h = req.get('X-Base-Ts');
+  return h || null;
+}
+
+// PUT /api/ops/:id — Planeador (todos os campos) ou Produção (whitelist).
+// Novo: suporta optimistic locking via body._ts (ou header X-Base-Ts).
+// Se o cliente enviar _ts e não bater com a versão actual → 409 com {conflict:true, op:<actual>}.
+// Sem _ts → comportamento antigo (replace), para backward compat durante transição.
 app.put('/api/ops/:id', async (req, res) => {
   if (!requireDb(res)) return;
   try {
@@ -187,6 +229,8 @@ app.put('/api/ops/:id', async (req, res) => {
     const previous = await db.getOp(id);
     if (!previous) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
 
+    const baseTs = _baseTsFromReq(req);
+
     let merged;
     if (profile === 'producao') {
       merged = Object.assign({}, previous);
@@ -196,43 +240,58 @@ app.put('/api/ops/:id', async (req, res) => {
         }
       }
     } else {
-      // Planeador — aceita tudo, mas preserva o id da rota
+      // Planeador — aceita tudo, mas preserva o id da rota e descarta campos de controlo
       merged = Object.assign({}, body);
       merged.id = id;
+      delete merged._ts;
+      delete merged.ts;
     }
 
-    const updated = await db.updateOp(id, merged, profile);
+    const updated = await db.updateOp(id, merged, profile, baseTs);
     if (!updated) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
-
-    // Gatilho de notificação: Produção aumentou atraso → avisa Planeador
-    if (profile === 'producao') {
-      try {
-        const oldMin = _totalAtrasoMin(previous);
-        const newMin = _totalAtrasoMin(updated);
-        if (newMin > oldMin) {
-          const delta = newMin - oldMin;
-          const opLabel = updated.op || `#${id}`;
-          const cliente = updated.fileCliente || '';
-          const produto = updated.produto || '';
-          await db.createNotification({
-            title: `⚠ Atraso registado em OP ${opLabel}`,
-            message: `Produção registou +${_fmtMinutesHM(delta)} de atraso na OP ${opLabel}` +
-                     (cliente ? ` (${cliente})` : '') +
-                     (produto ? ` · ${produto}` : '') +
-                     `. Atraso total agora: ${_fmtMinutesHM(newMin)}. Verifica impacto no plano.`,
-            severity: 'warning',
-            recipient: 'planeador',
-            ref_op_id: id,
-            source: 'putOP-atraso',
-          });
-        }
-      } catch (e) {
-        console.warn('[notify] falha a criar notificação de atraso:', e.message);
-      }
+    if (updated._conflict) {
+      return res.status(409).json({ ok: false, conflict: true, op: updated._current });
     }
-    // Fim do gatilho — continua resposta normal abaixo
+
+    await _maybeNotifyAtraso(previous, updated, profile, id, 'putOP-atraso');
     res.json({ ok: true, op: updated });
   } catch (e) { sendError(res, e, 'PUT /api/ops/:id falhou'); }
+});
+
+// PATCH /api/ops/:id — merge por campo com optimistic locking.
+// Body: { patch: { campo: valor, ... }, ts: "<_ts que o cliente viu>" }
+// Resposta:
+//   200 { ok:true, op:<versão nova> }
+//   404 { ok:false, error:... }
+//   409 { ok:false, conflict:true, op:<versão actual> }  (cliente deve fazer merge e retry)
+app.patch('/api/ops/:id', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ ok: false, error: 'ID inválido.' });
+    const profile = profileOf(req);
+    const body = req.body || {};
+    if (typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ ok: false, error: 'Body inválido.' });
+    }
+    const patch = (body.patch && typeof body.patch === 'object' && !Array.isArray(body.patch)) ? body.patch : null;
+    if (!patch) return res.status(400).json({ ok: false, error: 'Falta `patch` no body.' });
+
+    // Snapshot anterior para gatilho de notificação de atraso
+    const previous = await db.getOp(id);
+    if (!previous) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
+
+    // Produção fica limitada à whitelist; Planeador pode mexer em qualquer campo
+    const allowedFields = (profile === 'producao') ? PRODUCAO_FIELDS : null;
+    const baseTs = _baseTsFromReq(req);
+
+    const r = await db.patchOp(id, patch, baseTs, profile, allowedFields);
+    if (r.notFound) return res.status(404).json({ ok: false, error: 'OP não encontrada.' });
+    if (r.conflict) return res.status(409).json({ ok: false, conflict: true, op: r.op });
+
+    await _maybeNotifyAtraso(previous, r.op, profile, id, 'patchOP-atraso');
+    res.json({ ok: true, op: r.op });
+  } catch (e) { sendError(res, e, 'PATCH /api/ops/:id falhou'); }
 });
 
 // DELETE /api/ops/:id — só Planeador

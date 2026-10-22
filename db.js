@@ -96,8 +96,10 @@ const SEED_OPS = [
 function rowToOp(row) {
   // O cliente espera o objecto da OP com `id` numérico no topo, e todos os
   // campos do `payload` no mesmo nível. Devolvemos um spread.
+  // Adicionamos `_ts` = updated_at em ISO, para optimistic locking (PATCH/PUT com versão).
   const payload = row.payload || {};
-  return Object.assign({}, payload, { id: row.id });
+  const _ts = row.updated_at ? new Date(row.updated_at).toISOString() : null;
+  return Object.assign({}, payload, { id: row.id, _ts });
 }
 
 function deriveColumns(op) {
@@ -638,14 +640,14 @@ async function seedIfEmpty() {
 async function listOps() {
   if (!pool) throw new Error('Sem ligação à BD.');
   const r = await pool.query(
-    `SELECT id, payload FROM ops ORDER BY id ASC`
+    `SELECT id, payload, updated_at FROM ops ORDER BY id ASC`
   );
   return r.rows.map(rowToOp);
 }
 
 async function getOp(id) {
   if (!pool) throw new Error('Sem ligação à BD.');
-  const r = await pool.query(`SELECT id, payload FROM ops WHERE id = $1`, [id]);
+  const r = await pool.query(`SELECT id, payload, updated_at FROM ops WHERE id = $1`, [id]);
   if (!r.rows.length) return null;
   return rowToOp(r.rows[0]);
 }
@@ -657,14 +659,25 @@ async function createOp(op, updatedBy) {
   const r = await pool.query(
     `INSERT INTO ops (op, payload, maquina, week_key, sort_idx, dia_idx, updated_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, payload`,
+     RETURNING id, payload, updated_at`,
     [clean.op || '', JSON.stringify(clean), d.maquina, d.week_key, d.sort_idx, d.dia_idx, updatedBy || 'unknown']
   );
   return rowToOp(r.rows[0]);
 }
 
-async function updateOp(id, op, updatedBy) {
+// updateOp — replace total do payload.
+// Novo parâmetro opcional `baseTs`: se fornecido, verifica optimistic locking.
+// Se baseTs for passado e não bater com updated_at actual, devolve {_conflict:true, _current: op}.
+async function updateOp(id, op, updatedBy, baseTs) {
   if (!pool) throw new Error('Sem ligação à BD.');
+  if (baseTs) {
+    const cur = await pool.query(`SELECT id, payload, updated_at FROM ops WHERE id = $1`, [id]);
+    if (!cur.rows.length) return null;
+    const curTs = new Date(cur.rows[0].updated_at).toISOString();
+    if (curTs !== baseTs) {
+      return { _conflict: true, _current: rowToOp(cur.rows[0]) };
+    }
+  }
   const clean = stripId(op);
   const d = deriveColumns(clean);
   const r = await pool.query(
@@ -672,11 +685,51 @@ async function updateOp(id, op, updatedBy) {
         SET op = $1, payload = $2, maquina = $3, week_key = $4,
             sort_idx = $5, dia_idx = $6, updated_at = NOW(), updated_by = $7
       WHERE id = $8
-      RETURNING id, payload`,
+      RETURNING id, payload, updated_at`,
     [clean.op || '', JSON.stringify(clean), d.maquina, d.week_key, d.sort_idx, d.dia_idx, updatedBy || 'unknown', id]
   );
   if (!r.rows.length) return null;
   return rowToOp(r.rows[0]);
+}
+
+// patchOp — merge por campo com optimistic locking (padrão WIM).
+// Devolve {notFound:true} | {conflict:true, op: <versão actual>} | {op: <nova versão>}.
+// `patch` é o diff: só os campos a alterar. `baseTs` é o updated_at ISO que o cliente viu.
+// `allowedFields` opcional — se fornecido, só os campos nessa lista do patch são aplicados
+// (o resto é silenciosamente descartado, para enforçar whitelist por perfil).
+async function patchOp(id, patch, baseTs, updatedBy, allowedFields) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    throw new Error('Patch inválido (esperava objecto).');
+  }
+  const cur = await pool.query(`SELECT id, payload, updated_at FROM ops WHERE id = $1`, [id]);
+  if (!cur.rows.length) return { notFound: true };
+  const curTs = new Date(cur.rows[0].updated_at).toISOString();
+  if (baseTs && curTs !== baseTs) {
+    return { conflict: true, op: rowToOp(cur.rows[0]) };
+  }
+  // Filtra o patch pela whitelist, se fornecida
+  let effectivePatch = patch;
+  if (Array.isArray(allowedFields)) {
+    effectivePatch = {};
+    for (const k of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(patch, k)) effectivePatch[k] = patch[k];
+    }
+  }
+  const current = cur.rows[0].payload || {};
+  const merged = Object.assign({}, current, effectivePatch);
+  // Nunca permitir que o patch mude o id (segurança adicional)
+  delete merged.id;
+  const d = deriveColumns(merged);
+  const r = await pool.query(
+    `UPDATE ops
+        SET op = $1, payload = $2, maquina = $3, week_key = $4,
+            sort_idx = $5, dia_idx = $6, updated_at = NOW(), updated_by = $7
+      WHERE id = $8
+      RETURNING id, payload, updated_at`,
+    [merged.op || '', JSON.stringify(merged), d.maquina, d.week_key, d.sort_idx, d.dia_idx, updatedBy || 'unknown', id]
+  );
+  return { op: rowToOp(r.rows[0]), previous: cur.rows[0].payload || {} };
 }
 
 async function deleteOp(id) {
@@ -743,6 +796,7 @@ module.exports = {
   getOp,
   createOp,
   updateOp,
+  patchOp,
   deleteOp,
   getSettings,
   putSettings,
