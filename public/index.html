@@ -1428,6 +1428,21 @@ const Api = {
     if (!r.ok || body.ok === false) throw new Error(body.error || ('PUT /api/ops ' + r.status));
     return body;
   },
+  // PATCH /api/ops/:id — merge por campo com optimistic locking (padrão WIM).
+  // Devolve {ok:true, op} em sucesso; {notFound:true} se a OP já não existe;
+  // {conflict:true, op:<versão actual>} se outro cliente gravou entretanto.
+  async patchOp(id, patch, baseTs, profile) {
+    const r = await fetch(API_BASE + '/api/ops/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': profile || (typeof getProfile === 'function' ? getProfile() : 'planeador') },
+      body: JSON.stringify({ patch, ts: baseTs || null }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (r.status === 404) return { notFound: true };
+    if (r.status === 409) return { conflict: true, op: body.op || null };
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('PATCH /api/ops ' + r.status));
+    return body;  // {ok:true, op:{...,_ts}}
+  },
   async postOp(op) {
     const r = await fetch(API_BASE + '/api/ops', {
       method: 'POST',
@@ -1467,6 +1482,140 @@ const Api = {
     return body;
   },
 };
+
+// ============================================================
+// persist() — gravação segura multi-utilizador (padrão WIM)
+// ============================================================
+// Cada OP em DATA guarda:
+//   _saved → snapshot do último estado confirmado pelo servidor (deep copy)
+//   _ts    → updated_at ISO que o servidor devolveu nesse último commit
+// persist(op) grava SÓ o diff (patch) com _ts, e lida com conflitos 409
+// através de 3-way merge (versão do servidor + os meus campos por cima).
+// PENDING guarda IDs de OPs em-voo (ainda por confirmar); o polling do
+// mergeState (ponto 5) irá respeitar esta set para não sobrescrever edições locais.
+
+const PENDING = new Set();
+
+// snapOp — cópia profunda do estado da OP para servir de base de diff.
+// Deep copy porque objectos aninhados (realPorDia, etc.) seriam partilhados
+// por referência numa cópia superficial, levando o diff a não detectar mutações.
+function snapOp(o) {
+  if (!o || typeof o !== 'object') return {};
+  const c = {};
+  for (const k in o) {
+    if (k === '_saved' || k === '_ts') continue;
+    const v = o[k];
+    if (v !== null && typeof v === 'object') {
+      try { c[k] = JSON.parse(JSON.stringify(v)); }
+      catch (e) { c[k] = v; }  // fallback (circular refs, etc.)
+    } else {
+      c[k] = v;
+    }
+  }
+  return c;
+}
+
+// diffOp — devolve o patch mínimo entre op actual e op._saved.
+// Compara via JSON.stringify. Chaves apagadas aparecem como `undefined` no patch
+// (o merge do servidor substituirá o valor existente — se precisarmos de "apagar"
+// um campo mesmo, podemos usar `null` explicitamente no cliente).
+function diffOp(op) {
+  if (!op) return {};
+  const cur = snapOp(op);
+  const base = op._saved || {};
+  const patch = {};
+  const allKeys = new Set();
+  for (const k in cur) allKeys.add(k);
+  for (const k in base) allKeys.add(k);
+  for (const k of allKeys) {
+    const a = cur[k];
+    const b = base[k];
+    if (JSON.stringify(a) !== JSON.stringify(b)) patch[k] = (a === undefined ? null : a);
+  }
+  return patch;
+}
+
+// _hydrateOpSaved — chamar sempre que uma OP vem fresca do servidor.
+// Define _saved=snapOp(op) e _ts=op._ts para que o próximo diff seja limpo.
+function _hydrateOpSaved(op) {
+  if (!op || typeof op !== 'object') return op;
+  op._saved = snapOp(op);
+  // _ts já vem no payload do servidor (campo rowToOp._ts). Mantém-se.
+  return op;
+}
+
+// persist(op) — grava o diff com optimistic locking + retry/merge em 409.
+// Devolve true em sucesso, false se:
+//   - a OP já não existe no servidor (notFound) → é removida de DATA
+//   - esgotou retries após erros de rede
+async function persist(op) {
+  if (!op || typeof op.id !== 'number') return false;
+  PENDING.add(op.id);
+  try {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const patch = diffOp(op);
+      if (Object.keys(patch).length === 0) {
+        PENDING.delete(op.id);
+        return true;
+      }
+      try {
+        const res = await Api.patchOp(op.id, patch, op._ts);
+        if (res.notFound) {
+          PENDING.delete(op.id);
+          const idx = DATA.findIndex(x => x && x.id === op.id);
+          if (idx >= 0) DATA.splice(idx, 1);
+          console.warn('[persist] OP', op.id, 'já não existe no servidor — removida localmente.');
+          return false;
+        }
+        if (res.conflict && res.op) {
+          // 3-way merge: puxa a versão do servidor, re-aplica os MEUS campos por cima
+          // e tenta de novo. Resultado: nunca perco os meus campos; só perco o meu
+          // valor num campo específico se outro utilizador alterou o mesmo campo.
+          console.log('[persist] 409 em', op.id, '— a merge-ar e retry', attempt + 1);
+          Object.assign(op, res.op);
+          op._saved = snapOp(res.op);
+          op._ts = res.op._ts || null;
+          Object.assign(op, patch);
+          continue;
+        }
+        // Sucesso: sincroniza _saved/_ts com a versão do servidor
+        if (res.op) {
+          Object.assign(op, res.op);
+          op._saved = snapOp(res.op);
+          op._ts = res.op._ts || null;
+        }
+        PENDING.delete(op.id);
+        return true;
+      } catch (e) {
+        // Erro de rede ou 5xx — backoff e retry
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 600 * (attempt + 1)));
+          continue;
+        }
+        console.error('[persist] falha definitiva em', op.id, '-', e.message);
+        setConnStatus && setConnStatus('error', 'Falha ao guardar — fica na fila');
+        return false;
+        // Nota: PENDING fica a 1 (não limpa). Um retryPending futuro pode voltar.
+      }
+    }
+    return false;
+  } catch (e) {
+    PENDING.delete(op.id);
+    throw e;
+  }
+}
+
+// retryPending — tenta re-gravar todas as OPs em PENDING (ex.: após recuperar ligação).
+// Usada pelo polling do mergeState (ponto 5), mas disponível desde já.
+async function retryPending() {
+  if (PENDING.size === 0) return;
+  const ids = Array.from(PENDING);
+  for (const id of ids) {
+    const op = DATA.find(x => x && x.id === id);
+    if (op) { try { await persist(op); } catch (e) { /* ignorar — persist já faz log */ } }
+    else PENDING.delete(id);
+  }
+}
 
 // Indicador de ligação (chip no header)
 function setConnStatus(state, msg) {
@@ -1843,7 +1992,7 @@ async function doUndo() {
     }
     // Re-fetch state do servidor para garantir consistência (IDs novos depois de recreate)
     const st = await Api.getState();
-    if (st && st.ops) DATA = st.ops;
+    if (st && st.ops) { DATA = st.ops; DATA.forEach(_hydrateOpSaved); }
     if (st && st.settings) applyServerSettings(st.settings);
     setConnStatus('ok', '↶ Desfeito: ' + last.label);
     rerender();
@@ -2189,6 +2338,8 @@ async function loadStateFromServer() {
     // Refrescar inputs da tab Configurações com os valores reais (override do server)
     if (typeof applySettingsToUI === 'function') applySettingsToUI();
     _migrateEstadosKanbanInData();
+    // Hidratar _saved em cada OP — baseline para o diff do próximo persist()
+    DATA.forEach(_hydrateOpSaved);
     setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
     return true;
   } catch (e) {
@@ -2268,7 +2419,7 @@ async function deleteOpAndPersist(id, label) {
     } catch (e) {
       setConnStatus('error', 'Falha ao apagar');
       showErrorToast('Erro ao apagar OP: ' + e.message);
-      try { const st = await Api.getState(); if (st && st.ops) { DATA = st.ops; rerender(); } } catch (_) {}
+      try { const st = await Api.getState(); if (st && st.ops) { DATA = st.ops; DATA.forEach(_hydrateOpSaved); rerender(); } } catch (_) {}
     }
   }
 }
@@ -4406,7 +4557,7 @@ function saveOP() {
     data.sortIdx = peers.length;
     if (!data.maquina) { data.maquina = 'KANBAN'; data.weekKey = ''; data.estado = 'Aberto'; }
     Api.postOp(data).then(r => {
-      if (r && r.op) DATA.push(r.op);
+      if (r && r.op) { _hydrateOpSaved(r.op); DATA.push(r.op); }
       setConnStatus('ok', '✓ OP criada · ' + new Date().toLocaleTimeString('pt-PT'));
       closeModal();
       rerender();
@@ -4520,7 +4671,7 @@ function openSplitDialog() {
   editingOP.obsPi = ((editingOP.obsPi || '').replace(/\s*\[(1|2)\/2\]\s*$/, '') + ' [1/2]').trim();
   // 1º grava editingOP via PUT, depois POST da 2ª parte
   Api.postOp(newOp).then(r => {
-    if (r && r.op) DATA.push(r.op);
+    if (r && r.op) { _hydrateOpSaved(r.op); DATA.push(r.op); }
     const peers = DATA.filter(o => o.maquina === editingOP.maquina && o.weekKey === editingOP.weekKey)
                       .sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
     peers.forEach((p, idx) => { p.sortIdx = idx; });
@@ -4728,10 +4879,17 @@ function exportExcel() {
 }
 
 function exportJSON() {
+  // Strip _saved e _ts (campos de controlo cliente — não devem ir para fora)
+  const cleanData = DATA.map(o => {
+    const c = Object.assign({}, o);
+    delete c._saved;
+    delete c._ts;
+    return c;
+  });
   const payload = {
     schemaVersion: 2,
     generatedAt: new Date().toISOString(),
-    data: DATA,
+    data: cleanData,
     settings: SETTINGS,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -5486,7 +5644,7 @@ async function importBufferXlsx(inputEl) {
     // Enviar cada uma via POST
     let ok = 0, fail = 0;
     for (const payload of created) {
-      try { const r = await Api.postOp(payload); if (r && r.ok) { DATA.push(r.op); ok++; } else { fail++; } }
+      try { const r = await Api.postOp(payload); if (r && r.ok) { _hydrateOpSaved(r.op); DATA.push(r.op); ok++; } else { fail++; } }
       catch (e) { console.error(e); fail++; }
     }
     setConnStatus('ok', '✓ Buffer: ' + ok + ' OPs importadas' + (fail ? ' · ' + fail + ' falhas' : ''));
