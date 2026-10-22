@@ -760,6 +760,55 @@ async function putSettings(settings) {
   return getSettings();
 }
 
+// Merge granular de UMA entrada dentro de uma chave de settings do tipo
+// mapa (ex.: turnosPorDia[dayKey], stops[machine], capacidades[machine]).
+// Faz leitura-fusão-gravação com `FOR UPDATE` para evitar race:
+// dois clientes a alterar `turnosPorDia['2026-10-20']` e `turnosPorDia['2026-10-21']`
+// ao mesmo tempo deixam ambos de sobrescrever o outro.
+//
+// - key: nome da chave em `settings` (ex.: 'turnosPorDia')
+// - entryKey: a chave do mapa interno (ex.: '2026-10-20')
+// - entry:
+//     objecto → faz Object.assign no entry actual (merge shallow)
+//     null/undefined → remove a entry
+//     primitivo/array → substitui o valor da entry
+// Devolve o mapa completo actualizado.
+async function mergeSettingEntry(key, entryKey, entry) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  if (!key || typeof key !== 'string') throw new Error('key inválida');
+  if (!entryKey || typeof entryKey !== 'string') throw new Error('entryKey inválida');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await client.query(`SELECT value FROM settings WHERE key = $1 FOR UPDATE`, [key]);
+    const cur = (r.rows.length && r.rows[0].value && typeof r.rows[0].value === 'object' && !Array.isArray(r.rows[0].value))
+                ? r.rows[0].value : {};
+    const next = Object.assign({}, cur);
+    if (entry === null || entry === undefined) {
+      delete next[entryKey];
+    } else if (typeof entry === 'object' && !Array.isArray(entry)) {
+      // Merge shallow sobre o entry actual (preserva campos não enviados)
+      const prevEntry = (next[entryKey] && typeof next[entryKey] === 'object' && !Array.isArray(next[entryKey])) ? next[entryKey] : {};
+      next[entryKey] = Object.assign({}, prevEntry, entry);
+    } else {
+      // substitui por completo (ex.: array ou primitivo)
+      next[entryKey] = entry;
+    }
+    await client.query(
+      `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [key, JSON.stringify(next)]
+    );
+    await client.query('COMMIT');
+    return next;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 async function deleteAllOps(updatedBy) {
   if (!pool) throw new Error('Sem ligação à BD.');
   const r = await pool.query('DELETE FROM ops');
@@ -800,6 +849,7 @@ module.exports = {
   deleteOp,
   getSettings,
   putSettings,
+  mergeSettingEntry,
   resetOps,
   SEED_OPS,
   // Backups

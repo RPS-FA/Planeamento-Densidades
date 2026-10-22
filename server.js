@@ -344,6 +344,30 @@ app.put('/api/settings', async (req, res) => {
   } catch (e) { sendError(res, e, 'PUT /api/settings falhou'); }
 });
 
+// PATCH /api/settings/entry — merge granular numa entrada de um mapa de settings.
+// Body: { key: 'turnosPorDia', entryKey: '2026-10-20', entry: {fechado:true} | null }
+// Resolve o problema de "dois utilizadores a fechar dias diferentes anulam-se":
+// cada chamada só mexe na entry pedida, com transacção FOR UPDATE no servidor.
+// Whitelist: só chaves do tipo mapa aceites. Produção limitada ao seu subconjunto.
+const SETTINGS_ENTRY_KEYS_PLANEADOR = ['turnosPorDia', 'turnosPorMaquina', 'stops', 'capacidades', 'calibresPorMaquina', 'tiposPorMaquina', 'diasBloqueados'];
+const SETTINGS_ENTRY_KEYS_PRODUCAO  = ['turnosPorDia', 'turnosPorMaquina', 'stops'];
+app.patch('/api/settings/entry', async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const profile = profileOf(req);
+    const body = req.body || {};
+    const key = (body.key || '').toString();
+    const entryKey = (body.entryKey || '').toString();
+    if (!key || !entryKey) return res.status(400).json({ ok: false, error: 'Falta key/entryKey.' });
+    const allowed = (profile === 'producao') ? SETTINGS_ENTRY_KEYS_PRODUCAO : SETTINGS_ENTRY_KEYS_PLANEADOR;
+    if (!allowed.includes(key)) {
+      return res.status(403).json({ ok: false, error: `Perfil ${profile} não pode editar ${key}. Permitidas: ${allowed.join(', ')}` });
+    }
+    const next = await db.mergeSettingEntry(key, entryKey, body.entry);
+    res.json({ ok: true, key, value: next });
+  } catch (e) { sendError(res, e, 'PATCH /api/settings/entry falhou'); }
+});
+
 // POST /api/admin/wipe — apaga TODAS as OPs (sem re-seed) — só Planeador
 app.post('/api/admin/wipe', async (req, res) => {
   if (!requireDb(res)) return;

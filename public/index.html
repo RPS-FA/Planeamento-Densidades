@@ -1472,6 +1472,18 @@ const Api = {
     if (!r.ok || body.ok === false) throw new Error(body.error || ('PUT /api/settings ' + r.status));
     return body;
   },
+  // PATCH /api/settings/entry — merge granular (ex.: fechar um dia específico sem
+  // tocar nos restantes). Devolve o mapa completo da chave após o merge.
+  async patchSettingEntry(key, entryKey, entry, profile) {
+    const r = await fetch(API_BASE + '/api/settings/entry', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Profile': profile || (typeof getProfile === 'function' ? getProfile() : 'planeador') },
+      body: JSON.stringify({ key, entryKey, entry }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.ok === false) throw new Error(body.error || ('PATCH /api/settings/entry ' + r.status));
+    return body;  // { ok:true, key, value: {entryKey: entry, ...} }
+  },
   async adminReset() {
     const r = await fetch(API_BASE + '/api/admin/reset', {
       method: 'POST',
@@ -2456,22 +2468,31 @@ function isReadOnly() { return isProducao(); }
 function isDayLocked(dayKey) {
   return !!(SETTINGS.diasBloqueados && SETTINGS.diasBloqueados[dayKey]);
 }
-function onDayLockToggle(dayKey) {
+async function onDayLockToggle(dayKey) {
   if (isProducao()) { showErrorToast('Sem permissão (perfil produção).'); return; }
   if (!SETTINGS.diasBloqueados) SETTINGS.diasBloqueados = {};
   const locked = !!SETTINGS.diasBloqueados[dayKey];
   if (locked) {
     if (!confirm('Desbloquear o dia ' + dayKey + '?\nAs OPs voltam a poder ser editadas.')) return;
-    delete SETTINGS.diasBloqueados[dayKey];
-    saveSettings();
+    // PATCH granular — remove só a entry desse dia, sem tocar nos restantes.
+    try {
+      const resp = await Api.patchSettingEntry('diasBloqueados', dayKey, null);
+      SETTINGS.diasBloqueados = resp.value || {};
+    } catch (e) {
+      showErrorToast('Falha ao desbloquear: ' + e.message); return;
+    }
     if (typeof showSuccessToast === 'function') showSuccessToast('🔓 Dia desbloqueado');
     rerender();
     return;
   }
   // Bloquear — apenas marca no SETTINGS. Não muta OPs (mantém as horas actuais tal como estão).
   if (!confirm('Bloquear o dia ' + dayKey + '?\nAs OPs deste dia ficam TAL COMO ESTÃO — sem possibilidade de edição.')) return;
-  SETTINGS.diasBloqueados[dayKey] = true;
-  saveSettings();
+  try {
+    const resp = await Api.patchSettingEntry('diasBloqueados', dayKey, true);
+    SETTINGS.diasBloqueados = resp.value || {};
+  } catch (e) {
+    showErrorToast('Falha ao bloquear: ' + e.message); return;
+  }
   setConnStatus('ok', '🔒 Dia ' + dayKey + ' bloqueado');
   if (typeof showSuccessToast === 'function') showSuccessToast('🔒 Dia bloqueado');
   rerender();
@@ -2481,16 +2502,16 @@ function isDayClosed(dayKey) {
   return !!(t && t.fechado);
 }
 
-function onDayClosedToggle(dayKey) {
+async function onDayClosedToggle(dayKey) {
   // Produção pode fechar/abrir dia
   pushUndo('Fechar/abrir dia ' + dayKey);
   if (!SETTINGS.turnosPorDia) SETTINGS.turnosPorDia = {};
   const cur = SETTINGS.turnosPorDia[dayKey] || { ini: '', fim: '' };
   const novo = !cur.fechado;
+  let newEntry;
   if (novo) {
     // Fechar: confirmar se há OPs nesse dia (avisa mas permite)
     const opsNoDia = DATA.filter(o => {
-      // Estimar diaIdx a partir de weekKey e diaIdx — comparar com o dayKey gerado
       if (!o.weekKey) return false;
       const m = /^(\d{4})-W(\d{2})$/.exec(o.weekKey);
       if (!m) return false;
@@ -2504,14 +2525,20 @@ function onDayClosedToggle(dayKey) {
     if (opsNoDia.length > 0) {
       if (!confirm(`Este dia tem ${opsNoDia.length} OP(s) planeadas. Marcar mesmo como fechado?`)) return;
     }
-    SETTINGS.turnosPorDia[dayKey] = Object.assign({}, cur, { fechado: true, ini: '', fim: '' });
+    newEntry = Object.assign({}, cur, { fechado: true, ini: '', fim: '' });
   } else {
-    delete SETTINGS.turnosPorDia[dayKey].fechado;
-    // Se ficar tudo vazio, apagar override
-    const t = SETTINGS.turnosPorDia[dayKey];
-    if (!t.ini && !t.fim) delete SETTINGS.turnosPorDia[dayKey];
+    const next = Object.assign({}, cur); delete next.fechado;
+    // Se ficar tudo vazio, remove a entry (null → delete)
+    newEntry = (!next.ini && !next.fim) ? null : next;
   }
-  saveSettings();
+  // PATCH granular — não interfere com outros dias que outros utilizadores
+  // possam estar a alterar em simultâneo.
+  try {
+    const resp = await Api.patchSettingEntry('turnosPorDia', dayKey, newEntry);
+    SETTINGS.turnosPorDia = resp.value || {};
+  } catch (e) {
+    showErrorToast('Falha ao gravar fecho de dia: ' + e.message); return;
+  }
   rerender();
 }
 
