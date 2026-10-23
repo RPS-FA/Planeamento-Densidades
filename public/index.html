@@ -1419,14 +1419,25 @@ const Api = {
     return r.json();
   },
   async putOp(id, op, profile) {
+    // Strippar campos de controlo cliente (_ts, _saved) do body — o PUT antigo
+    // NÃO deve enviar _ts: isso disparava optimistic locking no servidor e dava
+    // 409 em cascata porque saveData() não actualiza _ts entre chamadas.
+    // Quem precisar de locking usa Api.patchOp / persist(op) explicitamente.
+    const body = Object.assign({}, op);
+    delete body._ts; delete body._saved;
     const r = await fetch(API_BASE + '/api/ops/' + id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Profile': profile || 'planeador' },
-      body: JSON.stringify(op),
+      body: JSON.stringify(body),
     });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok || body.ok === false) throw new Error(body.error || ('PUT /api/ops ' + r.status));
-    return body;
+    const bodyR = await r.json().catch(() => ({}));
+    if (!r.ok || bodyR.ok === false) throw new Error(bodyR.error || ('PUT /api/ops ' + r.status));
+    // Se o servidor devolver a op com _ts fresco, actualizamos a referência em memória
+    if (bodyR.op && op && typeof op === 'object') {
+      op._ts = bodyR.op._ts || op._ts;
+      if (typeof _hydrateOpSaved === 'function') _hydrateOpSaved(op);
+    }
+    return bodyR;
   },
   // PATCH /api/ops/:id — merge por campo com optimistic locking (padrão WIM).
   // Devolve {ok:true, op} em sucesso; {notFound:true} se a OP já não existe;
@@ -1444,14 +1455,17 @@ const Api = {
     return body;  // {ok:true, op:{...,_ts}}
   },
   async postOp(op) {
+    // Strippar _ts/_saved — campos de controlo cliente, não devem ir no body.
+    const body = Object.assign({}, op);
+    delete body._ts; delete body._saved;
     const r = await fetch(API_BASE + '/api/ops', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Profile': 'planeador' },
-      body: JSON.stringify(op),
+      body: JSON.stringify(body),
     });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok || body.ok === false) throw new Error(body.error || ('POST /api/ops ' + r.status));
-    return body;
+    const bodyR = await r.json().catch(() => ({}));
+    if (!r.ok || bodyR.ok === false) throw new Error(bodyR.error || ('POST /api/ops ' + r.status));
+    return bodyR;
   },
   async deleteOp(id) {
     const r = await fetch(API_BASE + '/api/ops/' + id, {
