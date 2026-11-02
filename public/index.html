@@ -3660,39 +3660,71 @@ function createWeekTable(sched, wk, machine) {
     if (_prevEnd && item.start && (item.start - _prevEnd) > GAP_THRESHOLD_MS) {
       // Há OP a seguir → descontar 2 setups (antes + depois da OP a inserir).
       // Assim a capacidade disponível é o tempo produtivo líquido para uma nova OP.
-      const gapMs = (item.start - _prevEnd) - 2 * _setupMs_gap;
+      const _windowFrom = new Date(_prevEnd.getTime() + _setupMs_gap);
+      const _windowTo   = new Date(item.start.getTime() - _setupMs_gap);
+      let gapMs = _windowTo - _windowFrom;
+      // Subtrair paragens (refeições + stops configurados) que caem dentro da janela.
+      // Sem isto, o VAZIO mostra tempo produtivo irreal durante almoços / feriados.
+      try {
+        const _overlap = (aS, aE, bS, bE) => Math.max(0, Math.min(aE, bE) - Math.max(aS, bS));
+        let _stopMs = 0;
+        // Refeições — iterar por cada dia na janela (geralmente 1 dia, no máximo 2)
+        const _d = new Date(_windowFrom); _d.setHours(0, 0, 0, 0);
+        const _dEnd = new Date(_windowTo);
+        let _guard = 0;
+        while (_d <= _dEnd && _guard++ < 10) {
+          const _meals = (typeof getMealBreaksForDate === 'function') ? (getMealBreaksForDate(_d, machine) || []) : [];
+          for (const m of _meals) {
+            if (m && m.start && m.end) _stopMs += _overlap(_windowFrom.getTime(), _windowTo.getTime(), m.start.getTime(), m.end.getTime());
+          }
+          _d.setDate(_d.getDate() + 1);
+        }
+        // Paragens configuradas da máquina (feriados, manutenção, etc.)
+        if (typeof getStops === 'function' && typeof getStopRange === 'function') {
+          const _stops = getStops(machine).map(getStopRange).filter(s => s && s.start && s.end);
+          for (const s of _stops) {
+            _stopMs += _overlap(_windowFrom.getTime(), _windowTo.getTime(), s.start.getTime(), s.end.getTime());
+          }
+        }
+        gapMs = Math.max(0, gapMs - _stopMs);
+      } catch (e) { /* fallback: usa gapMs sem desconto */ }
+      // Se não sobrou tempo produtivo após descontar paragens, não desenha linha VAZIO
+      // (mas continua a renderização da OP seguinte abaixo).
+      const _showGap = gapMs > 60 * 1000;
       const gapH = gapMs / 3600000;
       const gapRolhas = Math.max(0, Math.round(gapH * _krH_gap));
       const _fmtHm = (d) => pad(d.getHours()) + ':' + pad(d.getMinutes());
       const totalMin = Math.round(gapMs / 60000);
       const _durTxt = totalMin >= 60 ? (Math.floor(totalMin / 60) + 'h ' + (totalMin % 60) + 'min') : (totalMin + ' min');
-      const gapTr = document.createElement('tr');
-      gapTr.className = 'row-gap';
-      gapTr.innerHTML = '<td colspan="' + _colspanTotal + '">' +
-        '⏸ <b>VAZIO</b> · ' + _fmtHm(new Date(_prevEnd.getTime() + _setupMs_gap)) + ' → ' + _fmtHm(new Date(item.start.getTime() - _setupMs_gap)) + ' · ' + _durTxt +
-        (gapRolhas > 0 ? '<span class="gap-livre">' + gapRolhas.toLocaleString('pt-PT') + ' rolhas disponíveis</span>' : '') +
-      '</td>';
-      // Drop target — largar aqui insere ANTES da OP `item` (via moveOpRelativeTo before)
-      if (!isReadOnly()) {
-        const _nextOp = item.op;
-        gapTr.addEventListener('dragover', e => {
-          if (!draggedOp || draggedOp.id === _nextOp.id) return;
-          e.preventDefault(); e.stopPropagation();
-          e.dataTransfer.dropEffect = 'move';
-          gapTr.classList.add('drop-into-gap');
-        });
-        gapTr.addEventListener('dragleave', () => gapTr.classList.remove('drop-into-gap'));
-        gapTr.addEventListener('drop', e => {
-          e.preventDefault(); e.stopPropagation();
-          gapTr.classList.remove('drop-into-gap');
-          if (!draggedOp || draggedOp.id === _nextOp.id) return;
-          const zone = gapTr.closest('[data-day-key]');
-          const dropCtx = zone ? { dayKey: zone.dataset.dayKey, weekKey: zone.dataset.weekKey, machine: zone.dataset.machine } : null;
-          moveOpRelativeTo(draggedOp, _nextOp, 'before', dropCtx);
-          draggedOp = null;
-        });
+      const gapTr = _showGap ? document.createElement('tr') : null;
+      if (gapTr) {
+        gapTr.className = 'row-gap';
+        gapTr.innerHTML = '<td colspan="' + _colspanTotal + '">' +
+          '⏸ <b>VAZIO</b> · ' + _fmtHm(_windowFrom) + ' → ' + _fmtHm(_windowTo) + ' · ' + _durTxt +
+          (gapRolhas > 0 ? '<span class="gap-livre">' + gapRolhas.toLocaleString('pt-PT') + ' rolhas disponíveis</span>' : '') +
+        '</td>';
+        // Drop target — largar aqui insere ANTES da OP `item` (via moveOpRelativeTo before)
+        if (!isReadOnly()) {
+          const _nextOp = item.op;
+          gapTr.addEventListener('dragover', e => {
+            if (!draggedOp || draggedOp.id === _nextOp.id) return;
+            e.preventDefault(); e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            gapTr.classList.add('drop-into-gap');
+          });
+          gapTr.addEventListener('dragleave', () => gapTr.classList.remove('drop-into-gap'));
+          gapTr.addEventListener('drop', e => {
+            e.preventDefault(); e.stopPropagation();
+            gapTr.classList.remove('drop-into-gap');
+            if (!draggedOp || draggedOp.id === _nextOp.id) return;
+            const zone = gapTr.closest('[data-day-key]');
+            const dropCtx = zone ? { dayKey: zone.dataset.dayKey, weekKey: zone.dataset.weekKey, machine: zone.dataset.machine } : null;
+            moveOpRelativeTo(draggedOp, _nextOp, 'before', dropCtx);
+            draggedOp = null;
+          });
+        }
+        tbody.appendChild(gapTr);
       }
-      tbody.appendChild(gapTr);
     }
     if (item.end) _prevEnd = item.end;
     const op = item.op;
