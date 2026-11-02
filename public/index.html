@@ -1432,10 +1432,13 @@ const Api = {
     });
     const bodyR = await r.json().catch(() => ({}));
     if (!r.ok || bodyR.ok === false) throw new Error(bodyR.error || ('PUT /api/ops ' + r.status));
-    // Se o servidor devolver a op com _ts fresco, actualizamos a referência em memória
+    // Se o servidor devolver a op com _ts fresco, actualizamos a referência em memória.
+    // IMPORTANTE: _saved tem de ser snap do que o SERVIDOR gravou (bodyR.op),
+    // NÃO snap da referência local — o utilizador pode ter mutado `op` durante o await
+    // (ex.: drag concurrente). Snap da ref local silenciava a alteração seguinte.
     if (bodyR.op && op && typeof op === 'object') {
       op._ts = bodyR.op._ts || op._ts;
-      if (typeof _hydrateOpSaved === 'function') _hydrateOpSaved(op);
+      if (typeof snapOp === 'function') op._saved = snapOp(bodyR.op);
     }
     return bodyR;
   },
@@ -5258,11 +5261,13 @@ function importJSON(event) {
       if (Array.isArray(p)) {
         DATA = p;
         migrateMachineNames(DATA);
+        DATA.forEach(_hydrateOpSaved);
         saveData(); rerender();
         alert(`Importadas ${p.length} OPs.`);
       } else if (p && Array.isArray(p.data)) {
         DATA = p.data;
         migrateMachineNames(DATA);
+        DATA.forEach(_hydrateOpSaved);
         saveData();
         if (p.settings) {
           migrateSettingsMachineNames(p.settings);
@@ -5288,6 +5293,7 @@ async function resetData() {
     setConnStatus('loading', 'A repor...');
     const r = await Api.adminReset();
     DATA = Array.isArray(r.ops) ? r.ops : [];
+    DATA.forEach(_hydrateOpSaved);
     setConnStatus('ok', 'Reposto · ' + new Date().toLocaleTimeString('pt-PT'));
     rerender();
   } catch (e) {
@@ -5759,15 +5765,51 @@ function _utilizadorAEditar() {
   if (el.isContentEditable) return true;
   return false;
 }
+// mergeState — reconcilia DATA com estado do servidor sem perder edições locais:
+// * respeita PENDING (não sobrescreve OPs cujas gravações ainda não confirmaram)
+// * hidrata _saved em todas as OPs frescas do servidor (baseline para o próximo diff)
+// Chamado pelo auto-refresh periódico abaixo.
+function mergeState(state) {
+  const srv = Array.isArray(state && state.ops) ? state.ops : [];
+  migrateMachineNames(srv);
+  const localMap = {};
+  (DATA || []).forEach(o => { if (o && typeof o.id === 'number') localMap[o.id] = o; });
+  const srvIds = new Set();
+  const merged = [];
+  // 1) Para cada OP do servidor: usar versão local se tiver edição pendente,
+  //    caso contrário usar a do servidor (fresca) e hidratar.
+  for (const srvOp of srv) {
+    if (srvOp == null || typeof srvOp.id !== 'number') continue;
+    srvIds.add(srvOp.id);
+    if (PENDING.has(srvOp.id) && localMap[srvOp.id]) {
+      // Edição por confirmar — manter versão local; não hidratar (ia apagar o diff)
+      merged.push(localMap[srvOp.id]);
+    } else {
+      _hydrateOpSaved(srvOp);
+      merged.push(srvOp);
+    }
+  }
+  // 2) Preservar OPs locais criadas que ainda não existem no servidor (POST em-voo)
+  (DATA || []).forEach(o => {
+    if (o && typeof o.id === 'number' && !srvIds.has(o.id) && PENDING.has(o.id)) {
+      merged.push(o);
+    }
+  });
+  DATA = merged;
+  applyServerSettings(state.settings || {});
+  if (typeof applySettingsToUI === 'function') applySettingsToUI();
+}
+
 setInterval(async () => {
   if (_modalAberto()) return;
   if (_utilizadorAEditar()) return;  // não destruir o que está a ser digitado
   try {
+    // Tenta re-gravar OPs com persist pendente antes do refresh
+    if (typeof retryPending === 'function' && PENDING.size > 0) {
+      await retryPending().catch(() => {});
+    }
     const state = await Api.getState();
-    DATA = Array.isArray(state.ops) ? state.ops : [];
-    migrateMachineNames(DATA);
-    applyServerSettings(state.settings || {});
-    if (typeof applySettingsToUI === 'function') applySettingsToUI();
+    mergeState(state);
     rerender();
     setConnStatus('ok', 'Ligado · ' + new Date().toLocaleTimeString('pt-PT'));
   } catch (e) {
