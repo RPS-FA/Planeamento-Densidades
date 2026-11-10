@@ -4157,10 +4157,19 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
   const _destinoMachine = opTarget.maquina;
   const _destinoRefDate = _findOpItemStart(_destinoMachine, opTarget.id);
   const _frozenDestino = (_destinoMachine && _destinoMachine !== _origemMachine && _destinoRefDate) ? freezeSubsequentAutoOps(_destinoMachine, _destinoRefDate) : [];
-  // Derivar targetWeek/targetDiaIdx PRIMEIRO (do dropCtx quando disponível)
+  // Derivar targetWeek/targetDiaIdx.
+  // Regra (fix 2026-11):
+  //   - Semântica "antes/depois desta OP" → por omissão, 568 deve ficar no MESMO
+  //     dia contratual que opTarget (diaIdx), senão o scheduler ordena por (weekKey,
+  //     diaIdx, sortIdx) e larga 568 noutro bloco do dia, ignorando o sortIdx que
+  //     acabámos de atribuir.
+  //   - Só sobrepor com o dropCtx (dia visual) quando é claramente um drop
+  //     cross-week — opTarget cascata de uma semana anterior para a semana visual.
+  //     Nesse caso visual ≠ contratual e o utilizador quer a OP na semana visual.
   let targetWeek = opTarget.weekKey;
   let targetDiaIdx = opTarget.diaIdx;
-  if (dropCtx && dropCtx.dayKey) {
+  if (dropCtx && dropCtx.dayKey && dropCtx.weekKey && dropCtx.weekKey !== opTarget.weekKey) {
+    // Cross-week cascade — drop visual noutra semana. Usar visual.
     const [_dy, _dm, _dd] = dropCtx.dayKey.split('-').map(Number);
     const _dt = new Date(_dy, _dm - 1, _dd);
     targetWeek = weekKey(_dt);
@@ -4189,7 +4198,8 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
     opMoved.weekKey = targetWeek;
     if (opMoved.estado === 'KANBAN') opMoved.estado = 'Aberto';
   }
-  // Acertar o diaIdx para o dia visual onde foi largada (via dropCtx) ou fallback ao target
+  // Acertar o diaIdx — por omissão o diaIdx de opTarget (same-week drop),
+  // ou o dia visual (cross-week cascade). Mantém intenção "antes/depois" no scheduler.
   if (targetDiaIdx != null) opMoved.diaIdx = targetDiaIdx;
   peers.splice(insertIdx, 0, opMoved);
   peers.forEach((o, i) => { o.sortIdx = i; });
