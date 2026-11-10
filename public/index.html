@@ -1968,13 +1968,13 @@ function loadSettings() { ensureSettingsShape(); }
 const UNDO_STACK = [];
 const UNDO_LIMIT = 20;
 function pushUndo(label) {
-  // Strippar _saved e _ts antes de snapshotar — caso contrário duplica memória
-  // e o undo restaura um _saved desactualizado que esconde diffs reais.
+  // Strippa _saved antes de snapshotar (duplica memória sem valor).
+  // Preserva _ts: no doUndo detectamos conflitos (OPs modificadas por outros users
+  // entre o push e o undo) comparando snapshot._ts com current._ts.
   const _clean = DATA.map(o => {
     const c = Object.assign({}, o);
     delete c._saved;
-    delete c._ts;
-    return c;
+    return c;  // mantém _ts para detecção de conflito
   });
   UNDO_STACK.push({
     label: label || 'Acção',
@@ -2006,33 +2006,93 @@ async function doUndo() {
   const oldData = last.data;
   const oldById = new Map(oldData.map(o => [o.id, o]));
   const curById = new Map(DATA.map(o => [o.id, o]));
-  const toDelete = [];
+
+  // PRINCÍPIO WIM Ponto 6: NUNCA apagar OPs que não estão no snapshot.
+  // Podem ter sido criadas por outros utilizadores entre o push e o undo,
+  // e o utilizador não espera que o seu undo destrua trabalho alheio.
+  // (Foi este o bug que causou a perda da OP 13404566 em 5/6-Nov.)
   const toRecreate = [];
-  const toUpdate = [];
-  for (const id of curById.keys()) if (!oldById.has(id)) toDelete.push(id);
+  const toPatch = [];  // {current, patch, mayStomp} — só os campos que diferem
+  let mayStompCount = 0;  // OPs onde o servidor avançou _ts desde o push (pode sobrepor outras edições)
   for (const o of oldData) {
     if (curById.has(o.id)) {
-      // payload diferente → update
-      if (JSON.stringify(curById.get(o.id)) !== JSON.stringify(o)) toUpdate.push(o);
+      const cur = curById.get(o.id);
+      const patch = {};
+      for (const k in o) {
+        if (k === 'id' || k === '_ts' || k === '_saved') continue;
+        if (JSON.stringify(o[k]) !== JSON.stringify(cur[k])) patch[k] = o[k];
+      }
+      if (Object.keys(patch).length > 0) {
+        // Detectar se a OP foi tocada por outro utilizador entretanto
+        const mayStomp = (o._ts && cur._ts && o._ts !== cur._ts);
+        if (mayStomp) mayStompCount++;
+        toPatch.push({ current: cur, patch, mayStomp });
+      }
     } else {
-      // foi apagada → recriar (servidor gera novo id)
+      // Estava no snapshot mas desapareceu — foi apagada (por nós ou outro) → recriar
       toRecreate.push(o);
     }
   }
+
+  let okRecreate = 0, failRecreate = 0;
+  let okPatch = 0, conflictPatch = 0, failPatch = 0;
   try {
-    for (const id of toDelete) await Api.deleteOp(id);
-    for (const op of toRecreate) { const cp = Object.assign({}, op); delete cp.id; await Api.postOp(cp); }
-    for (const op of toUpdate)   await Api.putOp(op.id, op, 'planeador');
-    // Settings — sync se mudaram
+    // 1) Recriar OPs que estavam no snapshot e foram apagadas
+    for (const op of toRecreate) {
+      const cp = Object.assign({}, op);
+      delete cp.id; delete cp._ts; delete cp._saved;
+      try {
+        const r = await Api.postOp(cp);
+        if (r && r.op) { _hydrateOpSaved(r.op); DATA.push(r.op); okRecreate++; }
+      } catch (e) { console.warn('[undo] falha recreate', op.op, e.message); failRecreate++; }
+    }
+    // 2) Aplicar diff via PATCH com optimistic locking — nunca stompa updates de outros
+    //    utilizadores a campos diferentes.
+    for (const { current, patch } of toPatch) {
+      try {
+        let r = await Api.patchOp(current.id, patch, current._ts);
+        if (r.conflict && r.op) {
+          // Outro utilizador editou entretanto — re-sincroniza o _ts e re-tenta uma vez
+          Object.assign(current, r.op);
+          current._ts = r.op._ts || current._ts;
+          current._saved = snapOp(r.op);
+          r = await Api.patchOp(current.id, patch, current._ts);
+          if (r.conflict) { conflictPatch++; continue; }
+        }
+        if (r.notFound) {
+          // A OP desapareceu durante o undo (apagada por outro) — passa a recreate
+          const cp = Object.assign({}, current, patch);
+          delete cp.id; delete cp._ts; delete cp._saved;
+          try { const rp = await Api.postOp(cp); if (rp && rp.op) { _hydrateOpSaved(rp.op); DATA.push(rp.op); okRecreate++; } } catch (e) { failRecreate++; }
+          const idx = DATA.findIndex(x => x && x.id === current.id);
+          if (idx >= 0) DATA.splice(idx, 1);
+          continue;
+        }
+        if (r.ok && r.op) { Object.assign(current, r.op); current._saved = snapOp(r.op); current._ts = r.op._ts; okPatch++; }
+      } catch (e) { console.warn('[undo] falha patch', current.id, e.message); failPatch++; }
+    }
+    // 3) Settings — sync se mudaram (chave-a-chave via putSettings existente).
+    //    A granularidade por entrada (patchSettingEntry) será adoptada quando o
+    //    próprio snapshot de pushUndo acompanhar o diff a esse nível.
     const settingsDiff = JSON.stringify(SETTINGS || {}) !== JSON.stringify(last.settings || {});
     if (settingsDiff && typeof Api.putSettings === 'function') {
       await Api.putSettings(last.settings);
     }
-    // Re-fetch state do servidor para garantir consistência (IDs novos depois de recreate)
+    // 4) Re-fetch state do servidor para garantir consistência (IDs novos depois de recreate)
     const st = await Api.getState();
     if (st && st.ops) { DATA = st.ops; DATA.forEach(_hydrateOpSaved); }
     if (st && st.settings) applyServerSettings(st.settings);
-    setConnStatus('ok', '↶ Desfeito: ' + last.label);
+    // Report
+    const _parts = [];
+    if (okRecreate) _parts.push(okRecreate + ' recriada(s)');
+    if (okPatch) _parts.push(okPatch + ' reposta(s)');
+    if (conflictPatch) _parts.push('⚠ ' + conflictPatch + ' em conflito (mantidas)');
+    if (failRecreate || failPatch) _parts.push('✗ ' + (failRecreate + failPatch) + ' falhas');
+    const _summary = _parts.length ? ' · ' + _parts.join(' · ') : '';
+    setConnStatus('ok', '↶ Desfeito: ' + last.label + _summary);
+    if (mayStompCount > 0 && typeof showErrorToast === 'function') {
+      showErrorToast('⚠ Undo: ' + mayStompCount + ' OP(s) tinham sido editadas por outro(s) utilizador(es) entretanto. As alterações deles podem ter sido sobrepostas.');
+    }
     rerender();
   } catch (e) {
     setConnStatus('error', 'Falha no undo');
