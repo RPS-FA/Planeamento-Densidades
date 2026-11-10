@@ -4040,7 +4040,11 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
           'Configurações → "Tipos de produto autorizados por máquina".');
     return;
   }
-  // Bloqueio de dia
+  // Bloqueio de dia — IMPORTANTE: o alvo tem de ser o dia VISUAL onde se largou,
+  // não o `opTarget.diaIdx`. Se a OP-alvo for uma cascata visual (começou num dia
+  // anterior e transbordou para o seguinte), o seu diaIdx aponta para o dia anterior
+  // — se esse dia anterior estiver bloqueado, o drop no dia desbloqueado seguinte
+  // seria rejeitado erradamente. (Mesmo padrão da correcção da task #117 para "passado".)
   const _mKey = (op) => {
     if (!op.weekKey || typeof op.diaIdx !== 'number') return null;
     const monday = isoWeekToMonday(op.weekKey);
@@ -4049,7 +4053,7 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
     return fmtDate(dt);
   };
   const _movedDay = _mKey(opMoved);
-  const _targetDay = _mKey(opTarget);
+  const _targetDay = (dropCtx && dropCtx.dayKey) ? dropCtx.dayKey : _mKey(opTarget);
   if ((_movedDay && isDayLocked(_movedDay)) || (_targetDay && isDayLocked(_targetDay))) {
     alert('🔒 Dia bloqueado\n\nNão é possível mover OPs de/para dias bloqueados.');
     return;
