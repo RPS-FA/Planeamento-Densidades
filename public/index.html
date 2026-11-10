@@ -1968,10 +1968,18 @@ function loadSettings() { ensureSettingsShape(); }
 const UNDO_STACK = [];
 const UNDO_LIMIT = 20;
 function pushUndo(label) {
+  // Strippar _saved e _ts antes de snapshotar — caso contrário duplica memória
+  // e o undo restaura um _saved desactualizado que esconde diffs reais.
+  const _clean = DATA.map(o => {
+    const c = Object.assign({}, o);
+    delete c._saved;
+    delete c._ts;
+    return c;
+  });
   UNDO_STACK.push({
     label: label || 'Acção',
     ts: Date.now(),
-    data: JSON.parse(JSON.stringify(DATA)),
+    data: JSON.parse(JSON.stringify(_clean)),
     settings: JSON.parse(JSON.stringify(SETTINGS || {})),
   });
   if (UNDO_STACK.length > UNDO_LIMIT) UNDO_STACK.shift();
@@ -3539,10 +3547,33 @@ function renderDayMachineSubzone(dayKey, machine, items) {
       return min + 'min';
     };
     const durMs = (inicio && fim) ? Math.max(0, fim - inicio) : 0;
-    const durStr = _fmtDur(durMs);
-    // Capacidade em rolhas — durMs (produtivo) × krH (aprox — sem descontar refeições ao longo do intervalo)
+    // Tempo produtivo real — subtrai paragens (refeições + stops configurados)
+    // que caiam dentro do intervalo [inicio, fim]. Evita sobrestimar capacidade
+    // quando o fim-de-dia atravessa almoço ou feriados parciais.
+    let prodMs = durMs;
+    if (inicio && fim && durMs > 0) {
+      try {
+        const _overlap = (aS, aE, bS, bE) => Math.max(0, Math.min(aE, bE) - Math.max(aS, bS));
+        let _stopMs = 0;
+        // Refeições do dia (a zona VAZIO é sempre dentro do mesmo turno/dia)
+        const _meals = (typeof getMealBreaksForDate === 'function') ? (getMealBreaksForDate(refDate, machine) || []) : [];
+        for (const m of _meals) {
+          if (m && m.start && m.end) _stopMs += _overlap(inicio.getTime(), fim.getTime(), m.start.getTime(), m.end.getTime());
+        }
+        // Paragens configuradas da máquina
+        if (typeof getStops === 'function' && typeof getStopRange === 'function') {
+          const _stops = getStops(machine).map(getStopRange).filter(s => s && s.start && s.end);
+          for (const s of _stops) {
+            _stopMs += _overlap(inicio.getTime(), fim.getTime(), s.start.getTime(), s.end.getTime());
+          }
+        }
+        prodMs = Math.max(0, durMs - _stopMs);
+      } catch (e) { /* fallback: usa durMs sem desconto */ }
+    }
+    const durStr = _fmtDur(prodMs);
+    // Capacidade em rolhas = tempo PRODUTIVO (já sem paragens) × krH
     const _krH = (SETTINGS.capacidades[machine] && SETTINGS.capacidades[machine].krH) || 0;
-    const _capRolhas = Math.round((durMs / 3600000) * _krH);
+    const _capRolhas = Math.round((prodMs / 3600000) * _krH);
     const _livre = Math.max(0, _capRolhas);
     const rangeStr = (inicio && fim) ? (_fmtDT(inicio) + ' → ' + _fmtDT(fim)) : '';
     plan.innerHTML =
@@ -4084,7 +4115,15 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
   pushUndo('Reordenar OP ' + (opMoved.op || opMoved.id));
   const peers = DATA.filter(o => o.maquina === targetMachine && o.weekKey === targetWeek && o.id !== opMoved.id).sort((a, b) => (a.sortIdx ?? 0) - (b.sortIdx ?? 0));
   const tIdx = peers.findIndex(o => o.id === opTarget.id);
-  const insertIdx = position === 'before' ? tIdx : (tIdx >= 0 ? tIdx + 1 : peers.length);
+  // Se opTarget não estiver na semana/máquina destino (ex.: é cascata visual de outra
+  // semana), findIndex devolve -1 — com 'before' isso dava splice(-1, 0, ...) que
+  // insere na PENÚLTIMA posição. Fix: cair para o fim da lista do destino.
+  let insertIdx;
+  if (tIdx < 0) {
+    insertIdx = peers.length;
+  } else {
+    insertIdx = position === 'before' ? tIdx : tIdx + 1;
+  }
   if (opMoved.maquina !== targetMachine || opMoved.weekKey !== targetWeek) {
     opMoved.maquina = targetMachine;
     opMoved.weekKey = targetWeek;
