@@ -2112,6 +2112,8 @@ function _scheduleSaveToast(msg) {
     if (typeof showSuccessToast === 'function') showSuccessToast(msg);
   }, 350);
 }
+// Flag global — mergeState respeita para não sobrescrever settings locais durante PUT em-voo.
+var _settingsPutInflight = 0;
 function saveSettings() {
   const payload = isProducao()
     ? {
@@ -2120,13 +2122,14 @@ function saveSettings() {
         stops: SETTINGS.stops || {},
       }
     : SETTINGS;
+  _settingsPutInflight++;
   Api.putSettings(payload).then(() => {
     setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
     _scheduleSaveToast('✓ Gravado');
   }).catch(e => {
     setConnStatus('error', 'Sem ligação');
     showErrorToast('Falha ao guardar definições: ' + e.message);
-  });
+  }).finally(() => { _settingsPutInflight = Math.max(0, _settingsPutInflight - 1); });
 }
 
 function applySettingsToUI() {
@@ -2197,6 +2200,7 @@ function clearSettingsDirty() {
   if (hint) hint.textContent = '';
 }
 function saveSettingsExplicit() {
+  _settingsPutInflight++;
   Api.putSettings(SETTINGS).then(() => {
     setConnStatus('ok', '✓ Definições guardadas · ' + new Date().toLocaleTimeString('pt-PT'));
     clearSettingsDirty();
@@ -2204,7 +2208,7 @@ function saveSettingsExplicit() {
   }).catch(e => {
     setConnStatus('error', 'Sem ligação');
     showErrorToast('Falha ao guardar definições: ' + e.message);
-  });
+  }).finally(() => { _settingsPutInflight = Math.max(0, _settingsPutInflight - 1); });
 }
 
 function updateGlobalCapacityStatus() {
@@ -2460,12 +2464,27 @@ function saveData() {
   setTimeout(async () => {
     _saveDataPending = false;
     const profile = (typeof getProfile === 'function') ? getProfile() : 'planeador';
+    const ops = DATA.filter(o => o && typeof o.id === 'number');
+    // CRÍTICO: marcar como PENDING ANTES do await. Caso contrário, se o
+    // auto-refresh de 30s disparar durante o PUT, o mergeState substitui
+    // DATA pela versão antiga do servidor → edições "desaparecem".
+    ops.forEach(o => PENDING.add(o.id));
     try {
-      // Faz PUT de cada OP (servidor é idempotente). Em paralelo (Promise.all).
-      const puts = DATA.filter(o => o && typeof o.id === 'number').map(o => Api.putOp(o.id, o, profile));
-      await Promise.all(puts);
-      setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
+      const results = await Promise.allSettled(ops.map(o => Api.putOp(o.id, o, profile)));
+      // Limpar PENDING só nas que foram OK — as rejected ficam para retry
+      let okN = 0, failN = 0;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') { PENDING.delete(ops[i].id); okN++; }
+        else failN++;
+      });
+      if (failN === 0) {
+        setConnStatus('ok', 'Guardado · ' + new Date().toLocaleTimeString('pt-PT'));
+      } else {
+        setConnStatus('error', 'Falhas: ' + failN + ' (ficam em fila)');
+      }
     } catch (e) {
+      // Se Promise.allSettled lançar (não deveria), limpar tudo defensivamente
+      ops.forEach(o => PENDING.delete(o.id));
       setConnStatus('error', 'Falha ao guardar');
       showErrorToast('Algumas alterações podem não ter sido guardadas: ' + e.message);
     }
@@ -5942,13 +5961,21 @@ function mergeState(state) {
     }
   });
   DATA = merged;
-  applyServerSettings(state.settings || {});
-  if (typeof applySettingsToUI === 'function') applySettingsToUI();
+  // Só substituir settings locais se não houver PUT de settings em curso — senão
+  // o merge pode trazer settings antigas do servidor (ex.: dia que acabei de fechar
+  // volta a aparecer aberto durante o round-trip).
+  if (_settingsPutInflight === 0) {
+    applyServerSettings(state.settings || {});
+    if (typeof applySettingsToUI === 'function') applySettingsToUI();
+  }
 }
 
 setInterval(async () => {
   if (_modalAberto()) return;
   if (_utilizadorAEditar()) return;  // não destruir o que está a ser digitado
+  if (typeof draggedOp !== 'undefined' && draggedOp) return;  // drag em curso: NUNCA rerender (destrói handlers)
+  // Se alguma rede DnD/menu nativo tem o foco, também não rerender
+  if (document.querySelector('.dragging')) return;
   try {
     // Tenta re-gravar OPs com persist pendente antes do refresh
     if (typeof retryPending === 'function' && PENDING.size > 0) {
