@@ -2497,7 +2497,9 @@ function saveData() {
 async function deleteOpAndPersist(id, label) {
   if (typeof id !== 'number') return;
   const _op = DATA.find(o => o.id === id);
-  if (_op && _op.weekKey && typeof _op.diaIdx === 'number') {
+  // Guard "dia bloqueado" só se aplica a OPs com planeamento real (máquina produtiva).
+  // Em BUFFER/KANBAN o weekKey/diaIdx são herdados da importação e não representam planeamento.
+  if (_op && _op.maquina && _op.maquina !== 'BUFFER' && _op.maquina !== 'KANBAN' && _op.weekKey && typeof _op.diaIdx === 'number') {
     const monday = isoWeekToMonday(_op.weekKey);
     if (monday) {
       const dt = new Date(monday); dt.setDate(monday.getDate() + (_op.diaIdx || 0));
@@ -4720,8 +4722,10 @@ function saveOP() {
   };
   // dataPlano é MERAMENTE INDICATIVO — não sincroniza weekKey/diaIdx.
   // O planeamento é definido apenas pela posição na tabela (drag-and-drop).
-  // Bloqueio de dia — se a OP editada tem dia inicial bloqueado, impedir alteração de campos "planeamento"
-  if (editingOP) {
+  // Bloqueio de dia — só se aplica a OPs com planeamento REAL (maquina produtiva).
+  // Para OPs em BUFFER ou KANBAN o weekKey/diaIdx são valores herdados da importação
+  // ou placeholders e NÃO representam planeamento real — não deve haver guard.
+  if (editingOP && editingOP.maquina && editingOP.maquina !== 'BUFFER' && editingOP.maquina !== 'KANBAN') {
     const _opDayKey = (function() {
       if (!editingOP.weekKey) return null;
       const monday = isoWeekToMonday(editingOP.weekKey);
