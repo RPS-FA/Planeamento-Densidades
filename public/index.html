@@ -4187,17 +4187,29 @@ function moveOpRelativeTo(opMoved, opTarget, position, dropCtx) {
   //   - Só sobrepor com o dropCtx (dia visual) quando é claramente um drop
   //     cross-week — opTarget cascata de uma semana anterior para a semana visual.
   //     Nesse caso visual ≠ contratual e o utilizador quer a OP na semana visual.
+  //
+  // IMPORTANTE: GUARDS (passado/bloqueado) usam SEMPRE o dia VISUAL — porque o
+  // utilizador vê o dia visual no ecrã, não o diaIdx contratual de opTarget.
+  // Ex.: opTarget cascata contratualmente 11/11 (ontem), visualmente em 13/11
+  // (Sexta, futuro) — o guard "passado" deve avaliar 13/11, não 11/11.
+  let guardWeek = opTarget.weekKey;
+  let guardDiaIdx = opTarget.diaIdx;
+  if (dropCtx && dropCtx.dayKey && dropCtx.weekKey) {
+    const [_gy, _gm, _gd] = dropCtx.dayKey.split('-').map(Number);
+    const _gdt = new Date(_gy, _gm - 1, _gd);
+    guardWeek = weekKey(_gdt);
+    guardDiaIdx = (_gdt.getDay() + 6) % 7;
+  }
+
   let targetWeek = opTarget.weekKey;
   let targetDiaIdx = opTarget.diaIdx;
   if (dropCtx && dropCtx.dayKey && dropCtx.weekKey && dropCtx.weekKey !== opTarget.weekKey) {
-    // Cross-week cascade — drop visual noutra semana. Usar visual.
-    const [_dy, _dm, _dd] = dropCtx.dayKey.split('-').map(Number);
-    const _dt = new Date(_dy, _dm - 1, _dd);
-    targetWeek = weekKey(_dt);
-    targetDiaIdx = (_dt.getDay() + 6) % 7;
+    // Cross-week cascade — drop visual noutra semana. Placement também vai para visual.
+    targetWeek = guardWeek;
+    targetDiaIdx = guardDiaIdx;
   }
-  // Proteção contra mover para o passado (usa os valores derivados, não do opTarget)
-  const _targetPast = _isDateInPast(targetWeek, targetDiaIdx);
+  // Proteção contra mover para o passado — usa SEMPRE os valores VISUAIS (guard*).
+  const _targetPast = _isDateInPast(guardWeek, guardDiaIdx);
   if (_targetPast) {
     const _dstr = pad(_targetPast.getDate()) + '/' + pad(_targetPast.getMonth()+1) + '/' + _targetPast.getFullYear();
     if (!confirm('⚠ Mover para o passado\n\nO alvo está em ' + _dstr + ', anterior a hoje.\n\nContinuar?')) return;
