@@ -4746,11 +4746,14 @@ function saveOP() {
       return fmtDate(dt);
     })();
     if (_opDayKey && isDayLocked(_opDayKey) && !editingSegDayKey) {
-      // Permitir só se estivermos a editar um segmento específico (registo de reais/atraso ok)
-      // Verificar se algum campo de planeamento mudou
-      const _plCampos = ['op','poPedido','fileCliente','produto','calibre','massas','qtdEntrada','destino','estado','inicioMode','hInicioP','maquina','weekKey','diaIdx','dataPlano'];
+      // Guard de dia bloqueado: só dispara se algum campo REALMENTE de planeamento
+      // for alterado (mexe no cálculo do scheduler ou na posição no plano).
+      // Campos "soft" (op, poPedido, fileCliente, destino, estado, obsPi, dataPlano,
+      // colaborador, obs) são anotações administrativas e podem ser editadas
+      // livremente mesmo em dias bloqueados.
+      const _plCampos = ['produto','calibre','massas','qtdEntrada','inicioMode','hInicioP','maquina','weekKey','diaIdx'];
       const _mudou = _plCampos.some(k => JSON.stringify(editingOP[k] || '') !== JSON.stringify(data[k] || ''));
-      if (_mudou) { alert('🔒 Dia ' + _opDayKey + ' está bloqueado — só é possível actualizar valores reais (Início Real, Fim Real, Atraso, Colaborador, Obs).'); return; }
+      if (_mudou) { alert('🔒 Dia ' + _opDayKey + ' está bloqueado — só é possível actualizar campos administrativos (OP, PO, Cliente, Destino, Estado, Obs PI, Dia Plano) e valores reais. Para alterar produto / calibre / qtd / posição, desbloqueia primeiro o dia.'); return; }
     }
   }
   if (editingOP) {
