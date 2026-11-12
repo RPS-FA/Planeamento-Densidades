@@ -4738,14 +4738,29 @@ function saveOP() {
   // Para OPs em BUFFER ou KANBAN o weekKey/diaIdx são valores herdados da importação
   // ou placeholders e NÃO representam planeamento real — não deve haver guard.
   if (editingOP && editingOP.maquina && editingOP.maquina !== 'BUFFER' && editingOP.maquina !== 'KANBAN') {
-    const _opDayKey = (function() {
+    // Dia contratual (weekKey/diaIdx)
+    const _opDayKeyContract = (function() {
       if (!editingOP.weekKey) return null;
       const monday = isoWeekToMonday(editingOP.weekKey);
       if (!monday) return null;
       const dt = new Date(monday); dt.setDate(monday.getDate() + (editingOP.diaIdx || 0));
       return fmtDate(dt);
     })();
-    if (_opDayKey && isDayLocked(_opDayKey) && !editingSegDayKey) {
+    // A OP pode cascatear para dias seguintes — se QUALQUER segmento visível estiver
+    // num dia ABERTO (não-bloqueado), permitir edições (o user vê a OP em dia aberto).
+    // Só aplicar o guard se TODOS os segmentos visíveis estiverem em dias bloqueados.
+    const _opVisibleDays = (function() {
+      const rows = document.querySelectorAll('tr.row-data[data-id="' + editingOP.id + '"]');
+      const days = new Set();
+      rows.forEach(r => {
+        const blk = r.closest('.day-block[data-day-key]');
+        if (blk) days.add(blk.dataset.dayKey);
+      });
+      return [...days];
+    })();
+    const _hasOpenVisibleDay = _opVisibleDays.some(dk => !isDayLocked(dk));
+    const _guardFires = _opDayKeyContract && isDayLocked(_opDayKeyContract) && !_hasOpenVisibleDay && !editingSegDayKey;
+    if (_guardFires) {
       // Guard de dia bloqueado: só dispara se algum campo REALMENTE de planeamento
       // for alterado (mexe no cálculo do scheduler ou na posição no plano).
       // Campos "soft" (op, poPedido, fileCliente, destino, estado, obsPi, dataPlano,
@@ -4753,7 +4768,7 @@ function saveOP() {
       // livremente mesmo em dias bloqueados.
       const _plCampos = ['produto','calibre','massas','qtdEntrada','inicioMode','hInicioP','maquina','weekKey','diaIdx'];
       const _mudou = _plCampos.some(k => JSON.stringify(editingOP[k] || '') !== JSON.stringify(data[k] || ''));
-      if (_mudou) { alert('🔒 Dia ' + _opDayKey + ' está bloqueado — só é possível actualizar campos administrativos (OP, PO, Cliente, Destino, Estado, Obs PI, Dia Plano) e valores reais. Para alterar produto / calibre / qtd / posição, desbloqueia primeiro o dia.'); return; }
+      if (_mudou) { alert('🔒 Dia ' + _opDayKeyContract + ' está bloqueado — só é possível actualizar campos administrativos (OP, PO, Cliente, Destino, Estado, Obs PI, Dia Plano) e valores reais. Para alterar produto / calibre / qtd / posição, desbloqueia primeiro o dia.'); return; }
     }
   }
   if (editingOP) {
